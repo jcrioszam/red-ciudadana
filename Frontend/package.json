@@ -41,6 +41,7 @@
     "install-legacy": "npm install --legacy-peer-deps",
     "build-production": "npm install --legacy-peer-deps && npm run build"
   },
+  "proxy": "https://red-ciudadana-backend.onrender.com",
   "eslintConfig": {
     "extends": [
       "react-app",

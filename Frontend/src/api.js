@@ -1,10 +1,9 @@
 import axios from "axios";
 
-// Detectar si estamos en desarrollo o producción
-const baseURL = process.env.REACT_APP_API_URL || 
-  (process.env.NODE_ENV === 'production' 
-    ? 'https://red-ciudadana-backend.onrender.com' 
-    : 'http://localhost:8000');
+// En producción usar proxy /api/, en desarrollo localhost
+const baseURL = process.env.NODE_ENV === 'production' 
+  ? '/api' // Usar proxy en producción
+  : 'http://localhost:8000';
 
 const api = axios.create({
   baseURL: baseURL,
