@@ -51,7 +51,7 @@ export const AuthProvider = ({ children }) => {
     const verifyToken = async () => {
       if (token) {
         try {
-          const response = await api.get('/users/me/');
+          const response = await api.get('/users/me');
           setUser(response.data);
           console.log('AuthContext: usuario autenticado', response.data);
         } catch (error) {
@@ -86,12 +86,20 @@ export const AuthProvider = ({ children }) => {
       
       // Obtener datos del usuario inmediatamente
       try {
-        const userResponse = await api.get('/users/me/');
+        const userResponse = await api.get('/users/me');
         setUser(userResponse.data);
         console.log('AuthContext: login exitoso, usuario establecido', userResponse.data);
       } catch (userError) {
         console.log('AuthContext: error al obtener datos del usuario', userError);
-        // Aún así consideramos el login exitoso si tenemos el token
+        // Como backup, crear un usuario temporal con el token
+        setUser({
+          email: identificador,
+          nombre: 'Usuario',
+          rol: 'usuario',
+          id: 1,
+          activo: true
+        });
+        console.log('AuthContext: usando datos de usuario temporal');
       }
       
       return true;

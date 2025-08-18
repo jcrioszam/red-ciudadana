@@ -198,7 +198,9 @@ async def login_json(
     return {"access_token": access_token, "token_type": "bearer"}
 
 @app.get("/users/me/", response_model=Usuario)
+@app.get("/users/me", response_model=Usuario)
 async def read_users_me(current_user: Usuario = Depends(get_current_active_user)):
+    print(f"Endpoint /users/me called for user: {current_user.email if current_user else 'None'}")
     return current_user
 
 @app.post("/users/", response_model=Usuario)
