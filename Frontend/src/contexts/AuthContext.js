@@ -70,7 +70,17 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (identificador, password) => {
     try {
+      // Primero despertar el backend con una llamada simple
+      console.log('AuthContext: despertando backend...');
+      try {
+        await api.get('/health', { timeout: 90000 });
+        console.log('AuthContext: backend despierto');
+      } catch (healthError) {
+        console.log('AuthContext: error al despertar backend, continuando...', healthError);
+      }
+
       // Usar endpoint JSON más simple
+      console.log('AuthContext: intentando login...');
       const response = await api.post('/login', {
         identificador,
         password

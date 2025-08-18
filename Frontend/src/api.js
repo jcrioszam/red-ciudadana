@@ -7,7 +7,7 @@ const baseURL = process.env.NODE_ENV === 'production'
 
 const api = axios.create({
   baseURL: baseURL,
-  timeout: 30000, // 30 segundos para Render
+  timeout: 90000, // 90 segundos para permitir cold start de Render
 });
 
 // Interceptor para manejar errores de red
