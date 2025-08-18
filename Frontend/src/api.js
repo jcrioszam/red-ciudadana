@@ -4,7 +4,7 @@ import axios from "axios";
 let baseURL;
 if (process.env.NODE_ENV === 'production') {
   // Usar Railway por defecto, fallback a Render si es necesario
-  baseURL = process.env.REACT_APP_API_URL || 'https://red-ciudadana-backend-production.up.railway.app';
+  baseURL = 'https://red-ciudadana-production.up.railway.app';
 } else {
   // En desarrollo, usar localhost
   baseURL = 'http://localhost:8000';
