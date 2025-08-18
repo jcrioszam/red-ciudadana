@@ -1,8 +1,8 @@
 import axios from "axios";
 
-// En producción usar proxy /api/, en desarrollo localhost
+// TEMPORAL: Usar backend directo mientras se arregla el proxy
 const baseURL = process.env.NODE_ENV === 'production' 
-  ? '/api' // Usar proxy en producción
+  ? 'https://red-ciudadana-backend.onrender.com' // Conectar directamente al backend
   : 'http://localhost:8000';
 
 const api = axios.create({

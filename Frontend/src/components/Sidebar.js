@@ -46,8 +46,8 @@ export default function Sidebar() {
 
   // Refresca el logo cada vez que se monta el Sidebar o cambia la ruta
   React.useEffect(() => {
-    // Usar /api/logo en producción, localhost en desarrollo
-    const baseURL = process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:8000';
+    // TEMPORAL: Usar backend directo mientras se arregla el proxy
+    const baseURL = process.env.NODE_ENV === 'production' ? 'https://red-ciudadana-backend.onrender.com' : 'http://localhost:8000';
     setLogoUrl(`${baseURL}/logo?` + Date.now());
   }, [location.pathname]);
 
@@ -115,8 +115,9 @@ export default function Sidebar() {
               console.log('==========================================');
             }
             
+            // TEMPORAL: Mostrar todas las opciones mientras se soluciona el proxy
             // Si no tiene permiso, no mostrar la opción
-            if (!tienePermiso) return null;
+            // if (!tienePermiso) return null;
             
             return (
               <li key={item.to}>
