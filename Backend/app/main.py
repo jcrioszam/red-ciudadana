@@ -1,4 +1,4 @@
-print('INICIO DEL MAIN.PY - CORS MEGA ULTRA FIXED V3')
+print('INICIO DEL MAIN.PY - CORS MEGA ULTRA FIXED V3 - FORCE REDEPLOY')
 from fastapi import FastAPI, Depends, HTTPException, status, Body, UploadFile, File, Form
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
@@ -247,7 +247,11 @@ async def health_check():
 
 @app.options("/login")
 async def login_options():
-    return {"message": "CORS preflight OK"}
+    return {"message": "CORS preflight OK", "cors_test": "working"}
+
+@app.get("/cors-test")
+async def cors_test():
+    return {"cors": "working", "timestamp": "2024", "status": "OK"}
 
 @app.get("/users/", response_model=List[Usuario])
 async def list_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
