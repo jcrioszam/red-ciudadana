@@ -135,6 +135,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Middleware adicional para forzar headers CORS
+@app.middleware("http")
+async def add_cors_headers(request, call_next):
+    response = await call_next(request)
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "*"
+    return response
+
 app.include_router(vehiculos.router)
 app.include_router(movilizaciones.router)
 
@@ -161,6 +170,11 @@ async def login_for_access_token(
     )
     print(f"Login successful for: {user.email}")
     return {"access_token": access_token, "token_type": "bearer"}
+
+# Endpoint OPTIONS para CORS preflight
+@app.options("/login")
+async def login_options():
+    return {"message": "OK"}
 
 # Endpoint adicional para login con JSON
 @app.post("/login", response_model=Token)
