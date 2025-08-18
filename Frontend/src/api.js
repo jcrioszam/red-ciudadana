@@ -1,10 +1,10 @@
 import axios from "axios";
 
-// SOLUCIÓN DEFINITIVA: Siempre usar proxy para evitar CORS
+// SOLUCIÓN REAL: El proxy de Render es inestable, usar directo
 let baseURL;
 if (process.env.NODE_ENV === 'production') {
-  // En producción, usar proxy reverso (evita CORS completamente)
-  baseURL = '/api';
+  // En producción, conectar directamente al backend (más estable)
+  baseURL = 'https://red-ciudadana-backend.onrender.com';
 } else {
   // En desarrollo, usar localhost
   baseURL = 'http://localhost:8000';
