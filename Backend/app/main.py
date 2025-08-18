@@ -11,7 +11,7 @@ import shutil
 import os
 import uuid
 
-from .database import engine, get_db
+from .database import engine, get_db, SessionLocal
 from .models import Base
 from .schemas import Token, Login, Usuario, UsuarioCreate, UsuarioUpdate, Persona, PersonaCreate, PersonaUpdate, Evento, EventoCreate, EventoUpdate, Asistencia, AsistenciaCreate, AsistenciaUpdate, ReportePersonas, ReporteEventos, EstructuraJerarquica, NodoJerarquico, PersonaUbicacion, Vehiculo, VehiculoCreate, VehiculoUpdate, AsignacionMovilizacion, AsignacionMovilizacionCreate, AsignacionMovilizacionUpdate
 from .auth import (
@@ -43,6 +43,74 @@ from .schemas_reportes import ReporteCiudadano, ReporteCiudadanoCreate, ReporteC
 
 # Crear las tablas en la base de datos
 Base.metadata.create_all(bind=engine)
+
+# Crear usuarios iniciales
+def create_initial_users():
+    """Crear usuarios iniciales si no existen"""
+    db = SessionLocal()
+    try:
+        # Verificar si ya existe un admin
+        existing_admin = db.query(UsuarioModel).filter(UsuarioModel.rol == "admin").first()
+        if existing_admin:
+            print(f"✅ Admin ya existe: {existing_admin.email}")
+            return
+        
+        print("🚀 Creando usuarios iniciales...")
+        
+        # Crear usuario administrador
+        admin_password = "admin123"
+        hashed_password = get_password_hash(admin_password)
+        
+        admin_user = UsuarioModel(
+            nombre="Administrador",
+            telefono="1234567890",
+            direccion="Oficina Central",
+            edad=35,
+            sexo="M",
+            email="admin@redciudadana.com",
+            hashed_password=hashed_password,
+            rol="admin",
+            activo=True,
+            id_lider_superior=None
+        )
+        
+        db.add(admin_user)
+        db.commit()
+        db.refresh(admin_user)
+        
+        print(f"✅ Admin creado: admin@redciudadana.com / admin123")
+        
+        # Crear usuario líder
+        lider_password = "lider123"
+        hashed_lider_password = get_password_hash(lider_password)
+        
+        lider_user = UsuarioModel(
+            nombre="Juan Pérez",
+            telefono="0987654321",
+            direccion="Zona Centro",
+            edad=45,
+            sexo="M",
+            email="lider@redciudadana.com",
+            hashed_password=hashed_lider_password,
+            rol="lider",
+            activo=True,
+            id_lider_superior=admin_user.id
+        )
+        
+        db.add(lider_user)
+        db.commit()
+        db.refresh(lider_user)
+        
+        print(f"✅ Líder creado: lider@redciudadana.com / lider123")
+        
+    except Exception as e:
+        print(f"❌ Error creando usuarios: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+# Crear usuarios iniciales al iniciar
+create_initial_users()
 
 app = FastAPI(
     title="Red Ciudadana API",

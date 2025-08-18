@@ -34,3 +34,6 @@ def get_db():
         yield db
     finally:
         db.close()
+
+# Exportar SessionLocal para uso directo
+__all__ = ['engine', 'get_db', 'SessionLocal', 'Base']
