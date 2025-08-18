@@ -70,13 +70,26 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (identificador, password) => {
     try {
-      // Primero despertar el backend con una llamada simple
+      // Primero despertar el backend con múltiples intentos
       console.log('AuthContext: despertando backend...');
-      try {
-        await api.get('/health', { timeout: 90000 });
-        console.log('AuthContext: backend despierto');
-      } catch (healthError) {
-        console.log('AuthContext: error al despertar backend, continuando...', healthError);
+      let backendDespierto = false;
+      for (let intento = 1; intento <= 3 && !backendDespierto; intento++) {
+        try {
+          console.log(`AuthContext: intento ${intento} de despertar backend...`);
+          const healthResponse = await api.get('/health', { timeout: 120000 });
+          console.log('AuthContext: backend despierto', healthResponse.data);
+          backendDespierto = true;
+        } catch (healthError) {
+          console.log(`AuthContext: intento ${intento} falló:`, healthError.message);
+          if (intento < 3) {
+            console.log('AuthContext: esperando 10 segundos antes del siguiente intento...');
+            await new Promise(resolve => setTimeout(resolve, 10000));
+          }
+        }
+      }
+      
+      if (!backendDespierto) {
+        console.log('AuthContext: no se pudo despertar backend después de 3 intentos, continuando...');
       }
 
       // Usar endpoint JSON más simple

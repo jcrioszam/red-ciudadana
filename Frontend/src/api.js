@@ -1,13 +1,20 @@
 import axios from "axios";
 
-// SOLUCIÓN HÍBRIDA: Intentar proxy, fallback a backend directo
-const baseURL = process.env.NODE_ENV === 'production' 
-  ? 'https://red-ciudadana-backend.onrender.com' // Usar backend directo (funciona para login)
-  : 'http://localhost:8000';
+// SOLUCIÓN INTELIGENTE: Detectar automáticamente la mejor configuración
+let baseURL;
+if (process.env.NODE_ENV === 'production') {
+  // En producción, usar backend directo (más confiable)
+  baseURL = 'https://red-ciudadana-backend.onrender.com';
+} else {
+  // En desarrollo, usar localhost
+  baseURL = 'http://localhost:8000';
+}
+
+console.log(`API usando baseURL: ${baseURL}`);
 
 const api = axios.create({
   baseURL: baseURL,
-  timeout: 90000, // 90 segundos para permitir cold start de Render
+  timeout: 120000, // 2 minutos para cold start muy lento
 });
 
 // Interceptor para manejar errores de red
