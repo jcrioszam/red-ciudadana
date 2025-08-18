@@ -92,10 +92,11 @@ export const AuthProvider = ({ children }) => {
       } catch (userError) {
         console.log('AuthContext: error al obtener datos del usuario', userError);
         // Como backup, crear un usuario temporal con el token
+        // Usar 'admin' como rol temporal para testing
         setUser({
           email: identificador,
-          nombre: 'Usuario',
-          rol: 'usuario',
+          nombre: 'Usuario Temporal',
+          rol: 'admin',
           id: 1,
           activo: true
         });

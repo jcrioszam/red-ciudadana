@@ -46,7 +46,9 @@ export default function Sidebar() {
 
   // Refresca el logo cada vez que se monta el Sidebar o cambia la ruta
   React.useEffect(() => {
-    setLogoUrl('http://localhost:8000/logo?' + Date.now());
+    // Usar /api/logo en producción, localhost en desarrollo
+    const baseURL = process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:8000';
+    setLogoUrl(`${baseURL}/logo?` + Date.now());
   }, [location.pathname]);
 
   return (
