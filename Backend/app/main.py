@@ -1,4 +1,4 @@
-print('INICIO DEL MAIN.PY - CORS FIXED')
+print('INICIO DEL MAIN.PY - CORS ULTRA FIXED V2')
 from fastapi import FastAPI, Depends, HTTPException, status, Body, UploadFile, File, Form
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
@@ -243,7 +243,11 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "service": "Red Ciudadana API"}
+    return {"status": "healthy", "service": "Red Ciudadana API", "cors": "enabled"}
+
+@app.options("/login")
+async def login_options():
+    return {"message": "CORS preflight OK"}
 
 @app.get("/users/", response_model=List[Usuario])
 async def list_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
