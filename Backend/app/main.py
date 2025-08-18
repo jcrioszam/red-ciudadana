@@ -2,7 +2,7 @@ print('INICIO DEL MAIN.PY - CORS FIXED')
 from fastapi import FastAPI, Depends, HTTPException, status, Body, UploadFile, File, Form
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from sqlalchemy.orm import Session
 from datetime import timedelta
 import uvicorn
@@ -118,10 +118,10 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Configurar CORS
+# Configurar CORS - Permitir frontend y backend de Render
 origins = [
     "http://localhost:3000",  # Desarrollo local
-    "https://red-ciudadana-frontend.onrender.com",  # Producción
+    "https://red-ciudadana-frontend.onrender.com",  # Frontend producción
     "http://localhost:8000",  # Backend local
     "https://red-ciudadana-backend.onrender.com",  # Backend producción
     "*"  # Temporal para debug
@@ -129,15 +129,24 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Permitir todos los orígenes temporalmente
-    allow_credentials=False,  # Cambiar a False por ahora
-    allow_methods=["*"],
+    allow_origins=["*"],  # Permitir todos los orígenes para evitar problemas
+    allow_credentials=False,  # False para evitar problemas con credenciales
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
 # Middleware adicional para forzar headers CORS
 @app.middleware("http")
 async def add_cors_headers(request, call_next):
+    # Manejar preflight OPTIONS request
+    if request.method == "OPTIONS":
+        response = Response()
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "*"
+        response.headers["Access-Control-Max-Age"] = "86400"
+        return response
+    
     response = await call_next(request)
     response.headers["Access-Control-Allow-Origin"] = "*"
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
