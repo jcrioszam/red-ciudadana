@@ -129,13 +129,13 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Permitir todos los orígenes para evitar problemas
+    allow_origins=["*", "https://red-ciudadana-574v.vercel.app"],  # Incluir Vercel explícitamente
     allow_credentials=False,  # False para evitar problemas con credenciales
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
-print('✅ CORS MIDDLEWARE CONFIGURADO CON ALLOW_ORIGINS=*')
+print('✅ CORS MIDDLEWARE CONFIGURADO - VERCEL INCLUIDO EXPLÍCITAMENTE')
 
 # Middleware adicional para forzar headers CORS
 @app.middleware("http")
