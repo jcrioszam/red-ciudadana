@@ -68,7 +68,7 @@ def create_initial_users():
             edad=35,
             sexo="M",
             email="admin@redciudadana.com",
-            hashed_password=hashed_password,
+            password_hash=hashed_password,
             rol="admin",
             activo=True,
             id_lider_superior=None
@@ -91,7 +91,7 @@ def create_initial_users():
             edad=45,
             sexo="M",
             email="lider@redciudadana.com",
-            hashed_password=hashed_lider_password,
+            password_hash=hashed_lider_password,
             rol="lider",
             activo=True,
             id_lider_superior=admin_user.id
