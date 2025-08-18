@@ -126,4 +126,4 @@ El proyecto está configurado para hacer proxy a `http://localhost:8000` (backen
 3. Agregar gráficos con Recharts
 4. Implementar exportación de datos
 5. Agregar validación de formularios
-6. Implementar subida de archivos 
+6. Implementar subida de archivos "# Cache clear $(date)"  
