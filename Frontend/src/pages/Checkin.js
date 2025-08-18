@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { QRCodeCanvas } from 'qrcode.react';
-import { QrReader } from 'react-qr-reader';
 import api from '../api';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -334,12 +333,9 @@ const Checkin = () => {
             {showCamera ? 'Cerrar cámara' : 'Abrir cámara para escanear QR'}
           </button>
           {showCamera && (
-            <div className="mb-2">
-              <QrReader
-                constraints={{ facingMode: 'environment' }}
-                onResult={handleScan}
-                style={{ width: '100%' }}
-              />
+            <div className="mb-2 p-4 border border-dashed border-gray-300 text-center">
+              <p className="text-gray-600">Funcionalidad QR temporal deshabilitada</p>
+              <p className="text-sm text-gray-500">Use el campo manual de código por ahora</p>
             </div>
           )}
           <button
