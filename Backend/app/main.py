@@ -129,9 +129,9 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
+    allow_origins=["*"],  # Permitir todos los orígenes temporalmente
+    allow_credentials=False,  # Cambiar a False por ahora
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
