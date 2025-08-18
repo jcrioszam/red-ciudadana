@@ -1,10 +1,10 @@
 import axios from "axios";
 
-// SOLUCIÓN INTELIGENTE: Detectar automáticamente la mejor configuración
+// SOLUCIÓN DEFINITIVA: Siempre usar proxy para evitar CORS
 let baseURL;
 if (process.env.NODE_ENV === 'production') {
-  // En producción, usar backend directo (más confiable)
-  baseURL = 'https://red-ciudadana-backend.onrender.com';
+  // En producción, usar proxy reverso (evita CORS completamente)
+  baseURL = '/api';
 } else {
   // En desarrollo, usar localhost
   baseURL = 'http://localhost:8000';
