@@ -145,9 +145,11 @@ async def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
 ):
+    print(f"Login attempt: {form_data.username}")
     # Usar form_data.username como identificador (puede ser email o teléfono)
     user = authenticate_user(db, form_data.username, form_data.password)
     if not user:
+        print(f"Authentication failed for: {form_data.username}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
@@ -157,6 +159,28 @@ async def login_for_access_token(
     access_token = create_access_token(
         data={"sub": user.email}, expires_delta=access_token_expires
     )
+    print(f"Login successful for: {user.email}")
+    return {"access_token": access_token, "token_type": "bearer"}
+
+# Endpoint adicional para login con JSON
+@app.post("/login", response_model=Token)
+async def login_json(
+    login_data: Login,
+    db: Session = Depends(get_db)
+):
+    print(f"JSON Login attempt: {login_data.identificador}")
+    user = authenticate_user(db, login_data.identificador, login_data.password)
+    if not user:
+        print(f"JSON Authentication failed for: {login_data.identificador}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+        )
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.email}, expires_delta=access_token_expires
+    )
+    print(f"JSON Login successful for: {user.email}")
     return {"access_token": access_token, "token_type": "bearer"}
 
 @app.get("/users/me/", response_model=Usuario)

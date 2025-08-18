@@ -70,11 +70,11 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (identificador, password) => {
     try {
-      const formData = new FormData();
-      formData.append('username', identificador);
-      formData.append('password', password);
-
-      const response = await api.post('/token', formData);
+      // Usar endpoint JSON más simple
+      const response = await api.post('/login', {
+        identificador,
+        password
+      });
       const { access_token } = response.data;
 
       // Guardar token
