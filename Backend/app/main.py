@@ -1,4 +1,4 @@
-print('INICIO DEL MAIN.PY - CORS MEGA ULTRA FIXED V3 - FORCE REDEPLOY')
+print('INICIO DEL MAIN.PY - CORS EMERGENCY REDEPLOY V4 - RENDER BUG FIX')
 from fastapi import FastAPI, Depends, HTTPException, status, Body, UploadFile, File, Form
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
@@ -135,6 +135,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+print('✅ CORS MIDDLEWARE CONFIGURADO CON ALLOW_ORIGINS=*')
+
 # Middleware adicional para forzar headers CORS
 @app.middleware("http")
 async def add_cors_headers(request, call_next):
@@ -243,7 +245,7 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "service": "Red Ciudadana API", "cors": "enabled"}
+    return {"status": "healthy", "service": "Red Ciudadana API", "cors": "enabled", "timestamp": "2024-12-28", "redeploy": "emergency-v4"}
 
 @app.options("/login")
 async def login_options():
