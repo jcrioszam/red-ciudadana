@@ -1,8 +1,8 @@
 import axios from "axios";
 
-// Volver al proxy reverso que funcionaba, pero con configuración mejorada
+// SOLUCIÓN HÍBRIDA: Intentar proxy, fallback a backend directo
 const baseURL = process.env.NODE_ENV === 'production' 
-  ? '/api' // Volver a usar proxy reverso
+  ? 'https://red-ciudadana-backend.onrender.com' // Usar backend directo (funciona para login)
   : 'http://localhost:8000';
 
 const api = axios.create({
