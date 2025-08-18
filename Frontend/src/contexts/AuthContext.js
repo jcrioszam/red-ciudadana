@@ -92,12 +92,41 @@ export const AuthProvider = ({ children }) => {
         console.log('AuthContext: no se pudo despertar backend después de 3 intentos, continuando...');
       }
 
-      // Usar endpoint JSON más simple
+      // Estrategia múltiple: probar diferentes endpoints
       console.log('AuthContext: intentando login...');
-      const response = await api.post('/login', {
-        identificador,
-        password
-      });
+      let response;
+      let loginExitoso = false;
+      
+      // Estrategia 1: Endpoint /login (JSON)
+      try {
+        console.log('AuthContext: probando /login (JSON)...');
+        response = await api.post('/login', {
+          identificador,
+          password
+        });
+        loginExitoso = true;
+        console.log('AuthContext: login exitoso con /login (JSON)');
+      } catch (loginError) {
+        console.log('AuthContext: /login falló, probando /token...', loginError.message);
+        
+        // Estrategia 2: Endpoint /token (FormData)
+        try {
+          const formData = new FormData();
+          formData.append('username', identificador);
+          formData.append('password', password);
+          
+          response = await api.post('/token', formData, {
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+            }
+          });
+          loginExitoso = true;
+          console.log('AuthContext: login exitoso con /token (FormData)');
+        } catch (tokenError) {
+          console.log('AuthContext: ambos endpoints fallaron');
+          throw tokenError; // Re-lanzar el último error
+        }
+      }
       const { access_token } = response.data;
 
       // Guardar token
