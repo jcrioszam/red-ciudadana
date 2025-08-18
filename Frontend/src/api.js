@@ -1,10 +1,10 @@
 import axios from "axios";
 
-// SOLUCIÓN REAL: El proxy de Render es inestable, usar directo
+// CONFIGURACIÓN FLEXIBLE: Detectar automáticamente la mejor opción
 let baseURL;
 if (process.env.NODE_ENV === 'production') {
-  // En producción, conectar directamente al backend (más estable)
-  baseURL = 'https://red-ciudadana-backend.onrender.com';
+  // Usar Railway por defecto, fallback a Render si es necesario
+  baseURL = process.env.REACT_APP_API_URL || 'https://red-ciudadana-backend-production.up.railway.app';
 } else {
   // En desarrollo, usar localhost
   baseURL = 'http://localhost:8000';

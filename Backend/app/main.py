@@ -1,4 +1,4 @@
-print('INICIO DEL MAIN.PY - CORS EMERGENCY REDEPLOY V4 - RENDER BUG FIX')
+print('🚀 INICIO DEL MAIN.PY - RAILWAY DEPLOYMENT - CORS WORKING! 🎉')
 from fastapi import FastAPI, Depends, HTTPException, status, Body, UploadFile, File, Form
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
@@ -245,7 +245,7 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "service": "Red Ciudadana API", "cors": "enabled", "timestamp": "2024-12-28", "redeploy": "emergency-v4"}
+    return {"status": "healthy", "service": "Red Ciudadana API", "platform": "Railway", "cors": "working", "timestamp": "2024-12-28", "version": "1.0"}
 
 @app.options("/login")
 async def login_options():
