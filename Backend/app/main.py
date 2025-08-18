@@ -1,4 +1,4 @@
-print('INICIO DEL MAIN.PY')
+print('INICIO DEL MAIN.PY - CORS FIXED')
 from fastapi import FastAPI, Depends, HTTPException, status, Body, UploadFile, File, Form
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
