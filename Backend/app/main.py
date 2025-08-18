@@ -124,6 +124,7 @@ origins = [
     "https://red-ciudadana-frontend.onrender.com",  # Producción
     "http://localhost:8000",  # Backend local
     "https://red-ciudadana-backend.onrender.com",  # Backend producción
+    "*"  # Temporal para debug
 ]
 
 app.add_middleware(
