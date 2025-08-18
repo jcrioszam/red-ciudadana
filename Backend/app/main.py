@@ -258,7 +258,7 @@ async def list_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_
     # Admin ve todos, líderes ven subordinados, capturista solo a sí mismo
     if current_user.rol == "admin":
         users = db.query(UsuarioModel).offset(skip).limit(limit).all()
-    elif current_user.rol in ["presidente", "lider_estatal", "lider_regional", "lider_municipal", "lider_zona"]:
+    elif current_user.rol in ["presidente", "lider_estatal", "lider_regional", "lider_municipal", "lider_zona", "lider"]:
         # Ver subordinados directos e indirectos
         def get_subordinates(user_id):
             subs = db.query(UsuarioModel).filter(UsuarioModel.id_lider_superior == user_id, UsuarioModel.activo == True).all()
@@ -336,7 +336,7 @@ async def list_personas(skip: int = 0, limit: int = 100, db: Session = Depends(g
     query = db.query(PersonaModel).filter(PersonaModel.activo == True)
     if current_user.rol == "admin":
         personas = query.offset(skip).limit(limit).all()
-    elif current_user.rol in ["lider_estatal", "lider_regional", "lider_municipal", "lider_zona"]:
+    elif current_user.rol in ["lider_estatal", "lider_regional", "lider_municipal", "lider_zona", "lider"]:
         # Ver personas registradas por el líder y sus subordinados
         def get_subordinate_ids(user_id):
             subs = db.query(UsuarioModel).filter(UsuarioModel.id_lider_superior == user_id, UsuarioModel.activo == True).all()
