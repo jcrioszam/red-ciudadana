@@ -205,3 +205,4 @@ Para soporte técnico o preguntas sobre el sistema, contacta al equipo de desarr
 ---
 
 **Red Ciudadana** - Sistema de gestión integral para partido político "# Force Vercel redeploy with ESLint fix"  
+"# Force Vercel redeploy - Fix 404 $(date /t)" 
