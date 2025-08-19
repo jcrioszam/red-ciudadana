@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useQueryClient } from 'react-query';
 import api from '../api';
 import toast from 'react-hot-toast';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -10,6 +11,7 @@ function useQuery() {
 const RegistroInvitacion = () => {
   const query = useQuery();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [token, setToken] = useState('');
   const [invitacion, setInvitacion] = useState(null);
   const [form, setForm] = useState({
@@ -62,6 +64,14 @@ const RegistroInvitacion = () => {
       });
       
       await api.post('/registro-invitacion', formData);
+      
+      // Invalidar cache para que el Dashboard se actualice automáticamente
+      queryClient.invalidateQueries('usuarios');
+      queryClient.invalidateQueries('lideres');
+      queryClient.invalidateQueries('estructuraJerarquica');
+      queryClient.invalidateQueries('reportePersonas');
+      queryClient.invalidateQueries('reporteEventos');
+      
       toast.success('Registro exitoso. Ahora puedes iniciar sesión.');
       navigate('/login');
     } catch (error) {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useQueryClient } from 'react-query';
 import api from '../api';
 import toast from 'react-hot-toast';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -10,6 +11,7 @@ function useQuery() {
 const RegistroPersonaInvitacion = () => {
   const query = useQuery();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [token, setToken] = useState('');
   const [invitacion, setInvitacion] = useState(null);
   const [form, setForm] = useState({
@@ -95,6 +97,13 @@ const RegistroPersonaInvitacion = () => {
       
       console.log('Datos de persona a enviar:', personaData);
       await api.post('/registro-persona-invitacion', personaData);
+      
+      // Invalidar cache para que el Dashboard se actualice automáticamente
+      queryClient.invalidateQueries('personas');
+      queryClient.invalidateQueries('reportePersonas');
+      queryClient.invalidateQueries('estructuraJerarquica');
+      queryClient.invalidateQueries('reporteEventos');
+      
       toast.success('Persona registrada exitosamente.');
       navigate('/personas');
     } catch (error) {
