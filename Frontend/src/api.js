@@ -1,10 +1,29 @@
 import axios from "axios";
 
-// CONFIGURACIÓN FLEXIBLE: Detectar automáticamente la mejor opción
+// CONFIGURACIÓN ULTRA SEGURA: SIEMPRE HTTPS EN PRODUCCIÓN
 let baseURL;
 if (process.env.NODE_ENV === 'production') {
-  // Usar Railway por defecto, fallback a Render si es necesario
+  // FORZAR HTTPS ABSOLUTAMENTE - NUNCA HTTP en producción
+  const envURL = process.env.REACT_APP_API_URL;
+  console.log('🔍 REACT_APP_API_URL del environment:', envURL);
+  
+  // Usar Railway HTTPS como default
   baseURL = 'https://red-ciudadana-production.up.railway.app';
+  
+  // Si hay variable de entorno, asegurar que sea HTTPS
+  if (envURL) {
+    if (envURL.startsWith('http://')) {
+      baseURL = envURL.replace('http://', 'https://');
+      console.warn('🔒 VARIABLE DE ENTORNO TENÍA HTTP - FORZANDO HTTPS:', baseURL);
+    } else if (envURL.startsWith('https://')) {
+      baseURL = envURL;
+      console.log('✅ Variable de entorno ya tiene HTTPS:', baseURL);
+    } else {
+      console.warn('⚠️ Variable de entorno inválida, usando Railway HTTPS');
+    }
+  }
+  
+  console.log('🔐 FORZANDO HTTPS FINAL en producción:', baseURL);
 } else {
   // En desarrollo, usar localhost
   baseURL = 'http://localhost:8000';
