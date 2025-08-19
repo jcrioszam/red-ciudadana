@@ -2673,7 +2673,7 @@ async def list_reportes_ciudadanos(
         query = query.filter(ReporteCiudadanoModel.tipo == tipo)
     
     # Si no es admin, solo mostrar reportes del usuario
-    if current_user.rol not in ['admin', 'presidente', 'lider_estatal', 'lider_municipal', 'ciudadano']:
+    if current_user.rol not in ['admin', 'presidente', 'lider_estatal', 'lider_regional', 'lider_municipal', 'ciudadano']:
         query = query.filter(ReporteCiudadanoModel.ciudadano_id == current_user.id)
     
     reportes = query.order_by(ReporteCiudadanoModel.fecha_creacion.desc()).offset(skip).limit(limit).all()
