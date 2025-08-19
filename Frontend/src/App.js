@@ -56,6 +56,8 @@ function App() {
         <Router>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/registro-invitacion" element={<RegistroInvitacion />} />
+            <Route path="/registro-persona-invitacion" element={<RegistroPersonaInvitacion />} />
             <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
               <Route path="/" element={<Dashboard />} />
               <Route path="/personas" element={<Personas />} />
@@ -65,8 +67,6 @@ function App() {
               <Route path="/movilizacion" element={<Movilizacion />} />
               <Route path="/reportes" element={<Reportes />} />
               <Route path="/estructura-red" element={<EstructuraRed />} />
-              <Route path="/registro-invitacion" element={<RegistroInvitacion />} />
-              <Route path="/registro-persona-invitacion" element={<RegistroPersonaInvitacion />} />
               <Route path="/perfil" element={<Perfil />} />
               <Route path="/eventos-historicos" element={<EventosHistoricos />} />
               <Route path="/admin-perfiles" element={<AdminPerfiles />} />
