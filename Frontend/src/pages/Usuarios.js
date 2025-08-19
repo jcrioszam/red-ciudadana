@@ -4,8 +4,10 @@ import { FiPlus, FiEdit, FiTrash2, FiEye, FiUsers, FiUser, FiKey } from 'react-i
 import api from '../api';
 import toast from 'react-hot-toast';
 import { QRCodeCanvas } from 'qrcode.react';
+import { useAuth } from '../contexts/AuthContext';
 
 const Usuarios = () => {
+  const { user: currentUser } = useAuth();
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [formData, setFormData] = useState({
@@ -25,6 +27,7 @@ const Usuarios = () => {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteRole, setInviteRole] = useState('lider_zona');
   const [inviteToken, setInviteToken] = useState('');
+  const [inviteLiderSuperior, setInviteLiderSuperior] = useState('');
 
   const queryClient = useQueryClient();
 
@@ -165,11 +168,16 @@ const Usuarios = () => {
   const handleInvite = async () => {
     try {
       // Enviar como JSON en el body, no como query parameter
-      const res = await api.post('/invitaciones/', {
+      const invitationData = {
         rol: inviteRole,
-        // id_lider_superior será determinado automáticamente por el backend
-        // basado en el rol del usuario actual (admin/presidente)
-      });
+      };
+      
+      // Si hay líder superior seleccionado, agregarlo
+      if (inviteLiderSuperior) {
+        invitationData.id_lider_superior = parseInt(inviteLiderSuperior);
+      }
+      
+      const res = await api.post('/invitaciones/', invitationData);
       console.log('Respuesta de invitación:', res.data);
       const token = res.data.token;
       if (token && typeof token === 'string') {
@@ -265,6 +273,7 @@ const Usuarios = () => {
               setShowInviteModal(true);
               setInviteToken('');
               setInviteRole('lider_zona');
+              setInviteLiderSuperior('');
             }}
             className="btn-secondary flex items-center ml-2"
           >
@@ -585,10 +594,40 @@ const Usuarios = () => {
                 <option value="lider_estatal">Líder Estatal</option>
               </select>
             </div>
+            
+            {/* Mostrar selector de líder superior solo si es admin o presidente */}
+            {currentUser && (currentUser.rol === 'admin' || currentUser.rol === 'presidente') && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-secondary-700 mb-2">
+                  Asignar bajo el mando de:
+                </label>
+                <select
+                  value={inviteLiderSuperior}
+                  onChange={e => setInviteLiderSuperior(e.target.value)}
+                  className="input-field"
+                >
+                  <option value="">Seleccionar líder superior (opcional)</option>
+                  {lideres && lideres
+                    .filter(lider => lider.rol !== 'admin') // Excluir admin del selector
+                    .map(lider => (
+                      <option key={lider.id} value={lider.id}>
+                        {lider.nombre} ({getRoleLabel(lider.rol)})
+                      </option>
+                    ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Si no seleccionas ninguno, se asignará automáticamente bajo el Presidente
+                </p>
+              </div>
+            )}
             <div className="flex justify-end space-x-3 pt-4">
               <button
                 type="button"
-                onClick={() => setShowInviteModal(false)}
+                onClick={() => {
+                  setShowInviteModal(false);
+                  setInviteToken('');
+                  setInviteLiderSuperior('');
+                }}
                 className="btn-secondary"
               >
                 Cancelar
