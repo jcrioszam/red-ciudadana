@@ -773,10 +773,10 @@ const Personas = () => {
             {typeof inviteToken === 'string' && inviteToken.length > 0 && !inviteToken.startsWith('[object') && (
               <div className="mt-6 text-center">
                 <p className="mb-2 text-sm">Escanea este QR para registrar una persona:</p>
-                <QRCodeCanvas value={`http://localhost:3000/registro-persona-invitacion?token=${String(inviteToken)}`} size={180} />
+                <QRCodeCanvas value={`${window.location.origin}/registro-persona-invitacion?token=${String(inviteToken)}`} size={180} />
                 <p className="mt-2 break-all text-xs">O comparte este enlace:<br />
-                  <a href={`http://localhost:3000/registro-persona-invitacion?token=${String(inviteToken)}`} className="text-blue-600 underline" target="_blank" rel="noopener noreferrer">
-                    {`http://localhost:3000/registro-persona-invitacion?token=${String(inviteToken)}`}
+                  <a href={`${window.location.origin}/registro-persona-invitacion?token=${String(inviteToken)}`} className="text-blue-600 underline" target="_blank" rel="noopener noreferrer">
+                    {`${window.location.origin}/registro-persona-invitacion?token=${String(inviteToken)}`}
                   </a>
                 </p>
               </div>
