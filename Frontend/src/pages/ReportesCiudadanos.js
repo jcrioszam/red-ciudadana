@@ -25,8 +25,7 @@ import {
   Fab,
   Snackbar,
   Tabs,
-  Tab,
-  Divider
+  Tab
 } from '@mui/material';
 import {
   LocationOn,
@@ -50,6 +49,7 @@ import {
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import api from '../api';
 
 // Fix para los iconos de Leaflet
 delete L.Icon.Default.prototype._getIconUrl;
@@ -98,11 +98,11 @@ const ReportesCiudadanos = () => {
   const [createForm, setCreateForm] = useState({
     titulo: '',
     descripcion: '',
-    tipo: 'otros',
-    prioridad: 'normal',
-    latitud: 0,
-    longitud: 0,
-    direccion: ''
+    tipo: 'baches',
+    latitud: 27.082347,
+    longitud: -109.445866,
+    direccion: '',
+    prioridad: 'normal'
   });
   const [createLoading, setCreateLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({
@@ -116,8 +116,6 @@ const ReportesCiudadanos = () => {
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [locationLoading, setLocationLoading] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
-  const [selectedPhoto, setSelectedPhoto] = useState(null);
-  const [photoPreview, setPhotoPreview] = useState(null);
 
   useEffect(() => {
     loadReportes();
@@ -126,26 +124,16 @@ const ReportesCiudadanos = () => {
   const loadReportes = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:8000/reportes-ciudadanos', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const data = await api.get('/reportes-ciudadanos');
+      let filteredData = data;
 
-      if (response.ok) {
-        const data = await response.json();
-        let filteredData = data;
-
-        // Aplicar filtro
-        if (filterEstado !== 'todos') {
-          filteredData = data.filter(reporte => reporte.estado === filterEstado);
-        }
-
-        setReportes(filteredData);
-        calculateStats(data);
+      // Aplicar filtro
+      if (filterEstado !== 'todos') {
+        filteredData = data.filter(reporte => reporte.estado === filterEstado);
       }
+
+      setReportes(filteredData);
+      calculateStats(data);
     } catch (error) {
       console.error('Error al cargar reportes:', error);
     } finally {
@@ -203,19 +191,8 @@ const ReportesCiudadanos = () => {
 
   const handleUpdateEstado = async (reporteId, nuevoEstado) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:8000/reportes-ciudadanos/${reporteId}`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ estado: nuevoEstado })
-      });
-
-      if (response.ok) {
-        loadReportes();
-      }
+      await api.patch(`/reportes-ciudadanos/${reporteId}`, { estado: nuevoEstado });
+      loadReportes();
     } catch (error) {
       console.error('Error al actualizar estado:', error);
     }
@@ -271,92 +248,23 @@ const ReportesCiudadanos = () => {
 
   // Funciones para crear reporte
   const handleCreateReporte = async () => {
-    if (!createForm.titulo || !createForm.descripcion || !selectedLocation) {
+    try {
+      setCreateLoading(true);
+      
+      const newReporte = await api.post('/reportes-ciudadanos/', createForm);
       setSnackbar({
         open: true,
-        message: '❌ Por favor completa todos los campos requeridos',
-        severity: 'warning'
+        message: '✅ Reporte creado exitosamente',
+        severity: 'success'
       });
-      return;
-    }
-
-    setCreateLoading(true);
-    try {
-      const token = localStorage.getItem('token');
-      
-      // Si hay foto, usar el endpoint con foto
-      if (selectedPhoto) {
-        const formData = new FormData();
-        formData.append('titulo', createForm.titulo);
-        formData.append('descripcion', createForm.descripcion);
-        formData.append('tipo', createForm.tipo);
-        formData.append('prioridad', createForm.prioridad);
-        formData.append('latitud', createForm.latitud);
-        formData.append('longitud', createForm.longitud);
-        formData.append('direccion', createForm.direccion);
-        formData.append('foto', selectedPhoto);
-
-        const response = await fetch('http://localhost:8000/reportes-ciudadanos-con-foto/', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          },
-          body: formData
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          setSnackbar({
-            open: true,
-            message: '✅ Reporte creado exitosamente con foto',
-            severity: 'success'
-          });
-          setCreateDialogOpen(false);
-          resetCreateForm();
-          loadReportes();
-        } else {
-          const errorData = await response.json();
-          setSnackbar({
-            open: true,
-            message: `❌ Error: ${errorData.detail || 'Error al crear el reporte'}`,
-            severity: 'error'
-          });
-        }
-      } else {
-        // Sin foto, usar el endpoint normal
-        const response = await fetch('http://localhost:8000/reportes-ciudadanos/', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(createForm)
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          setSnackbar({
-            open: true,
-            message: '✅ Reporte creado exitosamente',
-            severity: 'success'
-          });
-          setCreateDialogOpen(false);
-          resetCreateForm();
-          loadReportes();
-        } else {
-          const errorData = await response.json();
-          setSnackbar({
-            open: true,
-            message: `❌ Error: ${errorData.detail || 'Error al crear el reporte'}`,
-            severity: 'error'
-          });
-        }
-      }
+      setCreateDialogOpen(false);
+      resetCreateForm();
+      loadReportes();
     } catch (error) {
       console.error('Error al crear reporte:', error);
       setSnackbar({
         open: true,
-        message: '❌ Error al crear el reporte',
+        message: '❌ Error de conexión',
         severity: 'error'
       });
     } finally {
@@ -368,55 +276,14 @@ const ReportesCiudadanos = () => {
     setCreateForm({
       titulo: '',
       descripcion: '',
-      tipo: 'otros',
-      prioridad: 'normal',
-      latitud: 0,
-      longitud: 0,
-      direccion: ''
+      tipo: 'baches',
+      latitud: 27.082347,
+      longitud: -109.445866,
+      direccion: '',
+      prioridad: 'normal'
     });
     setSelectedLocation(null);
     setMapPosition([27.082347, -109.445866]);
-    setSelectedPhoto(null);
-    setPhotoPreview(null);
-  };
-
-  const handlePhotoSelect = (event) => {
-    const file = event.target.files[0];
-    if (file) {
-      // Validar tipo de archivo
-      if (!file.type.startsWith('image/')) {
-        setSnackbar({
-          open: true,
-          message: '❌ Por favor selecciona solo archivos de imagen',
-          severity: 'warning'
-        });
-        return;
-      }
-
-      // Validar tamaño (máximo 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        setSnackbar({
-          open: true,
-          message: '❌ La imagen debe ser menor a 5MB',
-          severity: 'warning'
-        });
-        return;
-      }
-
-      setSelectedPhoto(file);
-      
-      // Crear preview
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setPhotoPreview(e.target.result);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleRemovePhoto = () => {
-    setSelectedPhoto(null);
-    setPhotoPreview(null);
   };
 
   const handleGetCurrentLocation = async () => {
@@ -424,7 +291,7 @@ const ReportesCiudadanos = () => {
     try {
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
-          async (position) => {
+          (position) => {
             const { latitude, longitude } = position.coords;
             setMapPosition([latitude, longitude]);
             setSelectedLocation([latitude, longitude]);
@@ -433,37 +300,6 @@ const ReportesCiudadanos = () => {
               latitud: latitude,
               longitud: longitude
             }));
-            
-            // Obtener dirección automáticamente
-            try {
-              const token = localStorage.getItem('token');
-              const response = await fetch('http://localhost:8000/geocodificar', {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${token}`,
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                  direccion: `${latitude}, ${longitude}`,
-                  reverse: true
-                })
-              });
-
-              if (response.ok) {
-                const data = await response.json();
-                setCreateForm(prev => ({
-                  ...prev,
-                  direccion: data.direccion_formateada || `Ubicación: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`
-                }));
-              }
-            } catch (error) {
-              console.error('Error al obtener dirección:', error);
-              setCreateForm(prev => ({
-                ...prev,
-                direccion: `Ubicación: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`
-              }));
-            }
-            
             setSnackbar({
               open: true,
               message: '📍 Ubicación obtenida exitosamente',
@@ -523,39 +359,21 @@ const ReportesCiudadanos = () => {
 
     setLocationLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:8000/geocodificar', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          direccion: createForm.direccion
-        })
+      const data = await api.post('/geocodificar', {
+        direccion: createForm.direccion
       });
-
-      if (response.ok) {
-        const data = await response.json();
-        setMapPosition([data.latitud, data.longitud]);
-        setSelectedLocation([data.latitud, data.longitud]);
-        setCreateForm(prev => ({
-          ...prev,
-          latitud: data.latitud,
-          longitud: data.longitud
-        }));
-        setSnackbar({
-          open: true,
-          message: '📍 Dirección geocodificada exitosamente',
-          severity: 'success'
-        });
-      } else {
-        setSnackbar({
-          open: true,
-          message: '❌ No se pudo geocodificar la dirección',
-          severity: 'warning'
-        });
-      }
+      setMapPosition([data.latitud, data.longitud]);
+      setSelectedLocation([data.latitud, data.longitud]);
+      setCreateForm(prev => ({
+        ...prev,
+        latitud: data.latitud,
+        longitud: data.longitud
+      }));
+      setSnackbar({
+        open: true,
+        message: '📍 Dirección geocodificada exitosamente',
+        severity: 'success'
+      });
     } catch (error) {
       setSnackbar({
         open: true,
@@ -564,46 +382,6 @@ const ReportesCiudadanos = () => {
       });
     } finally {
       setLocationLoading(false);
-    }
-  };
-
-  // Nueva función para obtener dirección al hacer clic en el mapa
-  const handleMapClick = async (lat, lng) => {
-    setSelectedLocation([lat, lng]);
-    setCreateForm(prev => ({
-      ...prev,
-      latitud: lat,
-      longitud: lng
-    }));
-
-    // Obtener dirección automáticamente
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:8000/geocodificar', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          direccion: `${lat}, ${lng}`,
-          reverse: true
-        })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setCreateForm(prev => ({
-          ...prev,
-          direccion: data.direccion_formateada || `Ubicación seleccionada: ${lat.toFixed(6)}, ${lng.toFixed(6)}`
-        }));
-      }
-    } catch (error) {
-      console.error('Error al obtener dirección:', error);
-      setCreateForm(prev => ({
-        ...prev,
-        direccion: `Ubicación seleccionada: ${lat.toFixed(6)}, ${lng.toFixed(6)}`
-      }));
     }
   };
 
@@ -971,177 +749,74 @@ const ReportesCiudadanos = () => {
       </Fab>
 
       {/* Modal para crear reporte */}
-      <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="xl" fullWidth>
-        <DialogTitle sx={{ 
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          color: 'white',
-          borderRadius: '8px 8px 0 0'
-        }}>
-          <Box display="flex" alignItems="center" gap={2}>
-            <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
-              📝 Crear Nuevo Reporte Ciudadano
-            </Typography>
-          </Box>
+      <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="lg" fullWidth>
+        <DialogTitle>
+          <Typography variant="h6">📝 Crear Nuevo Reporte Ciudadano</Typography>
         </DialogTitle>
-        <DialogContent sx={{ p: 3 }}>
-          <Tabs 
-            value={activeTab} 
-            onChange={(e, newValue) => setActiveTab(newValue)} 
-            sx={{ 
-              mb: 3,
-              '& .MuiTab-root': {
-                fontWeight: 'bold',
-                fontSize: '1rem'
-              }
-            }}
-          >
-            <Tab label="📋 Información del Reporte" />
-            <Tab label="📍 Seleccionar Ubicación" />
+        <DialogContent>
+          <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)} sx={{ mb: 2 }}>
+            <Tab label="Información del Reporte" />
+            <Tab label="Seleccionar Ubicación" />
           </Tabs>
 
           {activeTab === 0 && (
             <Grid container spacing={3}>
               <Grid item xs={12}>
-                <Card variant="outlined" sx={{ p: 2, backgroundColor: '#f8f9fa' }}>
-                  <Typography variant="h6" gutterBottom sx={{ color: '#1976d2', fontWeight: 'bold' }}>
-                    📝 Información del Problema
-                  </Typography>
-                  <Grid container spacing={3}>
-                    <Grid item xs={12}>
-                      <TextField
-                        fullWidth
-                        label="Título del Reporte"
-                        value={createForm.titulo}
-                        onChange={(e) => setCreateForm(prev => ({ ...prev, titulo: e.target.value }))}
-                        required
-                        variant="outlined"
-                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-                      />
-                    </Grid>
-                    <Grid item xs={12}>
-                      <TextField
-                        fullWidth
-                        label="Descripción Detallada"
-                        multiline
-                        rows={4}
-                        value={createForm.descripcion}
-                        onChange={(e) => setCreateForm(prev => ({ ...prev, descripcion: e.target.value }))}
-                        required
-                        variant="outlined"
-                        placeholder="Describe el problema con el mayor detalle posible..."
-                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={6}>
-                      <FormControl fullWidth>
-                        <InputLabel>Tipo de Reporte</InputLabel>
-                        <Select
-                          value={createForm.tipo}
-                          label="Tipo de Reporte"
-                          onChange={(e) => setCreateForm(prev => ({ ...prev, tipo: e.target.value }))}
-                          variant="outlined"
-                          sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-                        >
-                          <MenuItem value="baches">🕳️ Baches</MenuItem>
-                          <MenuItem value="iluminacion">💡 Iluminación</MenuItem>
-                          <MenuItem value="salud">🏥 Salud</MenuItem>
-                          <MenuItem value="seguridad">🛡️ Seguridad</MenuItem>
-                          <MenuItem value="agua">💧 Agua</MenuItem>
-                          <MenuItem value="basura">🗑️ Basura</MenuItem>
-                          <MenuItem value="transporte">🚌 Transporte</MenuItem>
-                          <MenuItem value="otros">📋 Otros</MenuItem>
-                        </Select>
-                      </FormControl>
-                    </Grid>
-                    <Grid item xs={12} md={6}>
-                      <FormControl fullWidth>
-                        <InputLabel>Prioridad</InputLabel>
-                        <Select
-                          value={createForm.prioridad}
-                          label="Prioridad"
-                          onChange={(e) => setCreateForm(prev => ({ ...prev, prioridad: e.target.value }))}
-                          variant="outlined"
-                          sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-                        >
-                          <MenuItem value="baja">🟢 Baja</MenuItem>
-                          <MenuItem value="normal">🟡 Normal</MenuItem>
-                          <MenuItem value="alta">🟠 Alta</MenuItem>
-                          <MenuItem value="urgente">🔴 Urgente</MenuItem>
-                        </Select>
-                      </FormControl>
-                    </Grid>
-                  </Grid>
-                </Card>
+                <TextField
+                  fullWidth
+                  label="Título del Reporte"
+                  value={createForm.titulo}
+                  onChange={(e) => setCreateForm(prev => ({ ...prev, titulo: e.target.value }))}
+                  required
+                />
               </Grid>
               <Grid item xs={12}>
-                <Card variant="outlined" sx={{ p: 2, backgroundColor: '#f8f9fa' }}>
-                  <Typography variant="h6" gutterBottom sx={{ color: '#1976d2', fontWeight: 'bold' }}>
-                    📸 Foto del Problema (Opcional)
-                  </Typography>
-                  <Typography variant="body2" color="textSecondary" paragraph>
-                    Agrega una foto que ayude a describir mejor el problema. Máximo 5MB.
-                  </Typography>
-                  
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                      <input
-                        accept="image/*"
-                        style={{ display: 'none' }}
-                        id="photo-upload"
-                        type="file"
-                        onChange={handlePhotoSelect}
-                      />
-                      <label htmlFor="photo-upload">
-                        <Button
-                          variant="outlined"
-                          component="span"
-                          startIcon={<PhotoCamera />}
-                          sx={{ borderRadius: 2 }}
-                        >
-                          📷 Seleccionar Foto
-                        </Button>
-                      </label>
-                      {selectedPhoto && (
-                        <Button
-                          variant="outlined"
-                          color="error"
-                          startIcon={<Delete />}
-                          onClick={handleRemovePhoto}
-                          sx={{ borderRadius: 2 }}
-                        >
-                          🗑️ Eliminar
-                        </Button>
-                      )}
-                    </Box>
-                    
-                    {photoPreview && (
-                      <Card variant="outlined" sx={{ p: 2, backgroundColor: 'white' }}>
-                        <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
-                          📸 Vista Previa:
-                        </Typography>
-                        <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-                          <img
-                            src={photoPreview}
-                            alt="Preview"
-                            style={{
-                              maxWidth: '100%',
-                              maxHeight: 200,
-                              objectFit: 'contain',
-                              borderRadius: 8,
-                              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                            }}
-                          />
-                        </Box>
-                        <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mt: 1, textAlign: 'center' }}>
-                          Archivo: {selectedPhoto?.name} ({(selectedPhoto?.size / 1024 / 1024).toFixed(2)} MB)
-                        </Typography>
-                      </Card>
-                    )}
-                  </Box>
-                </Card>
+                <TextField
+                  fullWidth
+                  label="Descripción"
+                  multiline
+                  rows={4}
+                  value={createForm.descripcion}
+                  onChange={(e) => setCreateForm(prev => ({ ...prev, descripcion: e.target.value }))}
+                  required
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Tipo de Reporte</InputLabel>
+                  <Select
+                    value={createForm.tipo}
+                    label="Tipo de Reporte"
+                    onChange={(e) => setCreateForm(prev => ({ ...prev, tipo: e.target.value }))}
+                  >
+                    <MenuItem value="baches">Baches</MenuItem>
+                    <MenuItem value="iluminacion">Iluminación</MenuItem>
+                    <MenuItem value="salud">Salud</MenuItem>
+                    <MenuItem value="seguridad">Seguridad</MenuItem>
+                    <MenuItem value="agua">Agua</MenuItem>
+                    <MenuItem value="basura">Basura</MenuItem>
+                    <MenuItem value="transporte">Transporte</MenuItem>
+                    <MenuItem value="otros">Otros</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Prioridad</InputLabel>
+                  <Select
+                    value={createForm.prioridad}
+                    label="Prioridad"
+                    onChange={(e) => setCreateForm(prev => ({ ...prev, prioridad: e.target.value }))}
+                  >
+                    <MenuItem value="baja">Baja</MenuItem>
+                    <MenuItem value="normal">Normal</MenuItem>
+                    <MenuItem value="alta">Alta</MenuItem>
+                    <MenuItem value="urgente">Urgente</MenuItem>
+                  </Select>
+                </FormControl>
               </Grid>
               <Grid item xs={12}>
-                <Alert severity="info" sx={{ borderRadius: 2 }}>
+                <Alert severity="info">
                   <Typography variant="body2">
                     💡 <strong>Siguiente paso:</strong> Ve a la pestaña "Seleccionar Ubicación" para elegir dónde se encuentra el problema.
                   </Typography>
@@ -1153,125 +828,111 @@ const ReportesCiudadanos = () => {
           {activeTab === 1 && (
             <Grid container spacing={3}>
               <Grid item xs={12}>
-                <Card variant="outlined" sx={{ p: 2, backgroundColor: '#f8f9fa' }}>
-                  <Typography variant="h6" gutterBottom sx={{ color: '#1976d2', fontWeight: 'bold' }}>
-                    📍 Seleccionar Ubicación del Reporte
-                  </Typography>
-                  <Typography variant="body2" color="textSecondary" paragraph>
-                    Puedes usar tu ubicación actual, buscar por dirección, o hacer clic en el mapa para seleccionar la ubicación exacta.
-                  </Typography>
-                </Card>
+                <Typography variant="h6" gutterBottom>
+                  📍 Seleccionar Ubicación del Reporte
+                </Typography>
+                <Typography variant="body2" color="textSecondary" paragraph>
+                  Puedes usar tu ubicación actual, buscar por dirección, o hacer clic en el mapa para seleccionar la ubicación exacta.
+                </Typography>
               </Grid>
 
-              <Grid item xs={12} md={4}>
-                <Card variant="outlined" sx={{ p: 2, height: 'fit-content' }}>
-                  <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold', color: '#1976d2' }}>
-                    🔍 Opciones de Ubicación
-                  </Typography>
-                  
-                  <TextField
-                    fullWidth
-                    label="Dirección"
-                    value={createForm.direccion}
-                    onChange={(e) => setCreateForm(prev => ({ ...prev, direccion: e.target.value }))}
-                    placeholder="Ej: Av. Principal 123, Colonia Centro"
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Dirección (opcional)"
+                  value={createForm.direccion}
+                  onChange={(e) => setCreateForm(prev => ({ ...prev, direccion: e.target.value }))}
+                  placeholder="Ej: Av. Principal 123, Colonia Centro"
+                />
+                <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
+                  <Button
                     variant="outlined"
+                    startIcon={<GpsFixed />}
+                    onClick={handleGeocodeAddress}
+                    disabled={locationLoading || !createForm.direccion}
                     size="small"
-                    sx={{ mb: 2, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-                  />
-                  
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    <Button
-                      variant="outlined"
-                      startIcon={<GpsFixed />}
-                      onClick={handleGeocodeAddress}
-                      disabled={locationLoading || !createForm.direccion}
-                      size="small"
-                      sx={{ borderRadius: 2 }}
-                    >
-                      Buscar por Dirección
-                    </Button>
-                    <Button
-                      variant="outlined"
-                      startIcon={locationLoading ? <CircularProgress size={16} /> : <MyLocation />}
-                      onClick={handleGetCurrentLocation}
-                      disabled={locationLoading}
-                      size="small"
-                      sx={{ borderRadius: 2 }}
-                    >
-                      Mi Ubicación
-                    </Button>
-                  </Box>
-
-                  <Divider sx={{ my: 2 }} />
-                  
-                  <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
-                    📊 Coordenadas Seleccionadas:
-                  </Typography>
-                  <TextField
-                    fullWidth
-                    label="Latitud"
-                    type="number"
-                    value={createForm.latitud}
-                    onChange={(e) => {
-                      const lat = parseFloat(e.target.value);
-                      setCreateForm(prev => ({ ...prev, latitud: lat }));
-                      setMapPosition([lat, createForm.longitud]);
-                      setSelectedLocation([lat, createForm.longitud]);
-                    }}
+                  >
+                    Buscar por Dirección
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    startIcon={locationLoading ? <CircularProgress size={16} /> : <MyLocation />}
+                    onClick={handleGetCurrentLocation}
+                    disabled={locationLoading}
                     size="small"
-                    sx={{ mb: 1, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-                  />
-                  <TextField
-                    fullWidth
-                    label="Longitud"
-                    type="number"
-                    value={createForm.longitud}
-                    onChange={(e) => {
-                      const lng = parseFloat(e.target.value);
-                      setCreateForm(prev => ({ ...prev, longitud: lng }));
-                      setMapPosition([createForm.latitud, lng]);
-                      setSelectedLocation([createForm.latitud, lng]);
-                    }}
-                    size="small"
-                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-                  />
-                </Card>
+                  >
+                    Mi Ubicación
+                  </Button>
+                </Box>
               </Grid>
 
-              <Grid item xs={12} md={8}>
-                <Card variant="outlined" sx={{ overflow: 'hidden' }}>
-                  <Box sx={{ height: 500, position: 'relative' }}>
-                    <MapContainer
-                      center={mapPosition}
-                      zoom={15}
-                      style={{ height: '100%', width: '100%' }}
-                    >
-                      <TileLayer
-                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                      />
-                      <LocationMarker 
-                        position={selectedLocation} 
-                        setPosition={(pos) => {
-                          if (pos) {
-                            handleMapClick(pos[0], pos[1]);
-                          }
-                        }}
-                      />
-                    </MapContainer>
-                  </Box>
-                  <Box sx={{ p: 2, backgroundColor: '#f8f9fa' }}>
-                    <Typography variant="caption" color="textSecondary" sx={{ display: 'block', textAlign: 'center' }}>
-                      💡 <strong>Consejo:</strong> Haz clic en el mapa para seleccionar la ubicación exacta del problema.
-                    </Typography>
-                  </Box>
-                </Card>
+              <Grid item xs={12} md={6}>
+                <Typography variant="subtitle2" gutterBottom>
+                  Coordenadas Seleccionadas:
+                </Typography>
+                <TextField
+                  fullWidth
+                  label="Latitud"
+                  type="number"
+                  value={createForm.latitud}
+                  onChange={(e) => {
+                    const lat = parseFloat(e.target.value);
+                    setCreateForm(prev => ({ ...prev, latitud: lat }));
+                    setMapPosition([lat, createForm.longitud]);
+                    setSelectedLocation([lat, createForm.longitud]);
+                  }}
+                  size="small"
+                  sx={{ mb: 1 }}
+                />
+                <TextField
+                  fullWidth
+                  label="Longitud"
+                  type="number"
+                  value={createForm.longitud}
+                  onChange={(e) => {
+                    const lng = parseFloat(e.target.value);
+                    setCreateForm(prev => ({ ...prev, longitud: lng }));
+                    setMapPosition([createForm.latitud, lng]);
+                    setSelectedLocation([createForm.latitud, lng]);
+                  }}
+                  size="small"
+                />
+              </Grid>
+
+              <Grid item xs={12}>
+                <Box sx={{ height: 400, border: '1px solid #ddd', borderRadius: 1, overflow: 'hidden' }}>
+                  <MapContainer
+                    center={mapPosition}
+                    zoom={15}
+                    style={{ height: '100%', width: '100%' }}
+                  >
+                    <TileLayer
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    />
+                    <LocationMarker 
+                      position={selectedLocation} 
+                      setPosition={(pos) => {
+                        if (pos) {
+                          setSelectedLocation(pos);
+                          setCreateForm(prev => ({
+                            ...prev,
+                            latitud: pos[0],
+                            longitud: pos[1]
+                          }));
+                        }
+                      }}
+                    />
+                  </MapContainer>
+                </Box>
+                <Typography variant="caption" color="textSecondary" sx={{ mt: 1, display: 'block' }}>
+                  💡 <strong>Consejo:</strong> Haz clic en el mapa para seleccionar la ubicación exacta del problema.
+                </Typography>
               </Grid>
 
               {selectedLocation && (
                 <Grid item xs={12}>
-                  <Alert severity="success" sx={{ borderRadius: 2 }}>
+                  <Alert severity="success">
                     <Typography variant="body2">
                       ✅ Ubicación seleccionada: {selectedLocation[0].toFixed(6)}, {selectedLocation[1].toFixed(6)}
                     </Typography>
@@ -1281,18 +942,13 @@ const ReportesCiudadanos = () => {
             </Grid>
           )}
         </DialogContent>
-        <DialogActions sx={{ p: 3, gap: 2 }}>
-          <Button 
-            onClick={() => setCreateDialogOpen(false)}
-            variant="outlined"
-            sx={{ borderRadius: 2 }}
-          >
+        <DialogActions>
+          <Button onClick={() => setCreateDialogOpen(false)}>
             Cancelar
           </Button>
           <Button
             onClick={() => setActiveTab(activeTab === 0 ? 1 : 0)}
             variant="outlined"
-            sx={{ borderRadius: 2 }}
           >
             {activeTab === 0 ? 'Siguiente: Ubicación' : 'Anterior: Información'}
           </Button>
@@ -1301,13 +957,6 @@ const ReportesCiudadanos = () => {
             variant="contained"
             disabled={createLoading || !createForm.titulo || !createForm.descripcion || !selectedLocation}
             startIcon={createLoading ? <CircularProgress size={20} /> : <Add />}
-            sx={{ 
-              borderRadius: 2,
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              '&:hover': {
-                background: 'linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%)'
-              }
-            }}
           >
             {createLoading ? 'Creando...' : 'Crear Reporte'}
           </Button>
