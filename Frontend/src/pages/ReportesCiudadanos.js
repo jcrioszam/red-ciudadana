@@ -124,7 +124,9 @@ const ReportesCiudadanos = () => {
   const loadReportes = async () => {
     try {
       setLoading(true);
+      console.log('🔍 Cargando reportes desde:', '/reportes-ciudadanos');
       const data = await api.get('/reportes-ciudadanos');
+      console.log('📊 Reportes recibidos:', data.length, data);
       let filteredData = data;
 
       // Aplicar filtro
@@ -134,6 +136,7 @@ const ReportesCiudadanos = () => {
 
       setReportes(filteredData);
       calculateStats(data);
+      console.log('✅ Reportes filtrados y estadísticas calculadas. Total mostrados:', filteredData.length);
     } catch (error) {
       console.error('Error al cargar reportes:', error);
     } finally {
@@ -250,8 +253,9 @@ const ReportesCiudadanos = () => {
   const handleCreateReporte = async () => {
     try {
       setCreateLoading(true);
-      
+      console.log('🚀 Creando nuevo reporte:', createForm);
       const newReporte = await api.post('/reportes-ciudadanos/', createForm);
+      console.log('✅ Reporte creado exitosamente:', newReporte);
       setSnackbar({
         open: true,
         message: '✅ Reporte creado exitosamente',
