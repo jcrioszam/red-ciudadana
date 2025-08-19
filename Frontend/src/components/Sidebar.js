@@ -47,7 +47,7 @@ export default function Sidebar() {
   // Refresca el logo cada vez que se monta el Sidebar o cambia la ruta
   React.useEffect(() => {
     // Usar backend directo para consistencia
-    const baseURL = process.env.NODE_ENV === 'production' ? 'https://red-ciudadana-backend.onrender.com' : 'http://localhost:8000';
+    const baseURL = process.env.NODE_ENV === 'production' ? 'https://red-ciudadana-production.up.railway.app' : 'http://localhost:8000';
     setLogoUrl(`${baseURL}/logo?` + Date.now());
   }, [location.pathname]);
 

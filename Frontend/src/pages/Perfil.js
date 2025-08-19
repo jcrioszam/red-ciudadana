@@ -24,7 +24,7 @@ export default function Perfil() {
     const formData = new FormData();
     formData.append('file', logo);
     try {
-      await axios.post('http://localhost:8000/admin/upload-logo', formData, {
+      await axios.post('https://red-ciudadana-production.up.railway.app/admin/upload-logo', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
           'Authorization': `Bearer ${localStorage.getItem('token')}`

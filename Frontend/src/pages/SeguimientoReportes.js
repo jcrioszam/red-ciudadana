@@ -105,7 +105,7 @@ const SeguimientoReportes = () => {
     try {
       const token = localStorage.getItem('token');
       
-      const response = await fetch('http://localhost:8000/users/me/', {
+      const response = await fetch('https://red-ciudadana-production.up.railway.app/users/me/', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -144,7 +144,7 @@ const SeguimientoReportes = () => {
       setLoading(true);
       const token = localStorage.getItem('token');
       
-      const response = await fetch('http://localhost:8000/reportes-ciudadanos', {
+      const response = await fetch('https://red-ciudadana-production.up.railway.app/reportes-ciudadanos', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -194,7 +194,7 @@ const SeguimientoReportes = () => {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:8000/reportes-ciudadanos/${selectedReporte.id}`, {
+      const response = await fetch(`https://red-ciudadana-production.up.railway.app/reportes-ciudadanos/${selectedReporte.id}`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,

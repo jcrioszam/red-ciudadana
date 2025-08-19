@@ -5,7 +5,7 @@ const config = {
     APP_NAME: 'Red Ciudadana - Desarrollo'
   },
   production: {
-    API_URL: 'https://red-ciudadana-backend.onrender.com',
+    API_URL: 'https://red-ciudadana-production.up.railway.app',
     APP_NAME: 'Red Ciudadana'
   }
 };
