@@ -50,15 +50,24 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Interceptor para manejar errores de red
+// Interceptor RESPONSE para debug y forzar HTTPS
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    console.log('✅ API RESPONSE:', response.config.method?.toUpperCase(), response.config.url, 'STATUS:', response.status);
+    return response;
+  },
   (error) => {
+    console.error('❌ API ERROR:', error.config?.method?.toUpperCase(), error.config?.url, 'ERROR:', error.message);
     if (error.code === 'ECONNABORTED') {
       console.error('Timeout - El servidor tardó demasiado en responder');
     }
     return Promise.reject(error);
   }
 );
+
+// NUCLEAR OPTION: Clear cache headers
+api.defaults.headers.common['Cache-Control'] = 'no-cache, no-store, must-revalidate';
+api.defaults.headers.common['Pragma'] = 'no-cache';
+api.defaults.headers.common['Expires'] = '0';
 
 export default api; 
