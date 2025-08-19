@@ -36,6 +36,20 @@ const api = axios.create({
   timeout: 120000, // 2 minutos para cold start muy lento
 });
 
+// Interceptor REQUEST para debug
+api.interceptors.request.use(
+  (config) => {
+    console.log('🚀 API REQUEST:', config.method?.toUpperCase(), config.url, 'BASE:', config.baseURL);
+    // FORZAR HTTPS si detectamos HTTP
+    if (config.baseURL && config.baseURL.startsWith('http://')) {
+      config.baseURL = config.baseURL.replace('http://', 'https://');
+      console.warn('🔒 INTERCEPTOR: FORZANDO HTTPS en baseURL:', config.baseURL);
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
 // Interceptor para manejar errores de red
 api.interceptors.response.use(
   (response) => response,
