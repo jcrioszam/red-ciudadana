@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import api from '../api';
 import {
   Container,
   Grid,
@@ -105,12 +106,7 @@ const SeguimientoReportes = () => {
     try {
       const token = localStorage.getItem('token');
       
-      const response = await fetch('https://red-ciudadana-production.up.railway.app/users/me/', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await api.get('/users/me');
       
       if (response.ok) {
         const userData = await response.json();
@@ -144,15 +140,7 @@ const SeguimientoReportes = () => {
       setLoading(true);
       const token = localStorage.getItem('token');
       
-      const response = await fetch('https://red-ciudadana-production.up.railway.app/reportes-ciudadanos', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
+      const data = await api.get('/reportes-ciudadanos');
         
         let filteredData = data;
 
@@ -194,19 +182,10 @@ const SeguimientoReportes = () => {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`https://red-ciudadana-production.up.railway.app/reportes-ciudadanos/${selectedReporte.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ 
-          estado: nuevoEstado,
-          observaciones_admin: observaciones
-        })
+      await api.patch(`/reportes-ciudadanos/${selectedReporte.id}`, { 
+        estado: nuevoEstado,
+        observaciones_admin: observaciones
       });
-
-      if (response.ok) {
         loadReportes();
         setUpdateDialogOpen(false);
         setDialogOpen(false);
