@@ -280,7 +280,7 @@ async def get_user(user_id: int, db: Session = Depends(get_db), current_user: Us
     user = db.query(UsuarioModel).filter(UsuarioModel.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
-    if not can_access_user(current_user, user_id, db):
+    if not can_access_user(user_id, current_user):
         raise HTTPException(status_code=403, detail="No tiene permisos para ver este usuario")
     return user
 
@@ -289,7 +289,7 @@ async def update_user(user_id: int, user_update: UsuarioUpdate, db: Session = De
     user = db.query(UsuarioModel).filter(UsuarioModel.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
-    if not can_access_user(current_user, user_id, db):
+    if not can_access_user(user_id, current_user):
         raise HTTPException(status_code=403, detail="No tiene permisos para modificar este usuario")
     for field, value in user_update.dict(exclude_unset=True).items():
         setattr(user, field, value)
