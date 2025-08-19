@@ -4,6 +4,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from sqlalchemy.orm import Session
+from sqlalchemy import case
 from datetime import timedelta
 import uvicorn
 import requests
@@ -1604,19 +1605,27 @@ async def reporte_estructura_jerarquica(db: Session = Depends(get_db), current_u
             total_subordinados=total_subordinados,
             subordinados=nodos_subordinados
         )
-    # Buscar presidente como líder general
+    # Buscar el líder raíz real (quien NO tiene superior)
     lider_general = db.query(UsuarioModel).filter(
-        UsuarioModel.rol == "presidente",
+        UsuarioModel.id_lider_superior == None,
         UsuarioModel.activo == True
+    ).order_by(
+        # Priorizar presidente > admin > otros
+        case(
+            (UsuarioModel.rol == "presidente", 1),
+            (UsuarioModel.rol == "admin", 2),
+            else_=3
+        )
     ).first()
+    
     if not lider_general:
-        # Si no hay presidente, usar admin
+        # Fallback: usar admin si existe
         lider_general = db.query(UsuarioModel).filter(
             UsuarioModel.rol == "admin",
             UsuarioModel.activo == True
         ).first()
     if not lider_general:
-        # Si no hay admin, usar el usuario actual
+        # Último fallback: usar el usuario actual
         lider_general = current_user
     if not lider_general:
         raise HTTPException(status_code=404, detail="No se encontró líder general")
