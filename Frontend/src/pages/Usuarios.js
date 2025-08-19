@@ -164,7 +164,12 @@ const Usuarios = () => {
 
   const handleInvite = async () => {
     try {
-      const res = await api.post(`/invitaciones/?rol=${inviteRole}`);
+      // Enviar como JSON en el body, no como query parameter
+      const res = await api.post('/invitaciones/', {
+        rol: inviteRole,
+        // id_lider_superior será determinado automáticamente por el backend
+        // basado en el rol del usuario actual (admin/presidente)
+      });
       console.log('Respuesta de invitación:', res.data);
       const token = res.data.token;
       if (token && typeof token === 'string') {
