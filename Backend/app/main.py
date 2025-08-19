@@ -2686,6 +2686,44 @@ async def list_reportes_ciudadanos(
 
     return reportes
 
+@app.get("/admin/reportes-ciudadanos-debug/")
+async def admin_debug_reportes_ciudadanos(
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_active_user)
+):
+    """Debug endpoint - Solo admin puede ver TODOS los reportes sin restricciones"""
+    if current_user.rol != 'admin':
+        raise HTTPException(status_code=403, detail="Solo admin puede acceder a este endpoint")
+    
+    # Obtener TODOS los reportes (incluso inactivos) para debug
+    reportes = db.query(ReporteCiudadanoModel).order_by(ReporteCiudadanoModel.fecha_creacion.desc()).all()
+    
+    result = []
+    for reporte in reportes:
+        result.append({
+            "id": reporte.id,
+            "titulo": reporte.titulo,
+            "estado": reporte.estado,
+            "activo": reporte.activo,
+            "ciudadano_id": reporte.ciudadano_id,
+            "ciudadano_nombre": reporte.ciudadano.nombre if reporte.ciudadano else "Sin ciudadano",
+            "fecha_creacion": reporte.fecha_creacion,
+            "tipo": reporte.tipo,
+            "latitud": reporte.latitud,
+            "longitud": reporte.longitud,
+            "direccion": reporte.direccion
+        })
+    
+    return {
+        "total_reportes": len(reportes),
+        "usuario_actual": {
+            "id": current_user.id,
+            "nombre": current_user.nombre,
+            "rol": current_user.rol
+        },
+        "reportes": result
+    }
+
 @app.get("/reportes-ciudadanos/{reporte_id}", response_model=ReporteCiudadano)
 async def get_reporte_ciudadano(reporte_id: int, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
     """Obtener un reporte ciudadano específico"""

@@ -265,10 +265,12 @@ const ReportesCiudadanos = () => {
       resetCreateForm();
       loadReportes();
     } catch (error) {
-      console.error('Error al crear reporte:', error);
+      console.error('❌ Error completo al crear reporte:', error);
+      const errorMessage = error.response?.data?.detail || error.message || 'Error de conexión';
+      console.error('📋 Mensaje de error:', errorMessage);
       setSnackbar({
         open: true,
-        message: '❌ Error de conexión',
+        message: `❌ Error: ${errorMessage}`,
         severity: 'error'
       });
     } finally {
