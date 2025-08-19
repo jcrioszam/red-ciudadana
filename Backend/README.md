@@ -102,4 +102,4 @@ El sistema utiliza SQLite con las siguientes tablas principales:
 2. Agregar validación de datos de INE
 3. Integrar con APIs de mapas
 4. Implementar reportes y exportación
-5. Agregar tests unitarios 
+5. Agregar tests unitarios "# Force Railway redeploy $(Get-Date)" 
