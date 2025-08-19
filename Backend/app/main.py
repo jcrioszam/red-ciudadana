@@ -1437,14 +1437,42 @@ async def reporte_movilizacion_vehiculos(db: Session = Depends(get_db), current_
 INVITATION_SECRET = "invitation_secret_key_cambiar"
 INVITATION_EXP_MINUTES = 60
 
+class InvitacionCreate(BaseModel):
+    rol: str
+    id_lider_superior: int = None  # Opcional, para que admin/presidente puedan elegir
+
 @app.post("/invitaciones/", response_model=dict)
-async def generar_invitacion(rol: str, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
+async def generar_invitacion(data: InvitacionCreate, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
     # Solo líderes y admin pueden invitar
     if current_user.rol not in ["admin", "lider_estatal", "lider_regional", "lider_municipal", "lider_zona"]:
         raise HTTPException(status_code=403, detail="No tiene permisos para invitar líderes")
+    
+    # Lógica para determinar el líder superior
+    if current_user.rol in ["admin", "presidente"]:
+        # Admin/Presidente pueden elegir bajo qué líder registrar
+        if data.id_lider_superior:
+            # Verificar que el líder superior existe y está activo
+            lider_superior = db.query(UsuarioModel).filter(
+                UsuarioModel.id == data.id_lider_superior,
+                UsuarioModel.activo == True
+            ).first()
+            if not lider_superior:
+                raise HTTPException(status_code=400, detail="Líder superior no válido")
+            id_lider_superior = data.id_lider_superior
+        else:
+            # Si no especifica, buscar presidente como default
+            presidente = db.query(UsuarioModel).filter(
+                UsuarioModel.rol == "presidente",
+                UsuarioModel.activo == True
+            ).first()
+            id_lider_superior = presidente.id if presidente else current_user.id
+    else:
+        # Otros líderes registran bajo ellos mismos
+        id_lider_superior = current_user.id
+    
     payload = {
-        "id_lider_superior": current_user.id,
-        "rol": rol,
+        "id_lider_superior": id_lider_superior,
+        "rol": data.rol,
         "exp": datetime.utcnow() + timedelta(minutes=INVITATION_EXP_MINUTES)
     }
     token = jwt.encode(payload, INVITATION_SECRET, algorithm="HS256")
@@ -1605,30 +1633,51 @@ async def reporte_estructura_jerarquica(db: Session = Depends(get_db), current_u
             total_subordinados=total_subordinados,
             subordinados=nodos_subordinados
         )
-    # Buscar el líder raíz real (quien NO tiene superior)
+    # Buscar PRESIDENTE como líder general del diagrama
     lider_general = db.query(UsuarioModel).filter(
-        UsuarioModel.id_lider_superior == None,
+        UsuarioModel.rol == "presidente",
         UsuarioModel.activo == True
-    ).order_by(
-        # Priorizar presidente > admin > otros
-        case(
-            (UsuarioModel.rol == "presidente", 1),
-            (UsuarioModel.rol == "admin", 2),
-            else_=3
-        )
     ).first()
     
     if not lider_general:
-        # Fallback: usar admin si existe
-        lider_general = db.query(UsuarioModel).filter(
+        # Si no hay presidente, buscar quien tenga más subordinados
+        candidatos = db.query(UsuarioModel).filter(
+            UsuarioModel.activo == True,
+            UsuarioModel.rol.in_(["admin", "lider_estatal", "lider_regional"])
+        ).all()
+        
+        max_subordinados = 0
+        for candidato in candidatos:
+            subordinados = db.query(UsuarioModel).filter(
+                UsuarioModel.id_lider_superior == candidato.id,
+                UsuarioModel.activo == True
+            ).count()
+            if subordinados > max_subordinados:
+                max_subordinados = subordinados
+                lider_general = candidato
+        
+        # Último fallback: usar el usuario actual
+        if not lider_general:
+            lider_general = current_user
+    if not lider_general:
+        raise HTTPException(status_code=404, detail="No se encontró líder general")
+    
+    # FIX: Mover líderes que reportan al admin hacia el presidente
+    if lider_general.rol == "presidente":
+        admin = db.query(UsuarioModel).filter(
             UsuarioModel.rol == "admin",
             UsuarioModel.activo == True
         ).first()
-    if not lider_general:
-        # Último fallback: usar el usuario actual
-        lider_general = current_user
-    if not lider_general:
-        raise HTTPException(status_code=404, detail="No se encontró líder general")
+        if admin:
+            # Mover subordinados del admin al presidente
+            subordinados_admin = db.query(UsuarioModel).filter(
+                UsuarioModel.id_lider_superior == admin.id,
+                UsuarioModel.activo == True
+            ).all()
+            for subordinado in subordinados_admin:
+                subordinado.id_lider_superior = lider_general.id
+            db.commit()
+    
     estructura = construir_nodo(lider_general.id)
     if not estructura:
         raise HTTPException(status_code=404, detail="Error al construir estructura jerárquica")
