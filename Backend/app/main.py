@@ -116,6 +116,80 @@ def create_initial_users():
     finally:
         db.close()
 
+# 🔧 NUEVO: Función para migrar campo foto_url
+def migrate_foto_url_auto():
+    """Migrar campo foto_url automáticamente al iniciar"""
+    try:
+        database_url = os.getenv('DATABASE_URL')
+        if not database_url:
+            print("❌ DATABASE_URL no encontrada para migración automática")
+            return False
+        
+        print("🔧 Iniciando migración automática de foto_url...")
+        conn = psycopg2.connect(database_url)
+        conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+        cursor = conn.cursor()
+        
+        # Verificar si la tabla existe
+        cursor.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_schema = 'public' 
+                AND table_name = 'reportes_ciudadanos'
+            );
+        """)
+        
+        if not cursor.fetchone()[0]:
+            print("❌ Tabla reportes_ciudadanos no existe")
+            return False
+        
+        # Verificar el tipo actual del campo foto_url
+        cursor.execute("""
+            SELECT column_name, data_type, character_maximum_length
+            FROM information_schema.columns 
+            WHERE table_name = 'reportes_ciudadanos' 
+            AND column_name = 'foto_url';
+        """)
+        
+        column_info = cursor.fetchone()
+        if not column_info:
+            print("❌ Campo foto_url no encontrado")
+            return False
+        
+        current_length = column_info[2]
+        print(f"📏 Campo foto_url actual: {column_info[1]}({current_length})")
+        
+        # Si ya tiene el tamaño correcto, no hacer nada
+        if current_length and current_length >= 10000:
+            print("✅ Campo foto_url ya tiene el tamaño correcto")
+            return True
+        
+        # Alterar el campo para aumentar el límite
+        print("🔧 Alterando campo foto_url...")
+        cursor.execute("""
+            ALTER TABLE reportes_ciudadanos 
+            ALTER COLUMN foto_url TYPE VARCHAR(10000);
+        """)
+        
+        print("✅ Campo foto_url alterado exitosamente")
+        
+        cursor.close()
+        conn.close()
+        
+        print("🎉 Migración automática completada")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Error durante migración automática: {e}")
+        return False
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 🔧 NUEVO: Ejecutar migración automática al iniciar
+    print("🚀 Iniciando migración automática de base de datos...")
+    migrate_foto_url_auto()
+    yield
+
 # Crear usuarios iniciales al iniciar
 create_initial_users()
 
@@ -2893,80 +2967,6 @@ async def delete_reporte_ciudadano(reporte_id: int, db: Session = Depends(get_db
     return {"message": "Reporte eliminado exitosamente"}
 
 # ✅ ELIMINADO: Endpoint duplicado /reportes-ciudadanos-con-foto/ que causaba conflicto CORS
-
-# 🔧 NUEVO: Función para migrar campo foto_url
-def migrate_foto_url_auto():
-    """Migrar campo foto_url automáticamente al iniciar"""
-    try:
-        database_url = os.getenv('DATABASE_URL')
-        if not database_url:
-            print("❌ DATABASE_URL no encontrada para migración automática")
-            return False
-        
-        print("🔧 Iniciando migración automática de foto_url...")
-        conn = psycopg2.connect(database_url)
-        conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
-        cursor = conn.cursor()
-        
-        # Verificar si la tabla existe
-        cursor.execute("""
-            SELECT EXISTS (
-                SELECT FROM information_schema.tables 
-                WHERE table_schema = 'public' 
-                AND table_name = 'reportes_ciudadanos'
-            );
-        """)
-        
-        if not cursor.fetchone()[0]:
-            print("❌ Tabla reportes_ciudadanos no existe")
-            return False
-        
-        # Verificar el tipo actual del campo foto_url
-        cursor.execute("""
-            SELECT column_name, data_type, character_maximum_length
-            FROM information_schema.columns 
-            WHERE table_name = 'reportes_ciudadanos' 
-            AND column_name = 'foto_url';
-        """)
-        
-        column_info = cursor.fetchone()
-        if not column_info:
-            print("❌ Campo foto_url no encontrado")
-            return False
-        
-        current_length = column_info[2]
-        print(f"📏 Campo foto_url actual: {column_info[1]}({current_length})")
-        
-        # Si ya tiene el tamaño correcto, no hacer nada
-        if current_length and current_length >= 10000:
-            print("✅ Campo foto_url ya tiene el tamaño correcto")
-            return True
-        
-        # Alterar el campo para aumentar el límite
-        print("🔧 Alterando campo foto_url...")
-        cursor.execute("""
-            ALTER TABLE reportes_ciudadanos 
-            ALTER COLUMN foto_url TYPE VARCHAR(10000);
-        """)
-        
-        print("✅ Campo foto_url alterado exitosamente")
-        
-        cursor.close()
-        conn.close()
-        
-        print("🎉 Migración automática completada")
-        return True
-        
-    except Exception as e:
-        print(f"❌ Error durante migración automática: {e}")
-        return False
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # 🔧 NUEVO: Ejecutar migración automática al iniciar
-    print("🚀 Iniciando migración automática de base de datos...")
-    migrate_foto_url_auto()
-    yield
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000) 
