@@ -218,6 +218,8 @@ app.add_middleware(
 
 print('🔧 CORS SIMPLIFICADO - TODOS LOS MÉTODOS Y HEADERS PERMITIDOS')
 print('🚀 FORZANDO DESPLIEGUE - Último commit: 7555c01ae')
+print('🔥🔥🔥 CORS FIX APLICADO - Último commit: 208bd1d5f 🔥🔥🔥')
+print('🎯 POST /reportes-ciudadanos/ DEBERÍA FUNCIONAR AHORA 🎯')
 
 # 🆕 NUEVO: Endpoint de prueba para forzar despliegue
 @app.get("/test-deployment")
