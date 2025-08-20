@@ -9,14 +9,14 @@ const ReportesCiudadanos = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
     tipo: '',
-    // 🔧 REMOVER CAMPOS NUEVOS QUE CAUSAN ERROR 500
-    // titulo: '',
+    // 🔧 CAMPOS REQUERIDOS POR EL BACKEND
+    titulo: '',
     descripcion: '',
-    // ubicacion: '',
-    // latitud: '',
-    // longitud: '',
-    // direccion: '',
-    // foto: null
+    latitud: 0, // Valor por defecto
+    longitud: 0, // Valor por defecto
+    // Campos opcionales
+    direccion: '',
+    prioridad: 'normal'
   });
   
   const [mensaje, setMensaje] = useState('');
@@ -43,22 +43,10 @@ const ReportesCiudadanos = () => {
     console.log('🚀 CREANDO reporte usando API instance con interceptores');
     
     try {
-      // 🔧 REVERTIR A FORMATO ANTERIOR QUE FUNCIONABA
-      const reporteSimple = {
-        descripcion: data.descripcion,
-        tipo: data.tipo,
-        // Remover campos nuevos que causan error 500
-        // titulo: data.titulo,
-        // latitud: data.latitud,
-        // longitud: data.longitud,
-        // direccion: data.direccion,
-        // foto_url: data.foto_url,
-        prioridad: 'normal'
-      };
+      // 🔧 ENVIAR DATOS COMPLETOS - SIN SIMPLIFICACIÓN
+      console.log('📋 DATOS COMPLETOS para backend:', data);
       
-      console.log('📋 DATOS SIMPLIFICADOS para backend:', reporteSimple);
-      
-      const response = await api.post('/reportes-ciudadanos/', reporteSimple);
+      const response = await api.post('/reportes-ciudadanos/', data);
       console.log('✅ REPORTE CREADO:', response.data);
       return response.data;
     } catch (error) {
@@ -96,8 +84,14 @@ const ReportesCiudadanos = () => {
         setMensaje('');
         setFormData({
           tipo: '',
-          // 🔧 SOLO CAMPOS BÁSICOS QUE FUNCIONABAN
-          descripcion: ''
+          // 🔧 CAMPOS REQUERIDOS POR EL BACKEND
+          titulo: '',
+          descripcion: '',
+          latitud: 0, // Valor por defecto
+          longitud: 0, // Valor por defecto
+          // Campos opcionales
+          direccion: '',
+          prioridad: 'normal'
         });
       }, 3000);
     },
@@ -111,12 +105,11 @@ const ReportesCiudadanos = () => {
     // 🏷️ Función para generar título automático basado en el tipo
   const generarTitulo = (tipo) => {
     const titulos = {
-      'Alumbrado': 'Reporte de Problema de Alumbrado Público',
-      'Baches': 'Reporte de Baches en la Vía',
-      'Basura': 'Reporte de Gestión de Basura',
-      'Agua': 'Reporte de Problema de Agua',
-      'Seguridad': 'Reporte de Problema de Seguridad',
-      'Tráfico': 'Reporte de Problema de Tráfico'
+      'dano_via_publica': 'Reporte de Daño en Vía Pública',
+      'servicios_publicos': 'Reporte de Servicios Públicos',
+      'seguridad': 'Reporte de Seguridad',
+      'limpieza': 'Reporte de Limpieza',
+      'otro': 'Reporte Ciudadano'
     };
     return titulos[tipo] || `Reporte de ${tipo}`;
   };
@@ -196,14 +189,18 @@ const ReportesCiudadanos = () => {
       return;
     }
 
-    // 🔧 PREPARAR DATOS SIMPLES PARA EL BACKEND - SOLO LO QUE FUNCIONABA
+    // 🔧 PREPARAR DATOS COMPLETOS PARA EL BACKEND - TODOS LOS CAMPOS REQUERIDOS
     const reporteData = {
-      descripcion: formData.descripcion.trim(),
-      tipo: formData.tipo,
-      prioridad: 'normal' // Valor por defecto
+      titulo: generarTitulo(formData.tipo), // ✅ REQUERIDO por backend
+      descripcion: formData.descripcion.trim(), // ✅ REQUERIDO por backend
+      tipo: formData.tipo, // ✅ REQUERIDO por backend
+      latitud: formData.latitud, // ✅ REQUERIDO por backend (0 por defecto)
+      longitud: formData.longitud, // ✅ REQUERIDO por backend (0 por defecto)
+      direccion: formData.direccion || null, // ❌ OPCIONAL
+      prioridad: formData.prioridad // ❌ OPCIONAL
     };
 
-    console.log('📋 DATOS SIMPLIFICADOS PARA BACKEND:', reporteData);
+    console.log('📋 DATOS COMPLETOS PARA BACKEND:', reporteData);
 
     setLoading(true);
     setMensaje('🔄 Enviando reporte...');
