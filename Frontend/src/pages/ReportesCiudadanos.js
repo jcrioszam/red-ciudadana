@@ -9,13 +9,14 @@ const ReportesCiudadanos = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
     tipo: '',
-    titulo: '', // Campo requerido por backend
+    // 🔧 REMOVER CAMPOS NUEVOS QUE CAUSAN ERROR 500
+    // titulo: '',
     descripcion: '',
-    ubicacion: '',
-    latitud: '',
-    longitud: '',
-    direccion: '', // Campo para direccion/ubicacion 
-    foto: null
+    // ubicacion: '',
+    // latitud: '',
+    // longitud: '',
+    // direccion: '',
+    // foto: null
   });
   
   const [mensaje, setMensaje] = useState('');
@@ -42,7 +43,22 @@ const ReportesCiudadanos = () => {
     console.log('🚀 CREANDO reporte usando API instance con interceptores');
     
     try {
-      const response = await api.post('/reportes-ciudadanos/', data);
+      // 🔧 REVERTIR A FORMATO ANTERIOR QUE FUNCIONABA
+      const reporteSimple = {
+        descripcion: data.descripcion,
+        tipo: data.tipo,
+        // Remover campos nuevos que causan error 500
+        // titulo: data.titulo,
+        // latitud: data.latitud,
+        // longitud: data.longitud,
+        // direccion: data.direccion,
+        // foto_url: data.foto_url,
+        prioridad: 'normal'
+      };
+      
+      console.log('📋 DATOS SIMPLIFICADOS para backend:', reporteSimple);
+      
+      const response = await api.post('/reportes-ciudadanos/', reporteSimple);
       console.log('✅ REPORTE CREADO:', response.data);
       return response.data;
     } catch (error) {
@@ -80,13 +96,8 @@ const ReportesCiudadanos = () => {
         setMensaje('');
         setFormData({
           tipo: '',
-          titulo: '',
-          descripcion: '',
-          ubicacion: '',
-          latitud: '',
-          longitud: '',
-          direccion: '',
-          foto: null
+          // 🔧 SOLO CAMPOS BÁSICOS QUE FUNCIONABAN
+          descripcion: ''
         });
       }, 3000);
     },
@@ -178,30 +189,25 @@ const ReportesCiudadanos = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
     console.log('🚀 SUBMIT INICIADO - Datos del formulario:', formData);
-    
+
     // Validar que tengamos los datos mínimos
     if (!formData.tipo || !formData.descripcion.trim()) {
       setMensaje('❌ Por favor complete tipo de reporte y descripción');
       return;
     }
-    
-    // 🔧 PREPARAR DATOS PARA EL BACKEND
+
+    // 🔧 PREPARAR DATOS SIMPLES PARA EL BACKEND - SOLO LO QUE FUNCIONABA
     const reporteData = {
-      titulo: generarTitulo(formData.tipo), // Generar título automático
       descripcion: formData.descripcion.trim(),
       tipo: formData.tipo,
-      latitud: parseFloat(formData.latitud) || 0, // Convertir a número
-      longitud: parseFloat(formData.longitud) || 0, // Convertir a número
-      direccion: formData.ubicacion || formData.direccion || null, // Usar ubicacion como direccion
-      foto_url: formData.foto ? formData.foto.data : null, // Incluir foto si existe
       prioridad: 'normal' // Valor por defecto
     };
-    
-    console.log('📋 DATOS PREPARADOS PARA BACKEND:', reporteData);
-    
+
+    console.log('📋 DATOS SIMPLIFICADOS PARA BACKEND:', reporteData);
+
     setLoading(true);
     setMensaje('🔄 Enviando reporte...');
-    
+
     console.log('🔥 EJECUTANDO MUTACIÓN:', reporteData);
     createMutation.mutate(reporteData);
     // NO llamamos setLoading(false) aquí - lo maneja la mutación
@@ -214,27 +220,14 @@ const ReportesCiudadanos = () => {
     });
   };
 
-  // 🎨 Renderizar flujo paso a paso
+  // 🎯 FLUJO SIMPLIFICADO - SOLO LO QUE FUNCIONABA ANTES
   const renderStepContent = () => {
     switch (currentStep) {
-      case 1:
-        return renderTipoReporte();
-      case 2:
-        return renderUbicacion();
-      case 2.5:
-        return renderUbicacionManual();
-      case 2.7:
-        return renderMapaInteractivo();
-      case 3:
-        return renderFoto();
-      case 3.5:
-        return renderFotoSelector();
-      case 4:
-        return renderResumen();
-      case 5:
-        return renderAgradecimiento();
-      default:
-        return renderTipoReporte();
+      case 1: return renderTipoReporte();
+      case 2: return renderDescripcion();
+      case 3: return renderResumen();
+      case 4: return renderAgradecimiento();
+      default: return renderTipoReporte();
     }
   };
 
@@ -301,565 +294,37 @@ const ReportesCiudadanos = () => {
     </div>
   );
 
-  // 📍 PASO 2: Selección de ubicación
-  const renderUbicacion = () => (
+  // 📝 PASO 2: Descripción del reporte
+  const renderDescripcion = () => (
     <div style={{ textAlign: 'center', padding: '20px' }}>
       <h2 style={{ color: '#374151', marginBottom: '10px' }}>
-        📍 ¿Dónde ocurre el problema?
+        📝 Describe el problema
       </h2>
-      <p style={{ color: '#6b7280', marginBottom: '30px' }}>
-        Seleccione cómo quiere indicar la ubicación
+      <p style={{ color: '#6b7280', marginBottom: '20px' }}>
+        Proporciona detalles sobre la situación que estás reportando
       </p>
-      
-      <div style={{ maxWidth: '500px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '15px' }}>
-        <button
-          onClick={getCurrentLocation}
-          disabled={loading}
-          style={{
-            backgroundColor: loading ? '#9ca3af' : '#10b981',
-            color: 'white',
-            border: 'none',
-            borderRadius: '12px',
-            padding: '20px',
-            fontSize: '16px',
-            cursor: loading ? 'not-allowed' : 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '10px',
-            opacity: loading ? 0.7 : 1
-          }}
-        >
-          <span style={{ fontSize: '1.5rem' }}>
-            {loading ? '⏳' : '📱'}
-          </span>
-          {loading ? 'Obteniendo ubicación...' : 'Usar mi ubicación actual (GPS)'}
-        </button>
-        
-        <button
-          onClick={() => setCurrentStep(2.7)} // Sub-paso para mapa interactivo
-          style={{
-            backgroundColor: '#8b5cf6',
-            color: 'white',
-            border: 'none',
-            borderRadius: '12px',
-            padding: '20px',
-            fontSize: '16px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '10px'
-          }}
-        >
-          <span style={{ fontSize: '1.5rem' }}>🗺️</span>
-          Seleccionar en mapa interactivo
-        </button>
-        
-        <button
-          onClick={() => setCurrentStep(2.5)} // Sub-paso para entrada manual
-          style={{
-            backgroundColor: '#2563eb',
-            color: 'white',
-            border: 'none',
-            borderRadius: '12px',
-            padding: '20px',
-            fontSize: '16px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '10px'
-          }}
-        >
-          <span style={{ fontSize: '1.5rem' }}>📝</span>
-          Escribir dirección manualmente
-        </button>
-        
-        <button
-          onClick={() => setCurrentStep(1)}
-          style={{
-            backgroundColor: '#6b7280',
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            padding: '10px 20px',
-            fontSize: '14px',
-            cursor: 'pointer'
-          }}
-        >
-          ← Volver
-        </button>
-      </div>
-    </div>
-  );
 
-  // 📝 PASO 2.5: Entrada manual de ubicación
-  const renderUbicacionManual = () => (
-    <div style={{ textAlign: 'center', padding: '20px' }}>
-      <h2 style={{ color: '#374151', marginBottom: '10px' }}>
-        📝 Escriba la dirección
-      </h2>
-      <p style={{ color: '#6b7280', marginBottom: '30px' }}>
-        Ingrese la dirección o referencias del lugar
-      </p>
-      
-      <div style={{ maxWidth: '500px', margin: '0 auto' }}>
+      <div style={{ maxWidth: '600px', margin: '0 auto' }}>
         <textarea
-          value={formData.ubicacion}
-          onChange={(e) => setFormData(prev => ({ ...prev, ubicacion: e.target.value }))}
-          placeholder="Ej: Calle Principal #123, Colonia Centro, cerca del parque..."
-          rows="4"
+          name="descripcion"
+          value={formData.descripcion}
+          onChange={handleChange}
+          placeholder="Describe el problema en detalle..."
           style={{
             width: '100%',
+            minHeight: '120px',
             padding: '15px',
             border: '2px solid #e2e8f0',
-            borderRadius: '12px',
+            borderRadius: '8px',
             fontSize: '16px',
-            marginBottom: '20px',
             resize: 'vertical'
           }}
         />
-        
-        <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-          <button
-            onClick={() => setCurrentStep(2)}
-            style={{
-              backgroundColor: 'transparent',
-              color: '#6b7280',
-              border: '1px solid #d1d5db',
-              borderRadius: '8px',
-              padding: '12px 20px',
-              fontSize: '14px',
-              cursor: 'pointer'
-            }}
-          >
-            ← Volver
-          </button>
-          
-          <button
-            onClick={() => setCurrentStep(3)}
-            disabled={!formData.ubicacion.trim()}
-            style={{
-              backgroundColor: formData.ubicacion.trim() ? '#2563eb' : '#9ca3af',
-          color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              padding: '12px 24px',
-              fontSize: '16px',
-              cursor: formData.ubicacion.trim() ? 'pointer' : 'not-allowed',
-              opacity: formData.ubicacion.trim() ? 1 : 0.6
-            }}
-          >
-            Continuar →
-          </button>
-        </div>
       </div>
-    </div>
-  );
 
-  // 🗺️ PASO 2.7: Mapa interactivo para seleccionar ubicación
-  const renderMapaInteractivo = () => {
-    const handleLocationSelect = (latlng) => {
-      console.log('🗺️ Ubicación seleccionada en mapa:', latlng);
-      setFormData(prev => ({
-        ...prev,
-        latitud: latlng.lat.toString(),
-        longitud: latlng.lng.toString(),
-        ubicacion: `Coordenadas: ${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}`
-      }));
-    };
-
-    return (
-      <div style={{ textAlign: 'center', padding: '20px' }}>
-        <h2 style={{ color: '#374151', marginBottom: '10px' }}>
-          🗺️ Selecciona la ubicación en el mapa
-        </h2>
-        <p style={{ color: '#6b7280', marginBottom: '20px' }}>
-          Haz clic en el mapa para marcar la ubicación exacta del problema
-        </p>
-        
-        <div style={{ marginBottom: '20px' }}>
-          <MapaInteractivo 
-            onLocationSelect={handleLocationSelect}
-            reportes={reportes || []}
-            height="450px"
-            selectionMode={true}
-            showReportes={true}
-            centerLocation={[19.4326, -99.1332]} // CDMX
-          />
-        </div>
-
-        <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '20px' }}>
-          <button
-            onClick={() => setCurrentStep(2)}
-            style={{
-              backgroundColor: 'transparent',
-              color: '#6b7280',
-              border: '1px solid #d1d5db',
-              borderRadius: '8px',
-              padding: '12px 20px',
-              fontSize: '14px',
-              cursor: 'pointer'
-            }}
-          >
-            ← Volver
-          </button>
-          
-          <button
-            onClick={() => setCurrentStep(3)}
-            disabled={!formData.latitud || !formData.longitud}
-            style={{
-              backgroundColor: (formData.latitud && formData.longitud) ? '#8b5cf6' : '#9ca3af',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              padding: '12px 24px',
-              fontSize: '16px',
-              cursor: (formData.latitud && formData.longitud) ? 'pointer' : 'not-allowed',
-              opacity: (formData.latitud && formData.longitud) ? 1 : 0.6
-            }}
-          >
-            {(formData.latitud && formData.longitud) ? 'Continuar →' : 'Selecciona ubicación'}
-          </button>
-        </div>
-      </div>
-    );
-  };
-
-  // 📸 PASO 3: Opción de foto
-  const renderFoto = () => (
-    <div style={{ textAlign: 'center', padding: '20px' }}>
-      <h2 style={{ color: '#374151', marginBottom: '10px' }}>
-        📸 ¿Desea adjuntar una foto?
-      </h2>
-      <p style={{ color: '#6b7280', marginBottom: '30px' }}>
-        Una foto ayuda a entender mejor el problema
-      </p>
-      
-      <div style={{ maxWidth: '400px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+      <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '20px' }}>
         <button
-          onClick={() => setCurrentStep(3.5)}
-          style={{
-            backgroundColor: '#8b5cf6',
-            color: 'white',
-            border: 'none',
-            borderRadius: '12px',
-            padding: '20px',
-            fontSize: '16px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '10px'
-          }}
-        >
-          <span style={{ fontSize: '1.5rem' }}>📷</span>
-          Tomar/Subir foto
-        </button>
-        
-        <button
-          onClick={() => setCurrentStep(4)}
-          style={{
-            backgroundColor: '#6b7280',
-            color: 'white',
-            border: 'none',
-            borderRadius: '12px',
-            padding: '20px',
-            fontSize: '16px',
-            cursor: 'pointer'
-          }}
-        >
-          Omitir foto y continuar
-        </button>
-        
-        <button
-          onClick={() => setCurrentStep(2)}
-                            style={{
-            backgroundColor: 'transparent',
-            color: '#6b7280',
-            border: '1px solid #d1d5db',
-            borderRadius: '8px',
-            padding: '10px 20px',
-            fontSize: '14px',
-            cursor: 'pointer'
-          }}
-        >
-          ← Volver
-        </button>
-      </div>
-    </div>
-  );
-
-  // 📸 PASO 3.5: Selector y subida de foto
-  const renderFotoSelector = () => {
-    const handleFileSelect = (event) => {
-      const file = event.target.files[0];
-      if (file) {
-        // Validar tipo de archivo
-        if (!file.type.startsWith('image/')) {
-          setMensaje('❌ Por favor seleccione solo archivos de imagen (JPG, PNG, etc.)');
-          return;
-        }
-        
-        // Validar tamaño (máximo 5MB)
-        if (file.size > 5 * 1024 * 1024) {
-          setMensaje('❌ La imagen es muy grande. Máximo 5MB permitido.');
-          return;
-        }
-
-        // Convertir a base64 para almacenamiento temporal
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          setFormData(prev => ({
-            ...prev,
-            foto: {
-              file: file,
-              name: file.name,
-              size: file.size,
-              type: file.type,
-              data: e.target.result // base64
-            }
-          }));
-          setMensaje('✅ Foto seleccionada correctamente');
-        };
-        reader.readAsDataURL(file);
-      }
-    };
-
-    const removeFoto = () => {
-      setFormData(prev => ({ ...prev, foto: null }));
-      setMensaje('🗑️ Foto removida');
-    };
-
-    return (
-      <div style={{ textAlign: 'center', padding: '20px' }}>
-        <h2 style={{ color: '#374151', marginBottom: '10px' }}>
-          📸 Seleccionar foto del problema
-        </h2>
-        <p style={{ color: '#6b7280', marginBottom: '20px' }}>
-          Una imagen ayuda a entender mejor la situación
-        </p>
-        
-        <div style={{ maxWidth: '500px', margin: '0 auto' }}>
-          {/* 📷 Vista previa de foto seleccionada */}
-          {formData.foto && (
-            <div style={{
-              backgroundColor: '#f8fafc',
-              border: '2px solid #e2e8f0',
-              borderRadius: '12px',
-              padding: '20px',
-              marginBottom: '20px'
-            }}>
-              <h4 style={{ color: '#374151', marginBottom: '15px' }}>
-                📷 Foto seleccionada
-              </h4>
-              <img 
-                src={formData.foto.data} 
-                alt="Vista previa"
-                style={{
-                  maxWidth: '100%',
-                  maxHeight: '200px',
-                  borderRadius: '8px',
-                  marginBottom: '10px'
-                }}
-              />
-              <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '15px' }}>
-                <div>📁 {formData.foto.name}</div>
-                <div>📏 {(formData.foto.size / 1024).toFixed(1)} KB</div>
-                <div>🎨 {formData.foto.type}</div>
-              </div>
-              <button
-                onClick={removeFoto}
-                style={{
-                  backgroundColor: '#ef4444',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  padding: '8px 16px',
-                  fontSize: '14px',
-                  cursor: 'pointer'
-                }}
-              >
-                🗑️ Remover foto
-              </button>
-            </div>
-          )}
-
-          {/* 📁 Selector de archivo */}
-          <div style={{
-            border: '2px dashed #d1d5db',
-            borderRadius: '12px',
-            padding: '30px',
-            textAlign: 'center',
-            backgroundColor: formData.foto ? '#f0f9ff' : '#f9fafb',
-            borderColor: formData.foto ? '#0ea5e9' : '#d1d5db',
-            marginBottom: '20px'
-          }}>
-            <div style={{ fontSize: '48px', marginBottom: '15px' }}>
-              {formData.foto ? '✅' : '📷'}
-            </div>
-            <h4 style={{ color: '#374151', marginBottom: '10px' }}>
-              {formData.foto ? 'Foto seleccionada' : 'Seleccionar imagen'}
-            </h4>
-            <p style={{ color: '#6b7280', marginBottom: '20px', fontSize: '14px' }}>
-              {formData.foto 
-                ? 'La foto está lista para enviar con el reporte'
-                : 'Haga clic para seleccionar una imagen del problema'
-              }
-            </p>
-            
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleFileSelect}
-              style={{ display: 'none' }}
-              id="foto-input"
-            />
-            <label
-              htmlFor="foto-input"
-              style={{
-                backgroundColor: formData.foto ? '#10b981' : '#8b5cf6',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '12px 24px',
-                fontSize: '16px',
-                cursor: 'pointer',
-                display: 'inline-block'
-              }}
-            >
-              {formData.foto ? '🔄 Cambiar foto' : '📁 Seleccionar archivo'}
-            </label>
-          </div>
-
-          {/* 📋 Información de archivos */}
-          <div style={{
-            backgroundColor: '#fef3c7',
-            border: '1px solid #fbbf24',
-            borderRadius: '8px',
-            padding: '15px',
-            marginBottom: '20px',
-            fontSize: '12px',
-            color: '#92400e'
-          }}>
-            <strong>📋 Información:</strong>
-            <div>• Formatos soportados: JPG, PNG, GIF, WebP</div>
-            <div>• Tamaño máximo: 5MB</div>
-            <div>• La foto es opcional</div>
-          </div>
-
-          {/* 🎯 Botones de navegación */}
-          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <button
-              onClick={() => setCurrentStep(3)}
-              style={{
-                backgroundColor: 'transparent',
-                color: '#6b7280',
-                border: '1px solid #d1d5db',
-                borderRadius: '8px',
-                padding: '12px 20px',
-                fontSize: '14px',
-                cursor: 'pointer'
-              }}
-            >
-              ← Volver
-            </button>
-            
-            <button
-              onClick={() => setCurrentStep(4)}
-              style={{
-                backgroundColor: '#10b981',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '12px 24px',
-                fontSize: '16px',
-                cursor: 'pointer'
-              }}
-            >
-              Continuar →
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // 📋 PASO 4: Resumen y envío
-  const renderResumen = () => (
-    <div style={{ textAlign: 'center', padding: '20px', maxWidth: '500px' }}>
-      <h2 style={{ color: '#374151', marginBottom: '10px' }}>
-        📋 Resumen de su reporte
-      </h2>
-      <p style={{ color: '#6b7280', marginBottom: '30px' }}>
-        Revise los datos antes de enviar
-      </p>
-      
-      <div style={{ 
-        backgroundColor: '#f8fafc', 
-        border: '1px solid #e2e8f0',
-        borderRadius: '12px',
-        padding: '20px',
-        marginBottom: '20px',
-        textAlign: 'left'
-      }}>
-        <div style={{ marginBottom: '15px' }}>
-          <strong style={{ color: '#374151' }}>Tipo:</strong>
-          <div style={{ color: '#6b7280', marginTop: '5px' }}>
-            {formData.tipo.replace('_', ' ').toUpperCase()}
-          </div>
-        </div>
-        
-        <div style={{ marginBottom: '15px' }}>
-          <strong style={{ color: '#374151' }}>Ubicación:</strong>
-          <div style={{ color: '#6b7280', marginTop: '5px' }}>
-            {formData.ubicacion || 'Sin ubicación especificada'}
-          </div>
-        </div>
-        
-        <div style={{ marginBottom: '15px' }}>
-          <strong style={{ color: '#374151' }}>Foto:</strong>
-          <div style={{ color: '#6b7280', marginTop: '5px' }}>
-            {formData.foto ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ color: '#10b981' }}>✅ Foto adjunta</span>
-                <span style={{ fontSize: '12px', color: '#9ca3af' }}>
-                  ({formData.foto.name} - {(formData.foto.size / 1024).toFixed(1)} KB)
-                </span>
-              </div>
-            ) : (
-              <span style={{ color: '#6b7280' }}>📷 Sin foto</span>
-            )}
-          </div>
-        </div>
-        
-        <div style={{ marginBottom: '15px' }}>
-          <strong style={{ color: '#374151' }}>Descripción: *</strong>
-          <div style={{ fontSize: '12px', color: '#9ca3af', marginBottom: '5px' }}>
-            {formData.descripcion.trim() ? '✅ Descripción completa' : '⚠️ Requerida para continuar'}
-          </div>
-          <textarea
-            value={formData.descripcion}
-            onChange={(e) => setFormData(prev => ({ ...prev, descripcion: e.target.value }))}
-            placeholder="Describe el problema detalladamente... (REQUERIDO)"
-            rows="4"
-            style={{
-              width: '100%',
-              marginTop: '8px',
-              padding: '12px',
-              border: formData.descripcion.trim() ? '2px solid #10b981' : '2px solid #ef4444',
-              borderRadius: '6px',
-              fontSize: '14px',
-              backgroundColor: formData.descripcion.trim() ? '#f0fdf4' : '#fef2f2'
-            }}
-          />
-        </div>
-      </div>
-      
-      <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-        <button
-          onClick={() => setCurrentStep(3)}
+          onClick={() => setCurrentStep(1)}
           style={{
             backgroundColor: 'transparent',
             color: '#6b7280',
@@ -872,24 +337,96 @@ const ReportesCiudadanos = () => {
         >
           ← Volver
         </button>
-        
+
         <button
-          onClick={handleSubmit}
-          disabled={loading || !formData.descripcion.trim()}
+          onClick={() => setCurrentStep(3)}
+          disabled={!formData.descripcion.trim()}
           style={{
-            backgroundColor: loading ? '#9ca3af' : (!formData.descripcion.trim() ? '#ef4444' : '#10b981'),
+            backgroundColor: formData.descripcion.trim() ? '#8b5cf6' : '#9ca3af',
             color: 'white',
             border: 'none',
             borderRadius: '8px',
             padding: '12px 24px',
             fontSize: '16px',
-            cursor: loading || !formData.descripcion.trim() ? 'not-allowed' : 'pointer',
-            opacity: loading || !formData.descripcion.trim() ? 0.6 : 1
+            cursor: formData.descripcion.trim() ? 'pointer' : 'not-allowed',
+            opacity: formData.descripcion.trim() ? 1 : 0.6
           }}
         >
-          {loading ? '⏳ Enviando...' : 
-           !formData.descripcion.trim() ? '❌ Complete descripción' : 
-           '📤 Enviar Reporte'}
+          Continuar →
+        </button>
+      </div>
+    </div>
+  );
+
+  // 📋 PASO 3: Resumen del reporte
+  const renderResumen = () => (
+    <div style={{ textAlign: 'center', padding: '20px' }}>
+      <h2 style={{ color: '#374151', marginBottom: '10px' }}>
+        📋 Resumen de su reporte
+      </h2>
+      <p style={{ color: '#6b7280', marginBottom: '30px' }}>
+        Revise los datos antes de enviar
+      </p>
+
+      <div style={{
+        backgroundColor: 'white',
+        border: '2px solid #e2e8f0',
+        borderRadius: '12px',
+        padding: '30px',
+        maxWidth: '600px',
+        margin: '0 auto',
+        textAlign: 'left'
+      }}>
+        <div style={{ marginBottom: '15px' }}>
+          <strong style={{ color: '#374151' }}>Tipo:</strong>
+          <div style={{ color: '#6b7280', marginTop: '5px' }}>
+            {formData.tipo === 'dano_via_publica' && '🚧 Daño Vía Pública'}
+            {formData.tipo === 'servicios_publicos' && '🚰 Servicios Públicos'}
+            {formData.tipo === 'seguridad' && '🚨 Seguridad'}
+            {formData.tipo === 'limpieza' && '🧹 Limpieza'}
+            {formData.tipo === 'otro' && '📋 Otro'}
+          </div>
+        </div>
+
+        <div style={{ marginBottom: '15px' }}>
+          <strong style={{ color: '#374151' }}>Descripción:</strong>
+          <div style={{ color: '#6b7280', marginTop: '5px' }}>
+            {formData.descripcion}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '30px' }}>
+        <button
+          onClick={() => setCurrentStep(2)}
+          style={{
+            backgroundColor: 'transparent',
+            color: '#6b7280',
+            border: '1px solid #d1d5db',
+            borderRadius: '8px',
+            padding: '12px 20px',
+            fontSize: '14px',
+            cursor: 'pointer'
+          }}
+        >
+          ← Volver
+        </button>
+
+        <button
+          onClick={handleSubmit}
+          disabled={loading}
+          style={{
+            backgroundColor: loading ? '#9ca3af' : '#10b981',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            padding: '12px 24px',
+            fontSize: '16px',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            opacity: loading ? 0.6 : 1
+          }}
+        >
+          {loading ? '🔄 Enviando...' : '📤 Enviar Reporte'}
         </button>
       </div>
     </div>
@@ -931,29 +468,30 @@ const ReportesCiudadanos = () => {
           📋 Reportes Ciudadanos
         </h1>
         
-        {/* Progress bar */}
-        {currentStep <= 4 && currentStep !== 2.5 && currentStep !== 2.7 && currentStep !== 3.5 && (
-          <div style={{ 
-            backgroundColor: '#f1f5f9', 
-            borderRadius: '10px', 
-            padding: '5px',
-            marginBottom: '20px'
+        {/* 📊 Barra de progreso */}
+        {currentStep <= 3 && (
+          <div style={{
+            width: '100%',
+            maxWidth: '600px',
+            margin: '0 auto 20px auto',
+            backgroundColor: '#e2e8f0',
+            borderRadius: '10px',
+            height: '8px',
+            overflow: 'hidden'
           }}>
-            <div 
+            <div
               style={{
-                backgroundColor: '#2563eb',
-                height: '8px',
-                borderRadius: '8px',
-                width: `${(currentStep / 4) * 100}%`,
+                height: '100%',
+                backgroundColor: '#8b5cf6',
+                width: `${(currentStep / 3) * 100}%`,
                 transition: 'width 0.3s ease'
               }}
             />
           </div>
         )}
-        
-        {currentStep <= 4 && currentStep !== 2.5 && currentStep !== 2.7 && currentStep !== 3.5 && (
+        {currentStep <= 3 && (
           <p style={{ textAlign: 'center', color: '#6b7280', fontSize: '14px' }}>
-            Paso {Math.floor(currentStep)} de 4
+            Paso {currentStep} de 3
           </p>
         )}
       </div>
