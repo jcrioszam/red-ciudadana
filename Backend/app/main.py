@@ -220,6 +220,8 @@ print('🔧 CORS SIMPLIFICADO - TODOS LOS MÉTODOS Y HEADERS PERMITIDOS')
 print('🚀 FORZANDO DESPLIEGUE - Último commit: 7555c01ae')
 print('🔥🔥🔥 CORS FIX APLICADO - Último commit: 208bd1d5f 🔥🔥🔥')
 print('🎯 POST /reportes-ciudadanos/ DEBERÍA FUNCIONAR AHORA 🎯')
+print('🔍 DEBUG: Logs detallados agregados para investigar problema de coordenadas')
+print('📊 Ahora veremos exactamente qué datos se reciben y se guardan')
 
 # 🆕 NUEVO: Endpoint de prueba para forzar despliegue
 @app.get("/test-deployment")
@@ -2691,6 +2693,18 @@ async def like_comentario(comentario_id: int, db: Session = Depends(get_db), cur
 async def create_reporte_ciudadano(reporte: ReporteCiudadanoCreate, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
     """Crear un nuevo reporte ciudadano"""
     
+    # 🔍 DEBUG: Log detallado de los datos recibidos
+    print(f"🚀 CREANDO REPORTE CIUDADANO - Usuario: {current_user.email}")
+    print(f"📋 DATOS RECIBIDOS:")
+    print(f"   - Título: {reporte.titulo}")
+    print(f"   - Descripción: {reporte.descripcion}")
+    print(f"   - Tipo: {reporte.tipo}")
+    print(f"   - Latitud: {reporte.latitud} (tipo: {type(reporte.latitud)})")
+    print(f"   - Longitud: {reporte.longitud} (tipo: {type(reporte.longitud)})")
+    print(f"   - Dirección: {reporte.direccion}")
+    print(f"   - Prioridad: {reporte.prioridad}")
+    print(f"   - Foto URL: {reporte.foto_url}")
+    
     # Procesar la foto_url si es una URL file://
     foto_url_processed = reporte.foto_url
     if reporte.foto_url and reporte.foto_url.startswith('file://'):
@@ -2708,6 +2722,18 @@ async def create_reporte_ciudadano(reporte: ReporteCiudadanoCreate, db: Session 
         else:
             foto_url_processed = "http://localhost:8000/static/reportes/ejemplo1.jpg"  # Por defecto
     
+    # 🔍 DEBUG: Log de los datos que se van a guardar
+    print(f"💾 DATOS A GUARDAR EN BASE DE DATOS:")
+    print(f"   - Título: {reporte.titulo}")
+    print(f"   - Descripción: {reporte.descripcion}")
+    print(f"   - Tipo: {reporte.tipo}")
+    print(f"   - Latitud: {reporte.latitud}")
+    print(f"   - Longitud: {reporte.longitud}")
+    print(f"   - Dirección: {reporte.direccion}")
+    print(f"   - Foto URL: {foto_url_processed}")
+    print(f"   - Prioridad: {reporte.prioridad}")
+    print(f"   - Ciudadano ID: {current_user.id}")
+    
     db_reporte = ReporteCiudadanoModel(
         titulo=reporte.titulo,
         descripcion=reporte.descripcion,
@@ -2719,9 +2745,20 @@ async def create_reporte_ciudadano(reporte: ReporteCiudadanoCreate, db: Session 
         prioridad=reporte.prioridad,
         ciudadano_id=current_user.id
     )
+    
+    print(f"🔧 OBJETO ReporteCiudadanoModel CREADO:")
+    print(f"   - Latitud: {db_reporte.latitud}")
+    print(f"   - Longitud: {db_reporte.longitud}")
+    
     db.add(db_reporte)
     db.commit()
     db.refresh(db_reporte)
+    
+    print(f"✅ REPORTE GUARDADO EN BASE DE DATOS:")
+    print(f"   - ID: {db_reporte.id}")
+    print(f"   - Latitud: {db_reporte.latitud}")
+    print(f"   - Longitud: {db_reporte.longitud}")
+    print(f"   - Fecha: {db_reporte.fecha_creacion}")
 
     # 🔧 FIX: Manejar relación ciudadano de forma segura
     try:
