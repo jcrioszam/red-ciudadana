@@ -87,9 +87,13 @@ const ReportesCiudadanos = () => {
 
   // Mutation para crear reporte
   const createMutation = useMutation(createReporte, {
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('✅ REPORTE CREADO EXITOSAMENTE:', data);
+      setLoading(false);
+      setMensaje('✅ Reporte enviado exitosamente');
       setShowSuccess(true);
       setCurrentStep(5); // Paso de agradecimiento
+      
       // Invalidar cache para refrescar la lista
       queryClient.invalidateQueries('reportes-ciudadanos');
       
@@ -97,6 +101,7 @@ const ReportesCiudadanos = () => {
       setTimeout(() => {
         setShowSuccess(false);
         setCurrentStep(1);
+        setMensaje('');
         setFormData({
           tipo: '',
           descripcion: '',
@@ -108,6 +113,8 @@ const ReportesCiudadanos = () => {
       }, 3000);
     },
     onError: (error) => {
+      console.error('❌ ERROR AL CREAR REPORTE:', error);
+      setLoading(false);
       setMensaje(`❌ Error: ${error.message}`);
     },
   });
@@ -179,11 +186,20 @@ const ReportesCiudadanos = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    setLoading(true);
-    setMensaje('');
+    console.log('🚀 SUBMIT INICIADO - Datos del formulario:', formData);
     
+    // Validar que tengamos los datos mínimos
+    if (!formData.tipo || !formData.descripcion.trim()) {
+      setMensaje('❌ Por favor complete tipo de reporte y descripción');
+      return;
+    }
+    
+    setLoading(true);
+    setMensaje('🔄 Enviando reporte...');
+    
+    console.log('🔥 EJECUTANDO MUTACIÓN:', formData);
     createMutation.mutate(formData);
-    setLoading(false);
+    // NO llamamos setLoading(false) aquí - lo maneja la mutación
   };
 
   const handleChange = (e) => {
