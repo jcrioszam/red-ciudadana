@@ -2721,8 +2721,12 @@ async def create_reporte_ciudadano(reporte: ReporteCiudadanoCreate, db: Session 
     db.commit()
     db.refresh(db_reporte)
 
-    # Agregar nombre del ciudadano
-    db_reporte.ciudadano_nombre = db_reporte.ciudadano.nombre if db_reporte.ciudadano else "Ciudadano"
+    # 🔧 FIX: Manejar relación ciudadano de forma segura
+    try:
+        db_reporte.ciudadano_nombre = db_reporte.ciudadano.nombre if db_reporte.ciudadano else "Ciudadano"
+    except Exception as e:
+        print(f"⚠️ Error accediendo a ciudadano: {e}")
+        db_reporte.ciudadano_nombre = "Ciudadano"
 
     return db_reporte
 
@@ -2752,11 +2756,20 @@ async def list_reportes_ciudadanos(
     
     reportes = query.order_by(ReporteCiudadanoModel.fecha_creacion.desc()).offset(skip).limit(limit).all()
 
-    # Agregar nombres de usuarios
+    # 🔧 FIX: Manejar relaciones de forma segura
     for reporte in reportes:
-        reporte.ciudadano_nombre = reporte.ciudadano.nombre if reporte.ciudadano else "Ciudadano"
-        if reporte.administrador:
-            reporte.administrador_nombre = reporte.administrador.nombre
+        try:
+            reporte.ciudadano_nombre = reporte.ciudadano.nombre if reporte.ciudadano else "Ciudadano"
+        except Exception as e:
+            print(f"⚠️ Error accediendo a ciudadano en GET: {e}")
+            reporte.ciudadano_nombre = "Ciudadano"
+        
+        try:
+            if reporte.administrador:
+                reporte.administrador_nombre = reporte.administrador.nombre
+        except Exception as e:
+            print(f"⚠️ Error accediendo a administrador: {e}")
+            reporte.administrador_nombre = None
 
     return reportes
 
