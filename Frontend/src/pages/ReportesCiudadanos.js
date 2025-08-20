@@ -20,6 +20,9 @@ const ReportesCiudadanos = () => {
     // 🆕 NUEVO: Campo para foto
     foto: null
   });
+
+  // 🗺️ Estado para ubicación seleccionada en mapa
+  const [selectedLocation, setSelectedLocation] = useState(null);
   
   const [mensaje, setMensaje] = useState('');
   const [loading, setLoading] = useState(false);
@@ -69,6 +72,8 @@ const ReportesCiudadanos = () => {
 
   // Mutation para crear reporte
   const createMutation = useMutation(createReporte, {
+    retry: 3, // 🔧 FIX: Intentar 3 veces antes de fallar
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 5000), // 🔧 FIX: Delay exponencial
     onSuccess: (data) => {
       console.log('✅ REPORTE CREADO EXITOSAMENTE:', data);
       setLoading(false);
@@ -99,8 +104,9 @@ const ReportesCiudadanos = () => {
         });
       }, 3000);
     },
-    onError: (error) => {
-      console.error('❌ ERROR AL CREAR REPORTE:', error);
+    onError: (error, variables, context) => {
+      // 🔧 FIX: Solo mostrar error después de todos los intentos fallidos
+      console.error('❌ ERROR AL CREAR REPORTE (después de todos los intentos):', error);
       setLoading(false);
       setMensaje(`❌ Error: ${error.message}`);
     },
@@ -130,48 +136,53 @@ const ReportesCiudadanos = () => {
 
   // 🌍 Funciones de geolocalización
   const getCurrentLocation = () => {
-    setMensaje('🔄 Obteniendo ubicación...');
+    setMensaje('🔄 Obteniendo ubicación GPS...');
     setLoading(true);
     
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          
           setFormData(prev => ({
             ...prev,
-            latitud: position.coords.latitude.toString(),
-            longitud: position.coords.longitude.toString(),
-            ubicacion: `Lat: ${position.coords.latitude.toFixed(4)}, Lng: ${position.coords.longitude.toFixed(4)}`
+            latitud: lat,
+            longitud: lng,
           }));
-          setMensaje('✅ Ubicación obtenida correctamente');
+          
+          setSelectedLocation({ lat, lng });
+          setMensaje('✅ Ubicación GPS obtenida correctamente');
           setLoading(false);
+          
           setTimeout(() => {
             setMensaje('');
             setCurrentStep(3); // Ir a paso de foto
-          }, 1000);
+          }, 2000);
         },
         (error) => {
-          console.error('Geolocation error:', error);
+          console.error('❌ Error de geolocalización:', error);
           setLoading(false);
           
           let errorMessage = '';
           switch(error.code) {
             case error.PERMISSION_DENIED:
-              errorMessage = '🚫 Acceso a ubicación denegado. Use "Escribir dirección manualmente".';
+              errorMessage = '🚫 Acceso a ubicación denegado. Usa el mapa para seleccionar manualmente.';
               break;
             case error.POSITION_UNAVAILABLE:
-              errorMessage = '📍 Ubicación no disponible. Use "Escribir dirección manualmente".';
+              errorMessage = '📍 Ubicación no disponible. Usa el mapa para seleccionar manualmente.';
               break;
             case error.TIMEOUT:
-              errorMessage = '⏰ Tiempo agotado. Use "Escribir dirección manualmente".';
+              errorMessage = '⏰ Tiempo agotado. Usa el mapa para seleccionar manualmente.';
               break;
             default:
-              errorMessage = '❌ Error de ubicación. Use "Escribir dirección manualmente".';
+              errorMessage = '❌ Error de ubicación. Usa el mapa para seleccionar manualmente.';
               break;
           }
           
           setMensaje(errorMessage);
           
-          // Auto-redirect a entrada manual después de 3 segundos
+          // Auto-redirect a mapa después de 3 segundos
           setTimeout(() => {
             setMensaje('');
             setCurrentStep(2.5);
@@ -185,12 +196,30 @@ const ReportesCiudadanos = () => {
       );
     } else {
       setLoading(false);
-      setMensaje('❌ Geolocalización no soportada en este navegador.');
+      setMensaje('❌ Geolocalización no soportada en este navegador. Usa el mapa para seleccionar manualmente.');
       setTimeout(() => {
         setMensaje('');
         setCurrentStep(2.5);
       }, 2000);
     }
+  };
+
+  // 🗺️ Función para manejar selección de ubicación en mapa
+  const handleLocationSelect = (lat, lng) => {
+    setFormData(prev => ({
+      ...prev,
+      latitud: lat,
+      longitud: lng,
+    }));
+    
+    setSelectedLocation({ lat, lng });
+    setMensaje('✅ Ubicación seleccionada en mapa');
+    
+    // Avanzar al siguiente paso después de 2 segundos
+    setTimeout(() => {
+      setMensaje('');
+      setCurrentStep(3);
+    }, 2000);
   };
 
   const handleSubmit = async (e) => {
@@ -233,11 +262,12 @@ const ReportesCiudadanos = () => {
     });
   };
 
-  // 🎯 FLUJO CON FOTO - 4 PASOS TOTAL
+  // 🎯 FLUJO CON MAPA Y FOTO - 5 PASOS TOTAL
   const renderStepContent = () => {
     switch (currentStep) {
       case 1: return renderTipoReporte();
       case 2: return renderDescripcion();
+      case 2.5: return renderUbicacion(); // 🆕 NUEVO: Paso de ubicación (mapa/GPS)
       case 3: return renderFoto(); // 🆕 NUEVO: Paso de foto
       case 4: return renderResumen();
       case 5: return renderAgradecimiento();
@@ -324,7 +354,7 @@ const ReportesCiudadanos = () => {
           value={formData.descripcion}
           onChange={handleChange}
           placeholder="Describe el problema en detalle..."
-          style={{
+                        style={{
             width: '100%',
             minHeight: '120px',
             padding: '15px',
@@ -369,6 +399,112 @@ const ReportesCiudadanos = () => {
           Continuar →
         </button>
       </div>
+    </div>
+  );
+
+  // 🗺️ PASO 2.5: Selección de ubicación (GPS o mapa)
+  const renderUbicacion = () => (
+    <div style={{ textAlign: 'center', padding: '20px' }}>
+      <h2 style={{ color: '#374151', marginBottom: '10px' }}>
+        🗺️ Selecciona la ubicación del reporte
+      </h2>
+      <p style={{ color: '#6b7280', marginBottom: '20px' }}>
+        Usa GPS automático o selecciona manualmente en el mapa
+      </p>
+
+      {/* 🗺️ Opciones de ubicación */}
+      <div style={{ 
+        display: 'flex', 
+        gap: '15px', 
+        justifyContent: 'center', 
+        marginBottom: '20px',
+        flexWrap: 'wrap'
+      }}>
+        <button
+          onClick={getCurrentLocation}
+          disabled={loading}
+          style={{
+            backgroundColor: loading ? '#9ca3af' : '#10b981',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            padding: '12px 24px',
+            fontSize: '16px',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}
+        >
+          {loading ? '🔄' : '📍'} {loading ? 'Obteniendo GPS...' : 'Usar mi ubicación (GPS)'}
+        </button>
+
+        <button
+          onClick={() => setCurrentStep(3)}
+          style={{
+            backgroundColor: '#6b7280',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            padding: '12px 24px',
+            fontSize: '16px',
+            cursor: 'pointer'
+          }}
+        >
+          🗺️ Seleccionar en mapa
+        </button>
+      </div>
+
+      {/* 🗺️ Mapa interactivo */}
+      <div style={{ marginTop: '20px' }}>
+        <MapaInteractivo
+          onLocationSelect={handleLocationSelect}
+          selectedLocation={selectedLocation}
+          modo="seleccion"
+          center={[19.4326, -99.1332]} // México City
+          zoom={12}
+        />
+      </div>
+
+      {/* 📍 Información de ubicación seleccionada */}
+      {selectedLocation && (
+        <div style={{
+          marginTop: '20px',
+          padding: '15px',
+          backgroundColor: '#f0fdf4',
+          border: '2px solid #10b981',
+          borderRadius: '8px',
+          maxWidth: '400px',
+          margin: '20px auto 0'
+        }}>
+          <h3 style={{ color: '#10b981', marginBottom: '10px' }}>
+            ✅ Ubicación seleccionada
+          </h3>
+          <p style={{ margin: '5px 0', fontSize: '14px' }}>
+            <strong>Latitud:</strong> {selectedLocation.lat.toFixed(6)}
+          </p>
+          <p style={{ margin: '5px 0', fontSize: '14px' }}>
+            <strong>Longitud:</strong> {selectedLocation.lng.toFixed(6)}
+          </p>
+        </div>
+      )}
+
+      {/* 🔙 Botón para regresar */}
+      <button
+        onClick={() => setCurrentStep(2)}
+        style={{
+          backgroundColor: '#6b7280',
+          color: 'white',
+          border: 'none',
+          borderRadius: '8px',
+          padding: '10px 20px',
+          fontSize: '14px',
+          cursor: 'pointer',
+          marginTop: '20px'
+        }}
+      >
+        🔙 Regresar
+      </button>
     </div>
   );
 
@@ -446,7 +582,7 @@ const ReportesCiudadanos = () => {
             borderRadius: '8px',
             padding: '12px 24px',
             fontSize: '16px',
-            cursor: 'pointer',
+                    cursor: 'pointer',
             opacity: 1
           }}
         >
@@ -532,7 +668,7 @@ const ReportesCiudadanos = () => {
           disabled={loading}
           style={{
             backgroundColor: loading ? '#9ca3af' : '#10b981',
-            color: 'white',
+          color: 'white',
             border: 'none',
             borderRadius: '8px',
             padding: '12px 24px',
@@ -584,7 +720,7 @@ const ReportesCiudadanos = () => {
         </h1>
         
         {/* 📊 Barra de progreso */}
-        {currentStep <= 4 && (
+        {currentStep <= 5 && (
           <div style={{
             width: '100%',
             maxWidth: '600px',
@@ -595,18 +731,18 @@ const ReportesCiudadanos = () => {
             overflow: 'hidden'
           }}>
             <div
-              style={{
+                            style={{
                 height: '100%',
                 backgroundColor: '#8b5cf6',
-                width: `${(currentStep / 4) * 100}%`,
+                width: `${(currentStep / 5) * 100}%`,
                 transition: 'width 0.3s ease'
               }}
             />
           </div>
         )}
-        {currentStep <= 4 && (
+        {currentStep <= 5 && (
           <p style={{ textAlign: 'center', color: '#6b7280', fontSize: '14px' }}>
-            Paso {currentStep} de 4
+            Paso {currentStep} de 5
           </p>
         )}
       </div>
