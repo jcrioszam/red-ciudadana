@@ -16,7 +16,9 @@ const ReportesCiudadanos = () => {
     longitud: 0, // Valor por defecto
     // Campos opcionales
     direccion: '',
-    prioridad: 'normal'
+    prioridad: 'normal',
+    // 🆕 NUEVO: Campo para foto
+    foto: null
   });
   
   const [mensaje, setMensaje] = useState('');
@@ -91,7 +93,9 @@ const ReportesCiudadanos = () => {
           longitud: 0, // Valor por defecto
           // Campos opcionales
           direccion: '',
-          prioridad: 'normal'
+          prioridad: 'normal',
+          // 🆕 NUEVO: Campo para foto
+          foto: null
         });
       }, 3000);
     },
@@ -112,6 +116,16 @@ const ReportesCiudadanos = () => {
       'otro': 'Reporte Ciudadano'
     };
     return titulos[tipo] || `Reporte de ${tipo}`;
+  };
+
+  // 🆕 NUEVA FUNCIÓN: Convertir archivo a base64
+  const convertFileToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = error => reject(error);
+    });
   };
 
   // 🌍 Funciones de geolocalización
@@ -179,7 +193,7 @@ const ReportesCiudadanos = () => {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     console.log('🚀 SUBMIT INICIADO - Datos del formulario:', formData);
 
@@ -197,7 +211,9 @@ const ReportesCiudadanos = () => {
       latitud: formData.latitud, // ✅ REQUERIDO por backend (0 por defecto)
       longitud: formData.longitud, // ✅ REQUERIDO por backend (0 por defecto)
       direccion: formData.direccion || null, // ❌ OPCIONAL
-      prioridad: formData.prioridad // ❌ OPCIONAL
+      prioridad: formData.prioridad, // ❌ OPCIONAL
+      // 🆕 NUEVO: Incluir foto si existe
+      foto_url: formData.foto ? await convertFileToBase64(formData.foto) : null
     };
 
     console.log('📋 DATOS COMPLETOS PARA BACKEND:', reporteData);
@@ -217,13 +233,14 @@ const ReportesCiudadanos = () => {
     });
   };
 
-  // 🎯 FLUJO SIMPLIFICADO - SOLO LO QUE FUNCIONABA ANTES
+  // 🎯 FLUJO CON FOTO - 4 PASOS TOTAL
   const renderStepContent = () => {
     switch (currentStep) {
       case 1: return renderTipoReporte();
       case 2: return renderDescripcion();
-      case 3: return renderResumen();
-      case 4: return renderAgradecimiento();
+      case 3: return renderFoto(); // 🆕 NUEVO: Paso de foto
+      case 4: return renderResumen();
+      case 5: return renderAgradecimiento();
       default: return renderTipoReporte();
     }
   };
@@ -355,7 +372,91 @@ const ReportesCiudadanos = () => {
     </div>
   );
 
-  // 📋 PASO 3: Resumen del reporte
+  // 📝 PASO 3: Foto del reporte (opcional)
+  const renderFoto = () => (
+    <div style={{ textAlign: 'center', padding: '20px' }}>
+      <h2 style={{ color: '#374151', marginBottom: '10px' }}>
+        📸 Foto del problema (opcional)
+      </h2>
+      <p style={{ color: '#6b7280', marginBottom: '20px' }}>
+        Si tienes una foto que ilustre mejor la situación, puedes subirla aquí.
+      </p>
+
+      <div style={{ maxWidth: '600px', margin: '0 auto' }}>
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) => setFormData(prev => ({ ...prev, foto: e.target.files[0] }))}
+          style={{
+            width: '100%',
+            padding: '10px',
+            border: '2px solid #e2e8f0',
+            borderRadius: '8px',
+            fontSize: '16px',
+            cursor: 'pointer'
+          }}
+        />
+        {formData.foto && (
+          <div style={{ marginTop: '20px', textAlign: 'center' }}>
+            <img
+              src={URL.createObjectURL(formData.foto)}
+              alt="Reporte"
+              style={{ maxWidth: '100%', borderRadius: '8px', marginBottom: '10px' }}
+            />
+            <button
+              onClick={() => setFormData(prev => ({ ...prev, foto: null }))}
+              style={{
+                backgroundColor: '#ef4444',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '10px 20px',
+                fontSize: '14px',
+                cursor: 'pointer'
+              }}
+            >
+              Eliminar Foto
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '20px' }}>
+        <button
+          onClick={() => setCurrentStep(2)}
+          style={{
+            backgroundColor: 'transparent',
+            color: '#6b7280',
+            border: '1px solid #d1d5db',
+            borderRadius: '8px',
+            padding: '12px 20px',
+            fontSize: '14px',
+            cursor: 'pointer'
+          }}
+        >
+          ← Volver
+        </button>
+
+        <button
+          onClick={() => setCurrentStep(4)}
+          style={{
+            backgroundColor: '#8b5cf6',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            padding: '12px 24px',
+            fontSize: '16px',
+            cursor: 'pointer',
+            opacity: 1
+          }}
+        >
+          Continuar →
+        </button>
+      </div>
+    </div>
+  );
+
+  // 📋 PASO 4: Resumen del reporte
   const renderResumen = () => (
     <div style={{ textAlign: 'center', padding: '20px' }}>
       <h2 style={{ color: '#374151', marginBottom: '10px' }}>
@@ -391,11 +492,28 @@ const ReportesCiudadanos = () => {
             {formData.descripcion}
           </div>
         </div>
+
+        {/* 🆕 NUEVO: Mostrar estado de la foto */}
+        <div style={{ marginBottom: '15px' }}>
+          <strong style={{ color: '#374151' }}>Foto:</strong>
+          <div style={{ color: '#6b7280', marginTop: '5px' }}>
+            {formData.foto ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ color: '#10b981' }}>✅ Foto adjunta</span>
+                <span style={{ fontSize: '12px', color: '#9ca3af' }}>
+                  ({formData.foto.name} - {(formData.foto.size / 1024).toFixed(1)} KB)
+                </span>
+              </div>
+            ) : (
+              <span style={{ color: '#6b7280' }}>📷 Sin foto</span>
+            )}
+          </div>
+        </div>
       </div>
 
       <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '30px' }}>
         <button
-          onClick={() => setCurrentStep(2)}
+          onClick={() => setCurrentStep(3)}
           style={{
             backgroundColor: 'transparent',
             color: '#6b7280',
@@ -466,7 +584,7 @@ const ReportesCiudadanos = () => {
         </h1>
         
         {/* 📊 Barra de progreso */}
-        {currentStep <= 3 && (
+        {currentStep <= 4 && (
           <div style={{
             width: '100%',
             maxWidth: '600px',
@@ -480,15 +598,15 @@ const ReportesCiudadanos = () => {
               style={{
                 height: '100%',
                 backgroundColor: '#8b5cf6',
-                width: `${(currentStep / 3) * 100}%`,
+                width: `${(currentStep / 4) * 100}%`,
                 transition: 'width 0.3s ease'
               }}
             />
           </div>
         )}
-        {currentStep <= 3 && (
+        {currentStep <= 4 && (
           <p style={{ textAlign: 'center', color: '#6b7280', fontSize: '14px' }}>
-            Paso {currentStep} de 3
+            Paso {currentStep} de 4
           </p>
         )}
       </div>
