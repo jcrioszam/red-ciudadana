@@ -160,7 +160,7 @@ def migrate_foto_url_auto():
         print(f"📏 Campo foto_url actual: {column_info[1]}({current_length})")
         
         # Si ya tiene el tamaño correcto, no hacer nada
-        if current_length and current_length >= 10000:
+        if current_length and current_length >= 50000:
             print("✅ Campo foto_url ya tiene el tamaño correcto")
             return True
         
@@ -168,7 +168,7 @@ def migrate_foto_url_auto():
         print("🔧 Alterando campo foto_url...")
         cursor.execute("""
             ALTER TABLE reportes_ciudadanos 
-            ALTER COLUMN foto_url TYPE VARCHAR(10000);
+            ALTER COLUMN foto_url TYPE VARCHAR(50000);
         """)
         
         print("✅ Campo foto_url alterado exitosamente")
@@ -227,7 +227,7 @@ async def test_deployment():
     return {
         "message": "Backend actualizado correctamente",
         "cors": "simplificado",
-        "foto_url_limit": "10000",
+        "foto_url_limit": "50000",
         "endpoint_duplicado": "eliminado",
         "timestamp": "2024-12-28"
     }

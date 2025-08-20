@@ -218,7 +218,7 @@ class ReporteCiudadano(Base):
     latitud = Column(Float, nullable=False)
     longitud = Column(Float, nullable=False)
     direccion = Column(String(500), nullable=True)
-    foto_url = Column(String(10000), nullable=True)  # 🔧 AUMENTADO: De 500 a 10000 para base64
+    foto_url = Column(String(50000), nullable=True)  # 🔧 AUMENTADO: De 10000 a 50000 para base64
     estado = Column(String(50), default="pendiente")  # pendiente, en_revision, en_progreso, resuelto, rechazado
     prioridad = Column(String(20), default="normal")  # baja, normal, alta, urgente
     fecha_creacion = Column(DateTime, default=func.now())
