@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import MapaInteractivo from '../components/MapaInteractivo';
+import { api } from '../api'; // ✅ IMPORTAR INSTANCIA API CON INTERCEPTORES
 
 // 🎯 FLUJO DE LÍNEA DE TIEMPO PARA REPORTES CIUDADANOS
 const ReportesCiudadanos = () => {
@@ -22,60 +23,32 @@ const ReportesCiudadanos = () => {
   const [showSuccess, setShowSuccess] = useState(false);
   const queryClient = useQueryClient();
 
-  // 🔒 HTTPS HARDCODED - NO depende de variables
-  const API_BASE = 'https://red-ciudadana-production.up.railway.app';
-
-  // ✅ FUNCIÓN SIMPLE PARA OBTENER REPORTES
+  // ✅ FUNCIÓN CONVERTIDA A API INSTANCE - HEREDA HTTPS + CORS
   const fetchReportes = async () => {
-    console.log('🚀 FETCHING reportes desde:', `${API_BASE}/reportes-ciudadanos/`);
+    console.log('🚀 FETCHING reportes usando API instance con interceptores');
     
-      const token = localStorage.getItem('token');
-    if (!token) {
-      throw new Error('No token found');
+    try {
+      const response = await api.get('/reportes-ciudadanos/');
+      console.log('✅ REPORTES CARGADOS:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ ERROR AL CARGAR REPORTES:', error);
+      throw error;
     }
-
-    const response = await fetch(`${API_BASE}/reportes-ciudadanos/`, {
-      method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-    console.log('✅ REPORTES CARGADOS:', data);
-    return data;
   };
 
-  // ✅ FUNCIÓN SIMPLE PARA CREAR REPORTE
+  // ✅ FUNCIÓN CONVERTIDA A API INSTANCE - HEREDA HTTPS + CORS
   const createReporte = async (data) => {
-    console.log('🚀 CREANDO reporte en:', `${API_BASE}/reportes-ciudadanos/`);
+    console.log('🚀 CREANDO reporte usando API instance con interceptores');
     
-    const token = localStorage.getItem('token');
-    if (!token) {
-      throw new Error('No token found');
+    try {
+      const response = await api.post('/reportes-ciudadanos/', data);
+      console.log('✅ REPORTE CREADO:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ ERROR AL CREAR REPORTE:', error);
+      throw error;
     }
-
-    const response = await fetch(`${API_BASE}/reportes-ciudadanos/`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const result = await response.json();
-    console.log('✅ REPORTE CREADO:', result);
-    return result;
   };
 
   // React Query para obtener reportes
