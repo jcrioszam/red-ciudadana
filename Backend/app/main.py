@@ -2761,7 +2761,7 @@ async def update_reporte_ciudadano(
 
 @app.delete("/reportes-ciudadanos/{reporte_id}")
 async def delete_reporte_ciudadano(reporte_id: int, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
-    """Eliminar un reporte ciudadano (desactivar)"""
+    """Eliminar un reporte ciudadano"""
     reporte = db.query(ReporteCiudadanoModel).filter(ReporteCiudadanoModel.id == reporte_id).first()
 
     if not reporte:
@@ -2771,7 +2771,9 @@ async def delete_reporte_ciudadano(reporte_id: int, db: Session = Depends(get_db
     if current_user.rol not in ['admin', 'presidente', 'lider_estatal', 'lider_municipal'] and reporte.ciudadano_id != current_user.id:
         raise HTTPException(status_code=403, detail="No puedes eliminar este reporte")
 
+    # Soft delete
     reporte.activo = False
+    reporte.fecha_actualizacion = datetime.now()
     db.commit()
 
     return {"message": "Reporte eliminado exitosamente"}
@@ -2854,7 +2856,7 @@ async def update_reporte_ciudadano_estado(
 
 @app.delete("/reportes-ciudadanos/{reporte_id}")
 async def delete_reporte_ciudadano(reporte_id: int, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
-    """Eliminar un reporte ciudadano (desactivar)"""
+    """Eliminar un reporte ciudadano"""
     reporte = db.query(ReporteCiudadanoModel).filter(ReporteCiudadanoModel.id == reporte_id).first()
 
     if not reporte:
@@ -2864,80 +2866,14 @@ async def delete_reporte_ciudadano(reporte_id: int, db: Session = Depends(get_db
     if current_user.rol not in ['admin', 'presidente', 'lider_estatal', 'lider_municipal'] and reporte.ciudadano_id != current_user.id:
         raise HTTPException(status_code=403, detail="No puedes eliminar este reporte")
 
+    # Soft delete
     reporte.activo = False
+    reporte.fecha_actualizacion = datetime.now()
     db.commit()
 
     return {"message": "Reporte eliminado exitosamente"}
 
-@app.post("/reportes-ciudadanos-con-foto/", response_model=ReporteCiudadano)
-async def create_reporte_ciudadano_con_foto(
-    titulo: str = Form(...),
-    descripcion: str = Form(...),
-    tipo: str = Form(...),
-    latitud: float = Form(...),
-    longitud: float = Form(...),
-    direccion: str = Form(None),
-    prioridad: str = Form("normal"),
-    foto: UploadFile = File(None),
-    db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_active_user)
-):
-    """Crear un nuevo reporte ciudadano con foto"""
-    
-    foto_url = None
-    
-    # Si se subió una foto, guardarla
-    if foto:
-        # Crear directorio si no existe
-        import os
-        os.makedirs("static/reportes", exist_ok=True)
-        
-        # Generar nombre único para el archivo
-        import uuid
-        file_extension = foto.filename.split('.')[-1] if '.' in foto.filename else 'jpg'
-        file_name = f"{uuid.uuid4()}.{file_extension}"
-        file_path = f"static/reportes/{file_name}"
-        
-        # Guardar el archivo
-        with open(file_path, "wb") as buffer:
-            content = await foto.read()
-            buffer.write(content)
-        
-        foto_url = f"http://localhost:8000/static/reportes/{file_name}"
-    else:
-        # Si no hay foto, asignar una imagen de ejemplo basada en el tipo
-        if 'lámpara' in titulo.lower() or 'iluminación' in titulo.lower():
-            foto_url = "http://localhost:8000/static/reportes/ejemplo2.jpg"  # Iluminación
-        elif 'bache' in titulo.lower() or 'pavimento' in titulo.lower():
-            foto_url = "http://localhost:8000/static/reportes/ejemplo1.jpg"  # Baches
-        elif 'basura' in titulo.lower() or 'contenedor' in titulo.lower():
-            foto_url = "http://localhost:8000/static/reportes/ejemplo3.jpg"  # Basura
-        elif 'árbol' in titulo.lower() or 'árbol' in titulo.lower():
-            foto_url = "http://localhost:8000/static/reportes/ejemplo4.jpg"  # Árboles
-        elif 'semaforo' in titulo.lower() or 'semáforo' in titulo.lower():
-            foto_url = "http://localhost:8000/static/reportes/ejemplo5.jpg"  # Semáforos
-        else:
-            foto_url = "http://localhost:8000/static/reportes/ejemplo1.jpg"  # Por defecto
-    
-    db_reporte = ReporteCiudadanoModel(
-        titulo=titulo,
-        descripcion=descripcion,
-        tipo=tipo,
-        latitud=latitud,
-        longitud=longitud,
-        direccion=direccion,
-        foto_url=foto_url,
-        prioridad=prioridad,
-        ciudadano_id=current_user.id
-    )
-    db.add(db_reporte)
-    db.commit()
-    db.refresh(db_reporte)
-
-    # Agregar nombre del ciudadano
-    db_reporte.ciudadano_nombre = db_reporte.ciudadano.nombre if db_reporte.ciudadano else "Ciudadano"
-
-    return db_reporte
+# ✅ ELIMINADO: Endpoint duplicado /reportes-ciudadanos-con-foto/ que causaba conflicto CORS
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000) 
