@@ -222,6 +222,9 @@ print('🔥🔥🔥 CORS FIX APLICADO - Último commit: 208bd1d5f 🔥🔥🔥')
 print('🎯 POST /reportes-ciudadanos/ DEBERÍA FUNCIONAR AHORA 🎯')
 print('🔍 DEBUG: Logs detallados agregados para investigar problema de coordenadas')
 print('📊 Ahora veremos exactamente qué datos se reciben y se guardan')
+print('🚨🚨🚨 FORZANDO NUEVO DEPLOY - Último commit: 33f32502b 🚨🚨🚨')
+print('🔥🔥🔥 ESTE DEPLOY DEBE INCLUIR LOGS DE DEBUG 🔥🔥🔥')
+print('⚡⚡⚡ SI NO VES ESTOS MENSAJES, EL DEPLOY NO FUNCIONÓ ⚡⚡⚡')
 
 # 🆕 NUEVO: Endpoint de prueba para forzar despliegue
 @app.get("/test-deployment")
