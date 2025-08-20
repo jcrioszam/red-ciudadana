@@ -383,7 +383,7 @@ const ReportesCiudadanos = () => {
         </button>
 
         <button
-          onClick={() => setCurrentStep(3)}
+          onClick={() => setCurrentStep(2.5)}
           disabled={!formData.descripcion.trim()}
           style={{
             backgroundColor: formData.descripcion.trim() ? '#8b5cf6' : '#9ca3af',
