@@ -20,6 +20,7 @@ import Seguimiento from './pages/Seguimiento';
 import Noticias from './pages/Noticias';
 import ReportesCiudadanos from './pages/ReportesCiudadanos';
 import SeguimientoReportes from './pages/SeguimientoReportes';
+import MapaReportes from './pages/MapaReportes';
 import Layout from './components/Layout';
 
 const queryClient = new QueryClient();
@@ -73,6 +74,7 @@ function App() {
               <Route path="/seguimiento" element={<Seguimiento />} />
               <Route path="/noticias" element={<Noticias />} />
               <Route path="/reportes-ciudadanos" element={<ReportesCiudadanos />} />
+              <Route path="/mapa-reportes" element={<MapaReportes />} />
             <Route path="/seguimiento-reportes" element={<SeguimientoReportes />} />
             </Route>
           </Routes>

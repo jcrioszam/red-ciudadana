@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
+import MapaInteractivo from '../components/MapaInteractivo';
 
 // 🎯 FLUJO DE LÍNEA DE TIEMPO PARA REPORTES CIUDADANOS
 const ReportesCiudadanos = () => {
@@ -249,6 +250,8 @@ const ReportesCiudadanos = () => {
         return renderUbicacion();
       case 2.5:
         return renderUbicacionManual();
+      case 2.7:
+        return renderMapaInteractivo();
       case 3:
         return renderFoto();
       case 4:
@@ -359,6 +362,26 @@ const ReportesCiudadanos = () => {
         </button>
         
         <button
+          onClick={() => setCurrentStep(2.7)} // Sub-paso para mapa interactivo
+          style={{
+            backgroundColor: '#8b5cf6',
+            color: 'white',
+            border: 'none',
+            borderRadius: '12px',
+            padding: '20px',
+            fontSize: '16px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '10px'
+          }}
+        >
+          <span style={{ fontSize: '1.5rem' }}>🗺️</span>
+          Seleccionar en mapa interactivo
+        </button>
+        
+        <button
           onClick={() => setCurrentStep(2.5)} // Sub-paso para entrada manual
           style={{
             backgroundColor: '#2563eb',
@@ -459,6 +482,75 @@ const ReportesCiudadanos = () => {
       </div>
     </div>
   );
+
+  // 🗺️ PASO 2.7: Mapa interactivo para seleccionar ubicación
+  const renderMapaInteractivo = () => {
+    const handleLocationSelect = (latlng) => {
+      console.log('🗺️ Ubicación seleccionada en mapa:', latlng);
+      setFormData(prev => ({
+        ...prev,
+        latitud: latlng.lat.toString(),
+        longitud: latlng.lng.toString(),
+        ubicacion: `Coordenadas: ${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}`
+      }));
+    };
+
+    return (
+      <div style={{ textAlign: 'center', padding: '20px' }}>
+        <h2 style={{ color: '#374151', marginBottom: '10px' }}>
+          🗺️ Selecciona la ubicación en el mapa
+        </h2>
+        <p style={{ color: '#6b7280', marginBottom: '20px' }}>
+          Haz clic en el mapa para marcar la ubicación exacta del problema
+        </p>
+        
+        <div style={{ marginBottom: '20px' }}>
+          <MapaInteractivo 
+            onLocationSelect={handleLocationSelect}
+            reportes={reportes || []}
+            height="450px"
+            selectionMode={true}
+            showReportes={true}
+            centerLocation={[19.4326, -99.1332]} // CDMX
+          />
+        </div>
+
+        <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '20px' }}>
+          <button
+            onClick={() => setCurrentStep(2)}
+            style={{
+              backgroundColor: 'transparent',
+              color: '#6b7280',
+              border: '1px solid #d1d5db',
+              borderRadius: '8px',
+              padding: '12px 20px',
+              fontSize: '14px',
+              cursor: 'pointer'
+            }}
+          >
+            ← Volver
+          </button>
+          
+          <button
+            onClick={() => setCurrentStep(3)}
+            disabled={!formData.latitud || !formData.longitud}
+            style={{
+              backgroundColor: (formData.latitud && formData.longitud) ? '#8b5cf6' : '#9ca3af',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '12px 24px',
+              fontSize: '16px',
+              cursor: (formData.latitud && formData.longitud) ? 'pointer' : 'not-allowed',
+              opacity: (formData.latitud && formData.longitud) ? 1 : 0.6
+            }}
+          >
+            {(formData.latitud && formData.longitud) ? 'Continuar →' : 'Selecciona ubicación'}
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   // 📸 PASO 3: Opción de foto
   const renderFoto = () => (
@@ -654,7 +746,7 @@ const ReportesCiudadanos = () => {
         </h1>
         
         {/* Progress bar */}
-        {currentStep <= 4 && currentStep !== 2.5 && (
+        {currentStep <= 4 && currentStep !== 2.5 && currentStep !== 2.7 && (
           <div style={{ 
             backgroundColor: '#f1f5f9', 
             borderRadius: '10px', 
@@ -673,7 +765,7 @@ const ReportesCiudadanos = () => {
           </div>
         )}
         
-        {currentStep <= 4 && currentStep !== 2.5 && (
+        {currentStep <= 4 && currentStep !== 2.5 && currentStep !== 2.7 && (
           <p style={{ textAlign: 'center', color: '#6b7280', fontSize: '14px' }}>
             Paso {Math.floor(currentStep)} de 4
           </p>

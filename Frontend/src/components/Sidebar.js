@@ -2,7 +2,7 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useQuery } from 'react-query';
 import {
-  FiHome, FiUsers, FiUserCheck, FiCalendar, FiBarChart, FiGitBranch, FiCheckSquare, FiClock, FiShield, FiLogOut, FiMapPin, FiFileText, FiAlertTriangle
+  FiHome, FiUsers, FiUserCheck, FiCalendar, FiBarChart, FiGitBranch, FiCheckSquare, FiClock, FiShield, FiLogOut, FiMapPin, FiFileText, FiAlertTriangle, FiMap
 } from 'react-icons/fi';
 import api from '../api';
 import { useAuth } from '../contexts/AuthContext';
@@ -20,6 +20,7 @@ const menu = [
   { to: '/seguimiento', label: 'Seguimiento', icon: <FiMapPin /> },
   { to: '/noticias', label: 'Noticias', icon: <FiFileText /> },
   { to: '/reportes-ciudadanos', label: 'Reportes Ciudadanos', icon: <FiAlertTriangle /> },
+  { to: '/mapa-reportes', label: 'Mapa de Reportes', icon: <FiMap /> },
   { to: '/seguimiento-reportes', label: 'Seguimiento Reportes', icon: <FiAlertTriangle /> },
   { to: '/perfil', label: 'Perfil', icon: <FiUserCheck /> },
   { to: '/admin-perfiles', label: 'Administrar Perfiles', icon: <FiShield /> },
@@ -89,6 +90,7 @@ export default function Sidebar() {
               'eventos-historicos': 'eventos-historicos',
               'estructura-red': 'estructura-red',
               'reportes-ciudadanos': 'reportes_ciudadanos', // Corrected mapping
+              'mapa-reportes': 'reportes_ciudadanos', // Usar los mismos permisos que reportes ciudadanos
               'seguimiento-reportes': 'seguimiento_reportes', // Nuevo mapeo
               'admin-perfiles': 'admin-perfiles'
             };
