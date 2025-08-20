@@ -136,6 +136,7 @@ app.add_middleware(
 )
 
 print('🔧 CORS SIMPLIFICADO - TODOS LOS MÉTODOS Y HEADERS PERMITIDOS')
+print('🚀 FORZANDO DESPLIEGUE - Último commit: 7555c01ae')
 
 app.include_router(vehiculos.router)
 app.include_router(movilizaciones.router)
