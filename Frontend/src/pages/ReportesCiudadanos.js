@@ -7,10 +7,12 @@ const ReportesCiudadanos = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
     tipo: '',
+    titulo: '', // Campo requerido por backend
     descripcion: '',
     ubicacion: '',
     latitud: '',
     longitud: '',
+    direccion: '', // Campo para direccion/ubicacion 
     foto: null
   });
   
@@ -104,10 +106,12 @@ const ReportesCiudadanos = () => {
         setMensaje('');
         setFormData({
           tipo: '',
+          titulo: '',
           descripcion: '',
           ubicacion: '',
           latitud: '',
           longitud: '',
+          direccion: '',
           foto: null
         });
       }, 3000);
@@ -119,7 +123,20 @@ const ReportesCiudadanos = () => {
     },
   });
 
-    // 🌍 Funciones de geolocalización
+    // 🏷️ Función para generar título automático basado en el tipo
+  const generarTitulo = (tipo) => {
+    const titulos = {
+      'Alumbrado': 'Reporte de Problema de Alumbrado Público',
+      'Baches': 'Reporte de Baches en la Vía',
+      'Basura': 'Reporte de Gestión de Basura',
+      'Agua': 'Reporte de Problema de Agua',
+      'Seguridad': 'Reporte de Problema de Seguridad',
+      'Tráfico': 'Reporte de Problema de Tráfico'
+    };
+    return titulos[tipo] || `Reporte de ${tipo}`;
+  };
+
+  // 🌍 Funciones de geolocalización
   const getCurrentLocation = () => {
     setMensaje('🔄 Obteniendo ubicación...');
     setLoading(true);
@@ -194,11 +211,25 @@ const ReportesCiudadanos = () => {
       return;
     }
     
+    // 🔧 PREPARAR DATOS PARA EL BACKEND
+    const reporteData = {
+      titulo: generarTitulo(formData.tipo), // Generar título automático
+      descripcion: formData.descripcion.trim(),
+      tipo: formData.tipo,
+      latitud: parseFloat(formData.latitud) || 0, // Convertir a número
+      longitud: parseFloat(formData.longitud) || 0, // Convertir a número
+      direccion: formData.ubicacion || formData.direccion || null, // Usar ubicacion como direccion
+      foto_url: null, // Por ahora sin foto
+      prioridad: 'normal' // Valor por defecto
+    };
+    
+    console.log('📋 DATOS PREPARADOS PARA BACKEND:', reporteData);
+    
     setLoading(true);
     setMensaje('🔄 Enviando reporte...');
     
-    console.log('🔥 EJECUTANDO MUTACIÓN:', formData);
-    createMutation.mutate(formData);
+    console.log('🔥 EJECUTANDO MUTACIÓN:', reporteData);
+    createMutation.mutate(reporteData);
     // NO llamamos setLoading(false) aquí - lo maneja la mutación
   };
 
