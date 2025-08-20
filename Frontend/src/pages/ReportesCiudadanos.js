@@ -526,19 +526,23 @@ const ReportesCiudadanos = () => {
         </div>
         
         <div style={{ marginBottom: '15px' }}>
-          <strong style={{ color: '#374151' }}>Descripción:</strong>
+          <strong style={{ color: '#374151' }}>Descripción: *</strong>
+          <div style={{ fontSize: '12px', color: '#9ca3af', marginBottom: '5px' }}>
+            {formData.descripcion.trim() ? '✅ Descripción completa' : '⚠️ Requerida para continuar'}
+          </div>
           <textarea
             value={formData.descripcion}
             onChange={(e) => setFormData(prev => ({ ...prev, descripcion: e.target.value }))}
-            placeholder="Describe el problema detalladamente..."
-            rows="3"
+            placeholder="Describe el problema detalladamente... (REQUERIDO)"
+            rows="4"
             style={{
               width: '100%',
               marginTop: '8px',
-              padding: '8px',
-              border: '1px solid #d1d5db',
+              padding: '12px',
+              border: formData.descripcion.trim() ? '2px solid #10b981' : '2px solid #ef4444',
               borderRadius: '6px',
-              fontSize: '14px'
+              fontSize: '14px',
+              backgroundColor: formData.descripcion.trim() ? '#f0fdf4' : '#fef2f2'
             }}
           />
         </div>
@@ -564,17 +568,19 @@ const ReportesCiudadanos = () => {
           onClick={handleSubmit}
           disabled={loading || !formData.descripcion.trim()}
           style={{
-            backgroundColor: loading ? '#9ca3af' : '#10b981',
+            backgroundColor: loading ? '#9ca3af' : (!formData.descripcion.trim() ? '#ef4444' : '#10b981'),
             color: 'white',
             border: 'none',
             borderRadius: '8px',
             padding: '12px 24px',
             fontSize: '16px',
-            cursor: loading ? 'not-allowed' : 'pointer',
+            cursor: loading || !formData.descripcion.trim() ? 'not-allowed' : 'pointer',
             opacity: loading || !formData.descripcion.trim() ? 0.6 : 1
           }}
         >
-          {loading ? '⏳ Enviando...' : '📤 Enviar Reporte'}
+          {loading ? '⏳ Enviando...' : 
+           !formData.descripcion.trim() ? '❌ Complete descripción' : 
+           '📤 Enviar Reporte'}
         </button>
       </div>
     </div>
