@@ -138,25 +138,20 @@ const SeguimientoReportes = () => {
   const loadReportes = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
-      
       const data = await api.get('/reportes-ciudadanos');
         
-        let filteredData = data;
+      let filteredData = data;
 
-        // Aplicar filtros
-        if (filterEstado !== 'todos') {
-          filteredData = filteredData.filter(reporte => reporte.estado === filterEstado);
-        }
-        if (filterTipo !== 'todos') {
-          filteredData = filteredData.filter(reporte => reporte.tipo === filterTipo);
-        }
-
-        setReportes(filteredData);
-        calculateStats(data);
-      } else {
-        console.error('Error en la respuesta:', response.status, response.statusText);
+      // Aplicar filtros
+      if (filterEstado !== 'todos') {
+        filteredData = filteredData.filter(reporte => reporte.estado === filterEstado);
       }
+      if (filterTipo !== 'todos') {
+        filteredData = filteredData.filter(reporte => reporte.tipo === filterTipo);
+      }
+
+      setReportes(filteredData);
+      calculateStats(data);
     } catch (error) {
       console.error('Error al cargar reportes:', error);
     } finally {
@@ -181,18 +176,16 @@ const SeguimientoReportes = () => {
     if (!selectedReporte || !nuevoEstado) return;
 
     try {
-      const token = localStorage.getItem('token');
       await api.patch(`/reportes-ciudadanos/${selectedReporte.id}`, { 
         estado: nuevoEstado,
         observaciones_admin: observaciones
       });
-        loadReportes();
-        setUpdateDialogOpen(false);
-        setDialogOpen(false);
-        setSelectedReporte(null);
-        setNuevoEstado('');
-        setObservaciones('');
-      }
+      loadReportes();
+      setUpdateDialogOpen(false);
+      setDialogOpen(false);
+      setSelectedReporte(null);
+      setNuevoEstado('');
+      setObservaciones('');
     } catch (error) {
       console.error('Error al actualizar estado:', error);
     }
