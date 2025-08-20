@@ -119,12 +119,11 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Configurar CORS - Permitir frontend y backend de Render
+# Configurar CORS - Permitir frontend y backend de Railway
 origins = [
     "http://localhost:3000",  # Desarrollo local
-    "https://red-ciudadana-frontend.onrender.com",  # Frontend producción
-    "http://localhost:8000",  # Backend local
-    "https://red-ciudadana-backend.onrender.com",  # Backend producción
+    "https://red-ciudadana.vercel.app",  # Frontend Vercel
+    "https://red-ciudadana-production.up.railway.app",  # Backend Railway
     "*"  # Temporal para debug
 ]
 
@@ -136,25 +135,7 @@ app.add_middleware(
     allow_headers=["*"],  # Permitir todos los headers
 )
 
-print('🔧 CORS ULTRA AGGRESSIVO - TODOS LOS MÉTODOS Y HEADERS PERMITIDOS')
-
-# Middleware adicional para forzar headers CORS
-@app.middleware("http")
-async def add_cors_headers(request, call_next):
-    # Manejar preflight OPTIONS request
-    if request.method == "OPTIONS":
-        response = Response()
-        response.headers["Access-Control-Allow-Origin"] = "*"
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-        response.headers["Access-Control-Allow-Headers"] = "*"
-        response.headers["Access-Control-Max-Age"] = "86400"
-        return response
-    
-    response = await call_next(request)
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-    response.headers["Access-Control-Allow-Headers"] = "*"
-    return response
+print('🔧 CORS SIMPLIFICADO - TODOS LOS MÉTODOS Y HEADERS PERMITIDOS')
 
 app.include_router(vehiculos.router)
 app.include_router(movilizaciones.router)
