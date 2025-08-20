@@ -112,25 +112,68 @@ const ReportesCiudadanos = () => {
     },
   });
 
-  // 🌍 Funciones de geolocalización
+    // 🌍 Funciones de geolocalización
   const getCurrentLocation = () => {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
+    setMensaje('🔄 Obteniendo ubicación...');
+    setLoading(true);
+    
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
         (position) => {
           setFormData(prev => ({
-              ...prev,
+            ...prev,
             latitud: position.coords.latitude.toString(),
             longitud: position.coords.longitude.toString(),
             ubicacion: `Lat: ${position.coords.latitude.toFixed(4)}, Lng: ${position.coords.longitude.toFixed(4)}`
           }));
-          setCurrentStep(3); // Ir a paso de foto
-          },
-          (error) => {
-          setMensaje('❌ Error al obtener ubicación. Por favor, seleccione manualmente.');
+          setMensaje('✅ Ubicación obtenida correctamente');
+          setLoading(false);
+          setTimeout(() => {
+            setMensaje('');
+            setCurrentStep(3); // Ir a paso de foto
+          }, 1000);
+        },
+        (error) => {
+          console.error('Geolocation error:', error);
+          setLoading(false);
+          
+          let errorMessage = '';
+          switch(error.code) {
+            case error.PERMISSION_DENIED:
+              errorMessage = '🚫 Acceso a ubicación denegado. Use "Escribir dirección manualmente".';
+              break;
+            case error.POSITION_UNAVAILABLE:
+              errorMessage = '📍 Ubicación no disponible. Use "Escribir dirección manualmente".';
+              break;
+            case error.TIMEOUT:
+              errorMessage = '⏰ Tiempo agotado. Use "Escribir dirección manualmente".';
+              break;
+            default:
+              errorMessage = '❌ Error de ubicación. Use "Escribir dirección manualmente".';
+              break;
           }
-        );
-      } else {
+          
+          setMensaje(errorMessage);
+          
+          // Auto-redirect a entrada manual después de 3 segundos
+          setTimeout(() => {
+            setMensaje('');
+            setCurrentStep(2.5);
+          }, 3000);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 300000
+        }
+      );
+    } else {
+      setLoading(false);
       setMensaje('❌ Geolocalización no soportada en este navegador.');
+      setTimeout(() => {
+        setMensaje('');
+        setCurrentStep(2.5);
+      }, 2000);
     }
   };
 
@@ -246,22 +289,26 @@ const ReportesCiudadanos = () => {
       <div style={{ maxWidth: '500px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '15px' }}>
         <button
           onClick={getCurrentLocation}
+          disabled={loading}
           style={{
-            backgroundColor: '#10b981',
+            backgroundColor: loading ? '#9ca3af' : '#10b981',
             color: 'white',
             border: 'none',
             borderRadius: '12px',
             padding: '20px',
             fontSize: '16px',
-            cursor: 'pointer',
+            cursor: loading ? 'not-allowed' : 'pointer',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: '10px'
+            gap: '10px',
+            opacity: loading ? 0.7 : 1
           }}
         >
-          <span style={{ fontSize: '1.5rem' }}>📱</span>
-          Usar mi ubicación actual (GPS)
+          <span style={{ fontSize: '1.5rem' }}>
+            {loading ? '⏳' : '📱'}
+          </span>
+          {loading ? 'Obteniendo ubicación...' : 'Usar mi ubicación actual (GPS)'}
         </button>
         
         <button
