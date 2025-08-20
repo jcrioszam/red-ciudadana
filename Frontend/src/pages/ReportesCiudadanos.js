@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import MapaInteractivo from '../components/MapaInteractivo';
-import { api } from '../api'; // ✅ IMPORTAR INSTANCIA API CON INTERCEPTORES
+import api from '../api'; // ✅ IMPORTAR INSTANCIA API CON EXPORT DEFAULT
 
 // 🎯 FLUJO DE LÍNEA DE TIEMPO PARA REPORTES CIUDADANOS
 const ReportesCiudadanos = () => {
