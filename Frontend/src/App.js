@@ -72,7 +72,7 @@ function App() {
               <Route path="/admin-perfiles" element={<AdminPerfiles />} />
               <Route path="/seguimiento" element={<Seguimiento />} />
               <Route path="/noticias" element={<Noticias />} />
-            <Route path="/reportes-ciudadanos" element={<ReportesCiudadanos />} />
+              <Route path="/reportes-ciudadanos" element={<ReportesCiudadanos />} />
             <Route path="/seguimiento-reportes" element={<SeguimientoReportes />} />
             </Route>
           </Routes>
