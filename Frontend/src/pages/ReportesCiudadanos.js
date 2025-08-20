@@ -220,7 +220,7 @@ const ReportesCiudadanos = () => {
       latitud: parseFloat(formData.latitud) || 0, // Convertir a número
       longitud: parseFloat(formData.longitud) || 0, // Convertir a número
       direccion: formData.ubicacion || formData.direccion || null, // Usar ubicacion como direccion
-      foto_url: null, // Por ahora sin foto
+      foto_url: formData.foto ? formData.foto.data : null, // Incluir foto si existe
       prioridad: 'normal' // Valor por defecto
     };
     
@@ -254,6 +254,8 @@ const ReportesCiudadanos = () => {
         return renderMapaInteractivo();
       case 3:
         return renderFoto();
+      case 3.5:
+        return renderFotoSelector();
       case 4:
         return renderResumen();
       case 5:
@@ -564,7 +566,7 @@ const ReportesCiudadanos = () => {
       
       <div style={{ maxWidth: '400px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '15px' }}>
         <button
-          onClick={() => setCurrentStep(4)}
+          onClick={() => setCurrentStep(3.5)}
           style={{
             backgroundColor: '#8b5cf6',
             color: 'white',
@@ -616,6 +618,201 @@ const ReportesCiudadanos = () => {
     </div>
   );
 
+  // 📸 PASO 3.5: Selector y subida de foto
+  const renderFotoSelector = () => {
+    const handleFileSelect = (event) => {
+      const file = event.target.files[0];
+      if (file) {
+        // Validar tipo de archivo
+        if (!file.type.startsWith('image/')) {
+          setMensaje('❌ Por favor seleccione solo archivos de imagen (JPG, PNG, etc.)');
+          return;
+        }
+        
+        // Validar tamaño (máximo 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+          setMensaje('❌ La imagen es muy grande. Máximo 5MB permitido.');
+          return;
+        }
+
+        // Convertir a base64 para almacenamiento temporal
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          setFormData(prev => ({
+            ...prev,
+            foto: {
+              file: file,
+              name: file.name,
+              size: file.size,
+              type: file.type,
+              data: e.target.result // base64
+            }
+          }));
+          setMensaje('✅ Foto seleccionada correctamente');
+        };
+        reader.readAsDataURL(file);
+      }
+    };
+
+    const removeFoto = () => {
+      setFormData(prev => ({ ...prev, foto: null }));
+      setMensaje('🗑️ Foto removida');
+    };
+
+    return (
+      <div style={{ textAlign: 'center', padding: '20px' }}>
+        <h2 style={{ color: '#374151', marginBottom: '10px' }}>
+          📸 Seleccionar foto del problema
+        </h2>
+        <p style={{ color: '#6b7280', marginBottom: '20px' }}>
+          Una imagen ayuda a entender mejor la situación
+        </p>
+        
+        <div style={{ maxWidth: '500px', margin: '0 auto' }}>
+          {/* 📷 Vista previa de foto seleccionada */}
+          {formData.foto && (
+            <div style={{
+              backgroundColor: '#f8fafc',
+              border: '2px solid #e2e8f0',
+              borderRadius: '12px',
+              padding: '20px',
+              marginBottom: '20px'
+            }}>
+              <h4 style={{ color: '#374151', marginBottom: '15px' }}>
+                📷 Foto seleccionada
+              </h4>
+              <img 
+                src={formData.foto.data} 
+                alt="Vista previa"
+                style={{
+                  maxWidth: '100%',
+                  maxHeight: '200px',
+                  borderRadius: '8px',
+                  marginBottom: '10px'
+                }}
+              />
+              <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '15px' }}>
+                <div>📁 {formData.foto.name}</div>
+                <div>📏 {(formData.foto.size / 1024).toFixed(1)} KB</div>
+                <div>🎨 {formData.foto.type}</div>
+              </div>
+              <button
+                onClick={removeFoto}
+                style={{
+                  backgroundColor: '#ef4444',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '8px 16px',
+                  fontSize: '14px',
+                  cursor: 'pointer'
+                }}
+              >
+                🗑️ Remover foto
+              </button>
+            </div>
+          )}
+
+          {/* 📁 Selector de archivo */}
+          <div style={{
+            border: '2px dashed #d1d5db',
+            borderRadius: '12px',
+            padding: '30px',
+            textAlign: 'center',
+            backgroundColor: formData.foto ? '#f0f9ff' : '#f9fafb',
+            borderColor: formData.foto ? '#0ea5e9' : '#d1d5db',
+            marginBottom: '20px'
+          }}>
+            <div style={{ fontSize: '48px', marginBottom: '15px' }}>
+              {formData.foto ? '✅' : '📷'}
+            </div>
+            <h4 style={{ color: '#374151', marginBottom: '10px' }}>
+              {formData.foto ? 'Foto seleccionada' : 'Seleccionar imagen'}
+            </h4>
+            <p style={{ color: '#6b7280', marginBottom: '20px', fontSize: '14px' }}>
+              {formData.foto 
+                ? 'La foto está lista para enviar con el reporte'
+                : 'Haga clic para seleccionar una imagen del problema'
+              }
+            </p>
+            
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleFileSelect}
+              style={{ display: 'none' }}
+              id="foto-input"
+            />
+            <label
+              htmlFor="foto-input"
+              style={{
+                backgroundColor: formData.foto ? '#10b981' : '#8b5cf6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '12px 24px',
+                fontSize: '16px',
+                cursor: 'pointer',
+                display: 'inline-block'
+              }}
+            >
+              {formData.foto ? '🔄 Cambiar foto' : '📁 Seleccionar archivo'}
+            </label>
+          </div>
+
+          {/* 📋 Información de archivos */}
+          <div style={{
+            backgroundColor: '#fef3c7',
+            border: '1px solid #fbbf24',
+            borderRadius: '8px',
+            padding: '15px',
+            marginBottom: '20px',
+            fontSize: '12px',
+            color: '#92400e'
+          }}>
+            <strong>📋 Información:</strong>
+            <div>• Formatos soportados: JPG, PNG, GIF, WebP</div>
+            <div>• Tamaño máximo: 5MB</div>
+            <div>• La foto es opcional</div>
+          </div>
+
+          {/* 🎯 Botones de navegación */}
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => setCurrentStep(3)}
+              style={{
+                backgroundColor: 'transparent',
+                color: '#6b7280',
+                border: '1px solid #d1d5db',
+                borderRadius: '8px',
+                padding: '12px 20px',
+                fontSize: '14px',
+                cursor: 'pointer'
+              }}
+            >
+              ← Volver
+            </button>
+            
+            <button
+              onClick={() => setCurrentStep(4)}
+              style={{
+                backgroundColor: '#10b981',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '12px 24px',
+                fontSize: '16px',
+                cursor: 'pointer'
+              }}
+            >
+              Continuar →
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // 📋 PASO 4: Resumen y envío
   const renderResumen = () => (
     <div style={{ textAlign: 'center', padding: '20px', maxWidth: '500px' }}>
@@ -645,6 +842,22 @@ const ReportesCiudadanos = () => {
           <strong style={{ color: '#374151' }}>Ubicación:</strong>
           <div style={{ color: '#6b7280', marginTop: '5px' }}>
             {formData.ubicacion || 'Sin ubicación especificada'}
+          </div>
+        </div>
+        
+        <div style={{ marginBottom: '15px' }}>
+          <strong style={{ color: '#374151' }}>Foto:</strong>
+          <div style={{ color: '#6b7280', marginTop: '5px' }}>
+            {formData.foto ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ color: '#10b981' }}>✅ Foto adjunta</span>
+                <span style={{ fontSize: '12px', color: '#9ca3af' }}>
+                  ({formData.foto.name} - {(formData.foto.size / 1024).toFixed(1)} KB)
+                </span>
+              </div>
+            ) : (
+              <span style={{ color: '#6b7280' }}>📷 Sin foto</span>
+            )}
           </div>
         </div>
         
@@ -746,7 +959,7 @@ const ReportesCiudadanos = () => {
         </h1>
         
         {/* Progress bar */}
-        {currentStep <= 4 && currentStep !== 2.5 && currentStep !== 2.7 && (
+        {currentStep <= 4 && currentStep !== 2.5 && currentStep !== 2.7 && currentStep !== 3.5 && (
           <div style={{ 
             backgroundColor: '#f1f5f9', 
             borderRadius: '10px', 
@@ -765,7 +978,7 @@ const ReportesCiudadanos = () => {
           </div>
         )}
         
-        {currentStep <= 4 && currentStep !== 2.5 && currentStep !== 2.7 && (
+        {currentStep <= 4 && currentStep !== 2.5 && currentStep !== 2.7 && currentStep !== 3.5 && (
           <p style={{ textAlign: 'center', color: '#6b7280', fontSize: '14px' }}>
             Paso {Math.floor(currentStep)} de 4
           </p>
