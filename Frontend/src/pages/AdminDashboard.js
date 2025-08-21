@@ -15,7 +15,20 @@ const AdminDashboard = () => {
     try {
       // Usar el endpoint que sí existe para obtener roles
       const response = await api.get('/perfiles/roles');
-      return response.data;
+      console.log('🔍 Respuesta de /perfiles/roles:', response.data);
+      
+      // Validar que sea un array
+      if (Array.isArray(response.data)) {
+        return response.data;
+      } else if (response.data && typeof response.data === 'object') {
+        // Si es un objeto, extraer el array de roles
+        const rolesArray = Object.values(response.data);
+        console.log('🔍 Roles extraídos:', rolesArray);
+        return rolesArray;
+      } else {
+        console.error('❌ Formato inesperado de /perfiles/roles:', response.data);
+        return [];
+      }
     } catch (error) {
       console.error('Error al obtener perfiles:', error);
       return [];
@@ -204,85 +217,109 @@ const AdminDashboard = () => {
 
       {/* Configuraciones por Rol */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {perfiles?.map(perfil => (
-          <div key={perfil.rol} className="card">
-            <div className="flex justify-between items-center mb-4">
-              <div>
-                <h3 className="text-lg font-semibold text-secondary-900 capitalize">
-                  {perfil.rol.replace('_', ' ')}
-                </h3>
-                <p className="text-sm text-secondary-600">
-                  {perfil.descripcion || 'Sin descripción'}
-                </p>
+        {Array.isArray(perfiles) && perfiles.length > 0 ? (
+          perfiles.map(perfil => (
+            <div key={perfil.rol} className="card">
+              <div className="flex justify-between items-center mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-secondary-900 capitalize">
+                    {perfil.rol?.replace('_', ' ') || 'Sin rol'}
+                  </h3>
+                  <p className="text-sm text-secondary-600">
+                    {perfil.descripcion || 'Sin descripción'}
+                  </p>
+                </div>
+                <button
+                  onClick={() => resetearConfiguracion(perfil.rol)}
+                  className="btn-secondary text-sm"
+                >
+                  Resetear
+                </button>
               </div>
-              <button
-                onClick={() => resetearConfiguracion(perfil.rol)}
-                className="btn-secondary text-sm"
-              >
-                Resetear
-              </button>
-            </div>
 
-            {/* Widgets disponibles */}
-            <div className="space-y-3">
-              <h4 className="text-sm font-medium text-secondary-700">Widgets del Dashboard:</h4>
-              {widgetsDisponibles.map(widget => {
-                const puedeMostrar = puedeMostrarWidget(widget, perfil.opciones_web || []);
-                const estaHabilitado = (cambiosPendientes[perfil.rol]?.widgets || configuraciones[perfil.rol]?.widgets || []).includes(widget.id);
-                
-                return (
-                  <div key={widget.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2">
-                        <span className="font-medium text-sm">{widget.nombre}</span>
-                        {!puedeMostrar && (
-                          <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">
-                            Sin permiso
-                          </span>
-                        )}
+              {/* Widgets disponibles */}
+              <div className="space-y-3">
+                <h4 className="text-sm font-medium text-secondary-700">Widgets del Dashboard:</h4>
+                {widgetsDisponibles.map(widget => {
+                  const puedeMostrar = puedeMostrarWidget(widget, perfil.opciones_web || []);
+                  const estaHabilitado = (cambiosPendientes[perfil.rol]?.widgets || configuraciones[perfil.rol]?.widgets || []).includes(widget.id);
+                  
+                  return (
+                    <div key={widget.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2">
+                          <span className="font-medium text-sm">{widget.nombre}</span>
+                          {!puedeMostrar && (
+                            <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">
+                              Sin permiso
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-600">{widget.descripcion}</p>
                       </div>
-                      <p className="text-xs text-gray-600">{widget.descripcion}</p>
+                      
+                      {puedeMostrar ? (
+                        <button
+                          onClick={() => alternarWidget(perfil.rol, widget.id)}
+                          className={`p-2 rounded-lg transition-colors ${
+                            estaHabilitado 
+                              ? 'bg-green-100 text-green-700 hover:bg-green-200' 
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
+                          title={estaHabilitado ? 'Deshabilitar widget' : 'Habilitar widget'}
+                        >
+                          {estaHabilitado ? <FiEye className="h-4 w-4" /> : <FiEyeOff className="h-4 w-4" />}
+                        </button>
+                      ) : (
+                        <div className="p-2 text-gray-400">
+                          <FiEyeOff className="h-4 w-4" />
+                        </div>
+                      )}
                     </div>
-                    
-                    {puedeMostrar ? (
-                      <button
-                        onClick={() => alternarWidget(perfil.rol, widget.id)}
-                        className={`p-2 rounded-lg transition-colors ${
-                          estaHabilitado 
-                            ? 'bg-green-100 text-green-700 hover:bg-green-200' 
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
-                        title={estaHabilitado ? 'Deshabilitar widget' : 'Habilitar widget'}
-                      >
-                        {estaHabilitado ? <FiEye className="h-4 w-4" /> : <FiEyeOff className="h-4 w-4" />}
-                      </button>
-                    ) : (
-                      <div className="p-2 text-gray-400">
-                        <FiEyeOff className="h-4 w-4" />
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
 
-            {/* Resumen */}
-            <div className="mt-4 pt-4 border-t border-gray-200">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Widgets habilitados:</span>
-                <span className="font-medium text-blue-600">
-                  {(cambiosPendientes[perfil.rol]?.widgets || configuraciones[perfil.rol]?.widgets || []).length}
-                </span>
+              {/* Resumen */}
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Widgets habilitados:</span>
+                  <span className="font-medium text-blue-600">
+                    {(cambiosPendientes[perfil.rol]?.widgets || configuraciones[perfil.rol]?.widgets || []).length}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Total disponibles:</span>
+                  <span className="font-medium text-gray-600">
+                    {widgetsDisponibles.filter(w => puedeMostrarWidget(w, perfil.opciones_web || [])).length}
+                  </span>
+                </div>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Total disponibles:</span>
-                <span className="font-medium text-gray-600">
-                  {widgetsDisponibles.filter(w => puedeMostrarWidget(w, perfil.opciones_web || [])).length}
-                </span>
-              </div>
+            </div>
+          ))
+        ) : (
+          <div className="col-span-2 text-center py-8">
+            <div className="text-gray-500">
+              {isLoading ? (
+                <div className="flex items-center justify-center space-x-2">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600"></div>
+                  <span>Cargando perfiles...</span>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-lg font-medium mb-2">No se pudieron cargar los perfiles</p>
+                  <p className="text-sm">Verifica la consola para más detalles</p>
+                  <button 
+                    onClick={() => window.location.reload()} 
+                    className="btn-primary mt-3"
+                  >
+                    Recargar página
+                  </button>
+                </div>
+              )}
             </div>
           </div>
-        ))}
+        )}
       </div>
 
       {/* Información adicional */}
