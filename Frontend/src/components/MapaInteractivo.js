@@ -146,7 +146,7 @@ const MapaInteractivo = ({
                 </h4>
                 
                 {/* 📷 Imagen del reporte */}
-                {reporte.foto_url && (
+                {reporte.foto_url && reporte.foto_url.trim() !== '' ? (
                   <div style={{ marginBottom: '10px' }}>
                     <img 
                       src={reporte.foto_url} 
@@ -165,6 +165,22 @@ const MapaInteractivo = ({
                     />
                     <div style={{ display: 'none', color: '#6b7280', fontSize: '12px' }}>
                       📷 Imagen no disponible
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ 
+                    marginBottom: '10px', 
+                    padding: '20px',
+                    backgroundColor: '#f3f4f6',
+                    border: '2px dashed #d1d5db',
+                    borderRadius: '8px',
+                    textAlign: 'center'
+                  }}>
+                    <div style={{ fontSize: '24px', color: '#9ca3af', marginBottom: '5px' }}>
+                      📷
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                      Sin foto
                     </div>
                   </div>
                 )}
