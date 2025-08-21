@@ -36,8 +36,14 @@ export default function Sidebar() {
     ['configuracion-perfil-usuario', user?.rol],
     async () => {
       if (!user?.rol) return null;
-      const response = await api.get('/perfiles/mi-configuracion');
-      return response.data;
+      try {
+        // Usar el endpoint correcto para obtener la configuración del rol
+        const response = await api.get(`/perfiles/configuracion/${user.rol}`);
+        return response.data;
+      } catch (error) {
+        console.error('Error al obtener configuración del perfil:', error);
+        return null;
+      }
     },
     {
       enabled: !!user?.rol,
@@ -79,7 +85,7 @@ export default function Sidebar() {
         <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
           {menu.map(item => {
             // Verificar si el usuario tiene permiso para ver esta opción
-            const opcionesPermitidas = configuracionPerfil?.configuracion?.opciones_web || [];
+            const opcionesPermitidas = configuracionPerfil?.opciones_web || [];
             
             // Convertir la ruta del menú al formato de permisos del backend
             let permisoRequerido = item.to.replace('/', '');
@@ -89,9 +95,9 @@ export default function Sidebar() {
             const mapeoPermisos = {
               'eventos-historicos': 'eventos-historicos',
               'estructura-red': 'estructura-red',
-              'reportes-ciudadanos': 'reportes_ciudadanos', // Corrected mapping
+              'reportes-ciudadanos': 'reportes_ciudadanos',
               'mapa-reportes': 'reportes_ciudadanos', // Usar los mismos permisos que reportes ciudadanos
-              'seguimiento-reportes': 'seguimiento_reportes', // Nuevo mapeo
+              'seguimiento-reportes': 'seguimiento_reportes',
               'admin-perfiles': 'admin-perfiles'
             };
             
@@ -100,26 +106,17 @@ export default function Sidebar() {
             
             const tienePermiso = opcionesPermitidas.includes(permisoRequerido);
             
-            // Debug logs para todas las opciones
-            console.log(`Sidebar - Checking ${item.to} permission:`);
-            console.log(`  - User role: ${user?.rol}`);
-            console.log(`  - Permiso requerido: ${permisoRequerido}`);
-            console.log(`  - Opciones permitidas:`, opcionesPermitidas);
-            console.log(`  - Tiene permiso: ${tienePermiso}`);
-            
-            // Log adicional para ver las opciones exactas del backend
-            if (item.to === '/eventos-historicos') {
-              console.log('=== DEBUG: Opciones exactas del backend ===');
-              console.log('Opciones permitidas completas:', opcionesPermitidas);
-              console.log('Buscando:', permisoRequerido);
-              console.log('Incluye eventos-historicos:', opcionesPermitidas.includes('eventos-historicos'));
-              console.log('Incluye eventos_historicos:', opcionesPermitidas.includes('eventos_historicos'));
-              console.log('==========================================');
+            // Debug logs para desarrollo
+            if (process.env.NODE_ENV === 'development') {
+              console.log(`Sidebar - Checking ${item.to} permission:`);
+              console.log(`  - User role: ${user?.rol}`);
+              console.log(`  - Permiso requerido: ${permisoRequerido}`);
+              console.log(`  - Opciones permitidas:`, opcionesPermitidas);
+              console.log(`  - Tiene permiso: ${tienePermiso}`);
             }
             
-            // TEMPORAL: Mostrar todas las opciones mientras se soluciona el proxy
-            // Si no tiene permiso, no mostrar la opción
-            // if (!tienePermiso) return null;
+            // VALIDACIÓN DE PERMISOS HABILITADA: Si no tiene permiso, no mostrar la opción
+            if (!tienePermiso) return null;
             
             return (
               <li key={item.to}>
