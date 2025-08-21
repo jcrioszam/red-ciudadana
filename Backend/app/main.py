@@ -1,4 +1,7 @@
 print('🚀 INICIO DEL MAIN.PY - RAILWAY DEPLOYMENT - CORS WORKING! 🎉')
+print('🚨🚨🚨 LOGS SUPER AGRESIVOS AGREGADOS AL ENDPOINT /reportes-ciudadanos/ 🚨🚨🚨')
+print('🚨🚨🚨 LOGS SUPER AGRESIVOS AGREGADOS AL ENDPOINT /reportes-ciudadanos/ 🚨🚨🚨')
+print('🚨🚨🚨 LOGS SUPER AGRESIVOS AGREGADOS AL ENDPOINT /reportes-ciudadanos/ 🚨🚨🚨')
 from fastapi import FastAPI, Depends, HTTPException, status, Body, UploadFile, File, Form, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
@@ -2696,6 +2699,13 @@ async def like_comentario(comentario_id: int, db: Session = Depends(get_db), cur
 async def create_reporte_ciudadano(reporte: ReporteCiudadanoCreate, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
     """Crear un nuevo reporte ciudadano"""
     
+    # 🚨🚨🚨 LOGS SUPER AGRESIVOS PARA RAILWAY 🚨🚨🚨
+    print("=" * 80)
+    print("🚨🚨🚨 ENDPOINT /reportes-ciudadanos/ EJECUTÁNDOSE 🚨🚨🚨")
+    print("🚨🚨🚨 ENDPOINT /reportes-ciudadanos/ EJECUTÁNDOSE 🚨🚨🚨")
+    print("🚨🚨🚨 ENDPOINT /reportes-ciudadanos/ EJECUTÁNDOSE 🚨🚨🚨")
+    print("=" * 80)
+    
     # 🔍 DEBUG: Log detallado de los datos recibidos
     print(f"🚀 CREANDO REPORTE CIUDADANO - Usuario: {current_user.email}")
     print(f"📋 DATOS RECIBIDOS:")
@@ -2769,6 +2779,13 @@ async def create_reporte_ciudadano(reporte: ReporteCiudadanoCreate, db: Session 
     except Exception as e:
         print(f"⚠️ Error accediendo a ciudadano: {e}")
         db_reporte.ciudadano_nombre = "Ciudadano"
+
+    # 🚨🚨🚨 LOGS SUPER AGRESIVOS AL FINAL 🚨🚨🚨
+    print("=" * 80)
+    print("🚨🚨🚨 REPORTE CIUDADANO CREADO EXITOSAMENTE 🚨🚨🚨")
+    print(f"🚨🚨🚨 ID: {db_reporte.id} - Lat: {db_reporte.latitud} - Lng: {db_reporte.longitud} 🚨🚨🚨")
+    print("🚨🚨🚨 REPORTE CIUDADANO CREADO EXITOSAMENTE 🚨🚨🚨")
+    print("=" * 80)
 
     return db_reporte
 
