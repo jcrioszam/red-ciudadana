@@ -99,7 +99,8 @@ export default function Sidebar() {
               'reportes-ciudadanos': 'reportes_ciudadanos',
               'mapa-reportes': 'reportes_ciudadanos', // Usar los mismos permisos que reportes ciudadanos
               'seguimiento-reportes': 'seguimiento_reportes',
-              'admin-perfiles': 'admin-perfiles'
+              'admin-perfiles': 'admin-perfiles',
+              'admin-dashboard': 'admin-perfiles' // Usar los mismos permisos que admin-perfiles
             };
             
             // Aplicar mapeo si existe, sino usar el valor original
