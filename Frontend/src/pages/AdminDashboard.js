@@ -12,8 +12,14 @@ const AdminDashboard = () => {
 
   // Obtener todas las configuraciones de perfiles
   const { data: perfiles, isLoading } = useQuery('perfiles', async () => {
-    const response = await api.get('/perfiles/');
-    return response.data;
+    try {
+      // Usar el endpoint que sí existe para obtener roles
+      const response = await api.get('/perfiles/roles');
+      return response.data;
+    } catch (error) {
+      console.error('Error al obtener perfiles:', error);
+      return [];
+    }
   });
 
   // Obtener configuración del dashboard para cada rol
@@ -54,6 +60,38 @@ const AdminDashboard = () => {
       setConfiguraciones(configs);
       setCambiosPendientes({});
     }
+  }, [perfiles, configuracionesDashboard]);
+
+  // Función para obtener opciones web de un rol específico
+  const obtenerOpcionesWeb = async (rol) => {
+    try {
+      const response = await api.get(`/perfiles/configuracion/${rol}`);
+      return response.data?.configuracion?.opciones_web || [];
+    } catch (error) {
+      console.error(`Error al obtener opciones web para ${rol}:`, error);
+      return [];
+    }
+  };
+
+  // Función para cargar opciones web de todos los roles
+  const cargarOpcionesWeb = async () => {
+    if (perfiles && configuracionesDashboard) {
+      const configs = {};
+      for (const perfil of perfiles) {
+        const opcionesWeb = await obtenerOpcionesWeb(perfil.rol);
+        configs[perfil.rol] = {
+          widgets: configuracionesDashboard[perfil.rol]?.widgets || [],
+          opciones_web: opcionesWeb
+        };
+      }
+      setConfiguraciones(configs);
+      setCambiosPendientes({});
+    }
+  };
+
+  // Cargar opciones web cuando cambien los perfiles
+  useEffect(() => {
+    cargarOpcionesWeb();
   }, [perfiles, configuracionesDashboard]);
 
   // Función para verificar si un widget puede ser mostrado según los permisos del rol
