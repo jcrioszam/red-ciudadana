@@ -26,6 +26,44 @@ const Dashboard = () => {
   const { user, isAuthenticated, loading, logout } = useAuth();
   const navigate = useNavigate();
 
+  // Obtener configuración de permisos del usuario actual
+  const { data: configuracionPerfil } = useQuery(
+    ['configuracion-perfil-usuario', user?.rol],
+    async () => {
+      if (!user?.rol) return null;
+      try {
+        const response = await api.get('/perfiles/mi-configuracion');
+        return response.data;
+      } catch (error) {
+        console.error('Error al obtener configuración del perfil:', error);
+        return null;
+      }
+    },
+    {
+      enabled: !!user?.rol,
+      staleTime: 5 * 60 * 1000, // 5 minutos
+    }
+  );
+
+  // Obtener configuración del dashboard para el rol del usuario
+  const { data: configuracionDashboard } = useQuery(
+    ['configuracion-dashboard-usuario', user?.rol],
+    async () => {
+      if (!user?.rol) return null;
+      try {
+        const response = await api.get('/perfiles/configuracion-dashboard');
+        return response.data[user.rol] || { widgets: [] };
+      } catch (error) {
+        console.error('Error al obtener configuración del dashboard:', error);
+        return { widgets: [] };
+      }
+    },
+    {
+      enabled: !!user?.rol,
+      staleTime: 5 * 60 * 1000, // 5 minutos
+    }
+  );
+
   // Obtener datos de reportes usando React Query
   const { data: reportePersonas, isLoading: loadingPersonas, refetch: refetchPersonas } = useQuery('reportePersonas', async () => {
     const response = await api.get('/reportes/personas');
@@ -102,6 +140,46 @@ const Dashboard = () => {
     });
   };
 
+  // Función para verificar si el usuario puede ver una sección específica
+  const puedeVerSeccion = (seccion) => {
+    if (!configuracionPerfil?.configuracion?.opciones_web) return false;
+    
+    const opcionesPermitidas = configuracionPerfil.configuracion.opciones_web;
+    
+    // Mapeo de secciones a permisos requeridos
+    const mapeoSecciones = {
+      'usuarios': 'usuarios',
+      'personas': 'personas',
+      'eventos': 'eventos',
+      'eventos-historicos': 'eventos-historicos',
+      'movilizacion': 'movilizacion',
+      'reportes': 'reportes',
+      'estructura-red': 'estructura-red',
+      'checkin': 'checkin',
+      'seguimiento': 'seguimiento'
+    };
+    
+    const permisoRequerido = mapeoSecciones[seccion];
+    const tienePermiso = permisoRequerido ? opcionesPermitidas.includes(permisoRequerido) : false;
+    
+    // Verificar también si el widget está habilitado en la configuración del dashboard
+    const widgetsHabilitados = configuracionDashboard?.widgets || [];
+    const mapeoWidgets = {
+      'usuarios': 'lideres-activos',
+      'personas': 'total-personas',
+      'eventos': 'total-eventos',
+      'eventos-historicos': 'eventos-historicos',
+      'movilizacion': 'movilizacion-vehiculos',
+      'estructura-red': 'estructura-red',
+      'seguimiento': 'asistencias-tiempo-real'
+    };
+    
+    const widgetRequerido = mapeoWidgets[seccion];
+    const widgetHabilitado = widgetRequerido ? widgetsHabilitados.includes(widgetRequerido) : true;
+    
+    return tienePermiso && widgetHabilitado;
+  };
+
   // Si el usuario es ciudadano, mostrar el dashboard específico
   console.log('Dashboard - User role:', user?.rol);
   console.log('Dashboard - User object:', user);
@@ -139,70 +217,85 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* Estadísticas */}
+      {/* Estadísticas - Solo mostrar si tiene permisos */}
       {!isLoading && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="card">
-            <div className="flex items-center">
-              <div className="p-3 rounded-lg bg-blue-500">
-                <FiUser className="h-6 w-6 text-white" />
+          {/* Total Personas - Solo si puede ver personas */}
+          {puedeVerSeccion('personas') && (
+            <div className="card">
+              <div className="flex items-center">
+                <div className="p-3 rounded-lg bg-blue-500">
+                  <FiUser className="h-6 w-6 text-white" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-secondary-600">Total Personas</p>
+                  <p className="text-2xl font-bold text-secondary-900">{stats.totalPersonas}</p>
+                </div>
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-secondary-600">Total Personas</p>
-                <p className="text-2xl font-bold text-secondary-900">{stats.totalPersonas}</p>
-              </div>
-            </div>
-            <div className="mt-4 flex items-center">
-              <span className="text-sm text-secondary-500">Registradas en el sistema</span>
-            </div>
-          </div>
-          <div className="card">
-            <div className="flex items-center">
-              <div className="p-3 rounded-lg bg-green-500">
-                <FiBarChart className="h-6 w-6 text-white" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-secondary-600">Total Eventos</p>
-                <p className="text-2xl font-bold text-secondary-900">{stats.totalEventos}</p>
+              <div className="mt-4 flex items-center">
+                <span className="text-sm text-secondary-500">Registradas en el sistema</span>
               </div>
             </div>
-            <div className="mt-4 flex items-center">
-              <span className="text-sm text-secondary-500">Eventos organizados</span>
-            </div>
-          </div>
-          <div className="card">
-            <div className="flex items-center">
-              <div className="p-3 rounded-lg bg-purple-500">
-                <FiUserCheck className="h-6 w-6 text-white" />
+          )}
+          
+          {/* Total Eventos - Solo si puede ver eventos */}
+          {puedeVerSeccion('eventos') && (
+            <div className="card">
+              <div className="flex items-center">
+                <div className="p-3 rounded-lg bg-green-500">
+                  <FiBarChart className="h-6 w-6 text-white" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-secondary-600">Total Eventos</p>
+                  <p className="text-2xl font-bold text-secondary-900">{stats.totalEventos}</p>
+                </div>
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-secondary-600">Líderes Activos</p>
-                <p className="text-2xl font-bold text-secondary-900">{stats.lideresActivos}</p>
-              </div>
-            </div>
-            <div className="mt-4 flex items-center">
-              <span className="text-sm text-secondary-500">Líderes en actividad</span>
-            </div>
-          </div>
-          <div className="card">
-            <div className="flex items-center">
-              <div className="p-3 rounded-lg bg-orange-500">
-                <FiMapPin className="h-6 w-6 text-white" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-secondary-600">Secciones Cubiertas</p>
-                <p className="text-2xl font-bold text-secondary-900">{stats.seccionesCubiertas}</p>
+              <div className="mt-4 flex items-center">
+                <span className="text-sm text-secondary-500">Eventos organizados</span>
               </div>
             </div>
-            <div className="mt-4 flex items-center">
-              <span className="text-sm text-secondary-500">Secciones electorales</span>
+          )}
+          
+          {/* Líderes Activos - Solo si puede ver usuarios */}
+          {puedeVerSeccion('usuarios') && (
+            <div className="card">
+              <div className="flex items-center">
+                <div className="p-3 rounded-lg bg-purple-500">
+                  <FiUserCheck className="h-6 w-6 text-white" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-secondary-600">Líderes Activos</p>
+                  <p className="text-2xl font-bold text-secondary-900">{stats.lideresActivos}</p>
+                </div>
+              </div>
+              <div className="mt-4 flex items-center">
+                <span className="text-sm text-secondary-500">Líderes en actividad</span>
+              </div>
             </div>
-          </div>
+          )}
+          
+          {/* Secciones Cubiertas - Solo si puede ver estructura-red */}
+          {puedeVerSeccion('estructura-red') && (
+            <div className="card">
+              <div className="flex items-center">
+                <div className="p-3 rounded-lg bg-orange-500">
+                  <FiMapPin className="h-6 w-6 text-white" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-secondary-600">Secciones Cubiertas</p>
+                  <p className="text-2xl font-bold text-secondary-900">{stats.seccionesCubiertas}</p>
+                </div>
+              </div>
+              <div className="mt-4 flex items-center">
+                <span className="text-sm text-secondary-500">Secciones electorales</span>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Reporte de Movilización por Vehículos */}
-      {!isLoading && movilizacionVehiculos && (
+      {/* Reporte de Movilización por Vehículos - Solo si puede ver movilización */}
+      {!isLoading && movilizacionVehiculos && puedeVerSeccion('movilizacion') && (
         <div className="card">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-3">
@@ -363,8 +456,8 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* Reporte de Asistencias en Tiempo Real */}
-      {!isLoading && asistenciasTiempoReal && (
+      {/* Reporte de Asistencias en Tiempo Real - Solo si puede ver seguimiento */}
+      {!isLoading && asistenciasTiempoReal && puedeVerSeccion('seguimiento') && (
         <div className="card">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-3">
@@ -487,8 +580,8 @@ const Dashboard = () => {
 
 
 
-      {/* Reporte de Eventos Históricos */}
-      {!isLoading && reporteEventosHistoricos && (
+      {/* Reporte de Eventos Históricos - Solo si puede ver eventos-historicos */}
+      {!isLoading && reporteEventosHistoricos && puedeVerSeccion('eventos-historicos') && (
         <div className="card">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-3">
@@ -617,8 +710,8 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* Rankings */}
-      {!isLoading && reportePersonas && (
+      {/* Rankings - Solo si puede ver personas */}
+      {!isLoading && reportePersonas && puedeVerSeccion('personas') && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="card">
             <h3 className="text-lg font-semibold text-secondary-900 mb-4">Top Secciones Electorales</h3>
@@ -660,8 +753,8 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* Estructura Jerárquica */}
-      {!isLoading && (
+      {/* Estructura Jerárquica - Solo si puede ver estructura-red */}
+      {!isLoading && puedeVerSeccion('estructura-red') && (
         <div className="card">
           <h3 className="text-lg font-semibold text-secondary-900 mb-4">Estructura de la Red</h3>
           <EstructuraJerarquica />

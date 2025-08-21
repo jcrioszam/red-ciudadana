@@ -16,6 +16,7 @@ import RegistroPersonaInvitacion from './pages/RegistroPersonaInvitacion';
 import Perfil from './pages/Perfil';
 import EventosHistoricos from './pages/EventosHistoricos';
 import AdminPerfiles from './pages/AdminPerfiles';
+import AdminDashboard from './pages/AdminDashboard';
 import Seguimiento from './pages/Seguimiento';
 import Noticias from './pages/Noticias';
 import ReportesCiudadanos from './pages/ReportesCiudadanos';
@@ -71,6 +72,7 @@ function App() {
               <Route path="/perfil" element={<Perfil />} />
               <Route path="/eventos-historicos" element={<EventosHistoricos />} />
               <Route path="/admin-perfiles" element={<AdminPerfiles />} />
+              <Route path="/admin-dashboard" element={<AdminDashboard />} />
               <Route path="/seguimiento" element={<Seguimiento />} />
               <Route path="/noticias" element={<Noticias />} />
               <Route path="/reportes-ciudadanos" element={<ReportesCiudadanos />} />

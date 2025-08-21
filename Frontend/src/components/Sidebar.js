@@ -2,7 +2,7 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useQuery } from 'react-query';
 import {
-  FiHome, FiUsers, FiUserCheck, FiCalendar, FiBarChart, FiGitBranch, FiCheckSquare, FiClock, FiShield, FiLogOut, FiMapPin, FiFileText, FiAlertTriangle, FiMap
+  FiHome, FiUsers, FiUserCheck, FiCalendar, FiBarChart, FiGitBranch, FiCheckSquare, FiClock, FiShield, FiLogOut, FiMapPin, FiFileText, FiAlertTriangle, FiMap, FiSettings
 } from 'react-icons/fi';
 import api from '../api';
 import { useAuth } from '../contexts/AuthContext';
@@ -24,6 +24,7 @@ const menu = [
   { to: '/seguimiento-reportes', label: 'Seguimiento Reportes', icon: <FiAlertTriangle /> },
   { to: '/perfil', label: 'Perfil', icon: <FiUserCheck /> },
   { to: '/admin-perfiles', label: 'Administrar Perfiles', icon: <FiShield /> },
+  { to: '/admin-dashboard', label: 'Administrar Dashboard', icon: <FiSettings /> },
 ];
 
 export default function Sidebar() {
