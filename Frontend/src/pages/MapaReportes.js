@@ -148,14 +148,13 @@ const MapaReportes = () => {
         {reportesConUbicacion.length > 0 ? (
           <MapaInteractivo 
             reportes={reportesConUbicacion}
-            height="600px"
-            selectionMode={false} // No permitir selección, solo visualización
-            showReportes={true}
-            centerLocation={
+            modo="visualizacion"
+            center={
               reportesConUbicacion.length > 0 
                 ? [reportesConUbicacion[0].latitud, reportesConUbicacion[0].longitud]
                 : [19.4326, -99.1332] // CDMX por defecto
             }
+            zoom={13}
           />
         ) : (
           <div style={{
