@@ -24,6 +24,10 @@ const ReportesCiudadanos = () => {
   // 🗺️ Estado para ubicación seleccionada en mapa
   const [selectedLocation, setSelectedLocation] = useState(null);
   
+  // 🆕 NUEVO: Estado para modal de detalles del reporte
+  const [selectedReporte, setSelectedReporte] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+  
   const [mensaje, setMensaje] = useState('');
   const [loading, setLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -260,6 +264,18 @@ const ReportesCiudadanos = () => {
       ...formData,
       [e.target.name]: e.target.value
     });
+  };
+
+  // 🆕 NUEVA FUNCIÓN: Mostrar modal con detalles del reporte
+  const handleShowReporteDetails = (reporte) => {
+    setSelectedReporte(reporte);
+    setShowModal(true);
+  };
+
+  // 🆕 NUEVA FUNCIÓN: Cerrar modal
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setSelectedReporte(null);
   };
 
   // 🎯 FLUJO CON MAPA Y FOTO - 5 PASOS TOTAL
@@ -885,10 +901,22 @@ const ReportesCiudadanos = () => {
               {/* Cuerpo de la tabla */}
               <tbody>
                 {reportes.map((reporte, index) => (
-                  <tr key={reporte.id || index} style={{ 
-                    borderBottom: '1px solid #f1f5f9',
-                    backgroundColor: index % 2 === 0 ? 'white' : '#f8fafc'
-                  }}>
+                  <tr 
+                    key={reporte.id || index} 
+                    style={{ 
+                      borderBottom: '1px solid #f1f5f9',
+                      backgroundColor: index % 2 === 0 ? 'white' : '#f8fafc',
+                      cursor: 'pointer',
+                      transition: 'background-color 0.2s'
+                    }}
+                    onClick={() => handleShowReporteDetails(reporte)}
+                    onMouseOver={(e) => {
+                      e.target.closest('tr').style.backgroundColor = '#e0f2fe';
+                    }}
+                    onMouseOut={(e) => {
+                      e.target.closest('tr').style.backgroundColor = index % 2 === 0 ? 'white' : '#f8fafc';
+                    }}
+                  >
                     <td style={{ padding: '12px', color: '#2563eb', fontWeight: '500' }}>
                       {reporte.tipo || 'Sin tipo'}
                     </td>
@@ -944,6 +972,167 @@ const ReportesCiudadanos = () => {
             </table>
           </div>
         )}
+        </div>
+      )}
+
+      {/* 🆕 NUEVO: Modal de detalles del reporte */}
+      {showModal && selectedReporte && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            padding: '30px',
+            maxWidth: '600px',
+            width: '90%',
+            maxHeight: '80vh',
+            overflow: 'auto',
+            position: 'relative'
+          }}>
+            {/* 🚪 Botón de cerrar */}
+            <button
+              onClick={handleCloseModal}
+              style={{
+                position: 'absolute',
+                top: '15px',
+                right: '20px',
+                backgroundColor: 'transparent',
+                border: 'none',
+                fontSize: '24px',
+                cursor: 'pointer',
+                color: '#6b7280'
+              }}
+            >
+              ×
+            </button>
+
+            {/* 📋 Contenido del modal */}
+            <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+              <h2 style={{ color: '#374151', marginBottom: '10px' }}>
+                🏷️ Detalles del Reporte
+              </h2>
+              <p style={{ color: '#6b7280' }}>
+                Información completa del reporte seleccionado
+              </p>
+            </div>
+
+            {/* 📷 Imagen del reporte */}
+            {selectedReporte.foto_url && (
+              <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                <img 
+                  src={selectedReporte.foto_url} 
+                  alt="Foto del reporte"
+                  style={{
+                    maxWidth: '100%',
+                    maxHeight: '300px',
+                    borderRadius: '8px',
+                    border: '2px solid #e5e7eb'
+                  }}
+                />
+              </div>
+            )}
+
+            {/* 📋 Información del reporte */}
+            <div style={{ textAlign: 'left' }}>
+              <div style={{ marginBottom: '15px' }}>
+                <strong style={{ color: '#374151' }}>🏷️ Tipo:</strong>
+                <div style={{ color: '#6b7280', marginTop: '5px' }}>
+                  {selectedReporte.tipo || 'Sin tipo'}
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '15px' }}>
+                <strong style={{ color: '#374151' }}>📝 Descripción:</strong>
+                <div style={{ color: '#6b7280', marginTop: '5px' }}>
+                  {selectedReporte.descripcion || 'Sin descripción'}
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '15px' }}>
+                <strong style={{ color: '#374151' }}>📍 Ubicación:</strong>
+                <div style={{ color: '#6b7280', marginTop: '5px' }}>
+                  {selectedReporte.latitud && selectedReporte.longitud ? (
+                    <span style={{ color: '#059669' }}>
+                      ✅ Con coordenadas<br />
+                      Lat: {selectedReporte.latitud.toFixed(6)}<br />
+                      Lng: {selectedReporte.longitud.toFixed(6)}
+                    </span>
+                  ) : (
+                    <span style={{ color: '#dc2626' }}>❌ Sin ubicación</span>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '15px' }}>
+                <strong style={{ color: '#374151' }}>📊 Estatus:</strong>
+                <div style={{ marginTop: '5px' }}>
+                  <span style={{
+                    padding: '4px 8px',
+                    borderRadius: '12px',
+                    fontSize: '12px',
+                    fontWeight: '500',
+                    backgroundColor: selectedReporte.estado === 'resuelto' ? '#dcfce7' : 
+                                   selectedReporte.estado === 'en_progreso' ? '#fef3c7' : 
+                                   selectedReporte.estado === 'pendiente' ? '#dbeafe' : '#f3f4f6',
+                    color: selectedReporte.estado === 'resuelto' ? '#166534' : 
+                           selectedReporte.estado === 'en_progreso' ? '#92400e' : 
+                           selectedReporte.estado === 'pendiente' ? '#1d4ed8' : '#6b7280'
+                  }}>
+                    {selectedReporte.estado || 'pendiente'}
+                  </span>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '15px' }}>
+                <strong style={{ color: '#374151' }}>📅 Fecha:</strong>
+                <div style={{ color: '#6b7280', marginTop: '5px' }}>
+                  {selectedReporte.fecha_creacion ? 
+                    new Date(selectedReporte.fecha_creacion).toLocaleString() : 
+                    'Sin fecha'
+                  }
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '15px' }}>
+                <strong style={{ color: '#374151' }}>📷 Foto:</strong>
+                <div style={{ color: '#6b7280', marginTop: '5px' }}>
+                  {selectedReporte.foto_url ? (
+                    <span style={{ color: '#059669' }}>✅ Foto adjunta</span>
+                  ) : (
+                    <span style={{ color: '#6b7280' }}>📷 Sin foto</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* 🔙 Botón para cerrar */}
+            <div style={{ textAlign: 'center', marginTop: '30px' }}>
+              <button
+                onClick={handleCloseModal}
+                style={{
+                  backgroundColor: '#6b7280',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '12px 24px',
+                  fontSize: '16px',
+                  cursor: 'pointer'
+                }}
+              >
+                🔙 Cerrar
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
