@@ -10,19 +10,6 @@ const AdminDashboard = () => {
   const [configuraciones, setConfiguraciones] = useState({});
   const [cambiosPendientes, setCambiosPendientes] = useState({});
 
-  // Verificar que el usuario sea admin
-  if (user?.rol !== 'admin') {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <FiSettings className="h-16 w-16 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-red-600 mb-2">Acceso Denegado</h2>
-          <p className="text-gray-600">Solo los administradores pueden acceder a esta página</p>
-        </div>
-      </div>
-    );
-  }
-
   // Obtener todas las configuraciones de perfiles
   const { data: perfiles, isLoading } = useQuery('perfiles', async () => {
     const response = await api.get('/perfiles/');
@@ -124,6 +111,19 @@ const AdminDashboard = () => {
       }
     }));
   };
+
+  // Verificar que el usuario sea admin - DESPUÉS de todos los hooks
+  if (user?.rol !== 'admin') {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <FiSettings className="h-16 w-16 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-red-600 mb-2">Acceso Denegado</h2>
+          <p className="text-gray-600">Solo los administradores pueden acceder a esta página</p>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
