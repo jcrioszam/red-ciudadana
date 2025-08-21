@@ -2870,6 +2870,60 @@ async def admin_debug_reportes_ciudadanos(
         "reportes": result
     }
 
+# 🚨🚨🚨 NUEVO: Endpoint de debug para líderes y ciudadanos 🚨🚨🚨
+@app.get("/debug/reportes-ciudadanos/")
+async def debug_reportes_ciudadanos(
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_active_user)
+):
+    """Endpoint de debug para líderes y ciudadanos - ver sus propios reportes"""
+    
+    print("🚨🚨🚨 DEBUG ENDPOINT EJECUTÁNDOSE PARA USUARIO:", current_user.email)
+    print("🚨🚨🚨 ROL:", current_user.rol)
+    
+    # Obtener reportes según el rol del usuario
+    if current_user.rol in ['admin', 'presidente', 'lider_estatal', 'lider_regional', 'lider_municipal']:
+        # Líderes ven todos los reportes activos
+        reportes = db.query(ReporteCiudadanoModel).filter(ReporteCiudadanoModel.activo == True).order_by(ReporteCiudadanoModel.fecha_creacion.desc()).all()
+        print("🚨🚨🚨 LÍDER - VIENDO TODOS LOS REPORTES:", len(reportes))
+    else:
+        # Ciudadanos ven solo sus propios reportes
+        reportes = db.query(ReporteCiudadanoModel).filter(
+            ReporteCiudadanoModel.activo == True,
+            ReporteCiudadanoModel.ciudadano_id == current_user.id
+        ).order_by(ReporteCiudadanoModel.fecha_creacion.desc()).all()
+        print("🚨🚨🚨 CIUDADANO - VIENDO SUS REPORTES:", len(reportes))
+    
+    result = []
+    for reporte in reportes:
+        result.append({
+            "id": reporte.id,
+            "titulo": reporte.titulo,
+            "estado": reporte.estado,
+            "activo": reporte.activo,
+            "ciudadano_id": reporte.ciudadano_id,
+            "ciudadano_nombre": reporte.ciudadano.nombre if reporte.ciudadano else "Sin ciudadano",
+            "fecha_creacion": reporte.fecha_creacion,
+            "tipo": reporte.tipo,
+            "latitud": reporte.latitud,
+            "longitud": reporte.longitud,
+            "direccion": reporte.direccion
+        })
+        print(f"🚨🚨🚨 REPORTE {reporte.id}: Lat {reporte.latitud}, Lng {reporte.longitud}")
+    
+    print("🚨🚨🚨 DEBUG ENDPOINT COMPLETADO - TOTAL REPORTES:", len(result))
+    
+    return {
+        "total_reportes": len(reportes),
+        "usuario_actual": {
+            "id": current_user.id,
+            "nombre": current_user.nombre,
+            "rol": current_user.rol,
+            "email": current_user.email
+        },
+        "reportes": result
+    }
+
 @app.get("/reportes-ciudadanos/{reporte_id}", response_model=ReporteCiudadano)
 async def get_reporte_ciudadano(reporte_id: int, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
     """Obtener un reporte ciudadano específico"""
