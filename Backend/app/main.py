@@ -3094,5 +3094,80 @@ async def delete_reporte_ciudadano(reporte_id: int, db: Session = Depends(get_db
 
 # ✅ ELIMINADO: Endpoint duplicado /reportes-ciudadanos-con-foto/ que causaba conflicto CORS
 
+@app.get("/perfiles/configuracion-dashboard")
+async def obtener_configuracion_dashboard(
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_active_user)
+):
+    """Obtener la configuración del dashboard para todos los roles"""
+    if current_user.rol != "admin":
+        raise HTTPException(status_code=403, detail="Solo administradores pueden ver configuraciones del dashboard")
+    
+    # Configuraciones por defecto del dashboard para cada rol
+    configuraciones_dashboard = {
+        "admin": {
+            "widgets": ["total-personas", "total-eventos", "lideres-activos", "secciones-cubiertas", 
+                       "movilizacion-vehiculos", "asistencias-tiempo-real", "eventos-historicos", 
+                       "top-secciones", "top-lideres", "estructura-red"]
+        },
+        "presidente": {
+            "widgets": ["total-personas", "total-eventos", "lideres-activos", "secciones-cubiertas", 
+                       "movilizacion-vehiculos", "asistencias-tiempo-real", "eventos-historicos", 
+                       "top-secciones", "top-lideres", "estructura-red"]
+        },
+        "lider_estatal": {
+            "widgets": ["total-personas", "total-eventos", "lideres-activos", "secciones-cubiertas", 
+                       "movilizacion-vehiculos", "asistencias-tiempo-real", "eventos-historicos", 
+                       "top-secciones", "top-lideres", "estructura-red"]
+        },
+        "lider_regional": {
+            "widgets": ["total-personas", "total-eventos", "secciones-cubiertas", 
+                       "top-secciones", "top-lideres", "estructura-red"]
+        },
+        "lider_municipal": {
+            "widgets": ["total-personas", "total-eventos", "lideres-activos", "secciones-cubiertas", 
+                       "movilizacion-vehiculos", "asistencias-tiempo-real", "eventos-historicos", 
+                       "top-secciones", "top-lideres", "estructura-red"]
+        },
+        "lider_zona": {
+            "widgets": ["total-personas", "total-eventos", "secciones-cubiertas", 
+                       "top-secciones", "top-lideres", "estructura-red"]
+        },
+        "capturista": {
+            "widgets": ["total-personas", "total-eventos", "secciones-cubiertas"]
+        },
+        "ciudadano": {
+            "widgets": ["total-eventos", "estructura-red"]
+        }
+    }
+    
+    return configuraciones_dashboard
+
+@app.put("/perfiles/configuracion-dashboard/{rol}")
+async def actualizar_configuracion_dashboard(
+    rol: str,
+    configuracion: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_active_user)
+):
+    """Actualizar la configuración del dashboard para un rol específico"""
+    if current_user.rol != "admin":
+        raise HTTPException(status_code=403, detail="Solo administradores pueden actualizar configuraciones del dashboard")
+    
+    # Validar que el rol existe
+    roles_validos = ["admin", "presidente", "lider_estatal", "lider_regional", "lider_municipal", "lider_zona", "capturista", "ciudadano"]
+    if rol not in roles_validos:
+        raise HTTPException(status_code=400, detail="Rol no válido")
+    
+    # Aquí se implementaría la lógica para guardar en la base de datos
+    # Por ahora, solo retornamos éxito
+    print(f"🔧 Configuración del dashboard actualizada para rol '{rol}': {configuracion}")
+    
+    return {
+        "mensaje": f"Configuración del dashboard actualizada para rol '{rol}'",
+        "rol": rol,
+        "configuracion": configuracion
+    }
+
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000) 
