@@ -37,8 +37,8 @@ export default function Sidebar() {
     async () => {
       if (!user?.rol) return null;
       try {
-        // Usar el endpoint correcto para obtener la configuración del rol
-        const response = await api.get(`/perfiles/configuracion/${user.rol}`);
+        // Usar el endpoint que permite a cada usuario obtener su propia configuración
+        const response = await api.get('/perfiles/mi-configuracion');
         return response.data;
       } catch (error) {
         console.error('Error al obtener configuración del perfil:', error);
@@ -85,7 +85,7 @@ export default function Sidebar() {
         <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
           {menu.map(item => {
             // Verificar si el usuario tiene permiso para ver esta opción
-            const opcionesPermitidas = configuracionPerfil?.opciones_web || [];
+            const opcionesPermitidas = configuracionPerfil?.configuracion?.opciones_web || [];
             
             // Convertir la ruta del menú al formato de permisos del backend
             let permisoRequerido = item.to.replace('/', '');
