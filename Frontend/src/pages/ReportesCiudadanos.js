@@ -813,33 +813,135 @@ const ReportesCiudadanos = () => {
         )}
         
         {!isLoading && !error && reportes.length > 0 && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '15px' }}>
-            {reportes.map((reporte, index) => (
-              <div
-                key={reporte.id || index}
-                style={{
-                  backgroundColor: '#f8fafc',
-                  padding: '15px',
-                  borderRadius: '8px',
-                  border: '1px solid #e2e8f0'
-                }}
-              >
-                <div style={{ fontWeight: 'bold', color: '#2563eb', marginBottom: '5px' }}>
-                  {reporte.tipo || 'Sin tipo'}
-                </div>
-                <div style={{ color: '#4b5563', marginBottom: '10px', fontSize: '14px' }}>
-                  📍 {reporte.ubicacion || 'Sin ubicación'}
-                </div>
-                <div style={{ color: '#6b7280', fontSize: '13px', marginBottom: '8px' }}>
-                  {reporte.descripcion || 'Sin descripción'}
-                </div>
-                {reporte.fecha_creacion && (
-                  <div style={{ color: '#9ca3af', fontSize: '12px' }}>
-                    📅 {new Date(reporte.fecha_creacion).toLocaleString()}
-                  </div>
-                )}
-              </div>
-            ))}
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ 
+              width: '100%', 
+              borderCollapse: 'collapse',
+              backgroundColor: 'white',
+              borderRadius: '8px',
+              overflow: 'hidden',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+            }}>
+              {/* Header de la tabla */}
+              <thead style={{ backgroundColor: '#f8fafc' }}>
+                <tr>
+                  <th style={{ 
+                    padding: '12px', 
+                    textAlign: 'left', 
+                    borderBottom: '2px solid #e2e8f0',
+                    color: '#374151',
+                    fontWeight: '600'
+                  }}>
+                    🏷️ Tipo
+                  </th>
+                  <th style={{ 
+                    padding: '12px', 
+                    textAlign: 'left', 
+                    borderBottom: '2px solid #e2e8f0',
+                    color: '#374151',
+                    fontWeight: '600'
+                  }}>
+                    📝 Descripción
+                  </th>
+                  <th style={{ 
+                    padding: '12px', 
+                    textAlign: 'left', 
+                    borderBottom: '2px solid #e2e8f0',
+                    color: '#374151',
+                    fontWeight: '600'
+                  }}>
+                    📍 Ubicación
+                  </th>
+                  <th style={{ 
+                    padding: '12px', 
+                    textAlign: 'left', 
+                    borderBottom: '2px solid #e2e8f0',
+                    color: '#374151',
+                    fontWeight: '600'
+                  }}>
+                    📊 Estatus
+                  </th>
+                  <th style={{ 
+                    padding: '12px', 
+                    textAlign: 'left', 
+                    borderBottom: '2px solid #e2e8f0',
+                    color: '#374151',
+                    fontWeight: '600'
+                  }}>
+                    📅 Fecha
+                  </th>
+                  <th style={{ 
+                    padding: '12px', 
+                    textAlign: 'left', 
+                    borderBottom: '2px solid #e2e8f0',
+                    color: '#374151',
+                    fontWeight: '600'
+                  }}>
+                    📷 Foto
+                  </th>
+                </tr>
+              </thead>
+              
+              {/* Cuerpo de la tabla */}
+              <tbody>
+                {reportes.map((reporte, index) => (
+                  <tr key={reporte.id || index} style={{ 
+                    borderBottom: '1px solid #f1f5f9',
+                    backgroundColor: index % 2 === 0 ? 'white' : '#f8fafc'
+                  }}>
+                    <td style={{ padding: '12px', color: '#2563eb', fontWeight: '500' }}>
+                      {reporte.tipo || 'Sin tipo'}
+                    </td>
+                    <td style={{ padding: '12px', color: '#4b5563', maxWidth: '200px' }}>
+                      <div style={{ 
+                        overflow: 'hidden', 
+                        textOverflow: 'ellipsis', 
+                        whiteSpace: 'nowrap',
+                        fontSize: '14px'
+                      }}>
+                        {reporte.descripcion || 'Sin descripción'}
+                      </div>
+                    </td>
+                    <td style={{ padding: '12px', color: '#4b5563', fontSize: '14px' }}>
+                      {reporte.latitud && reporte.longitud ? (
+                        <span style={{ color: '#059669' }}>✅ Con coordenadas</span>
+                      ) : (
+                        <span style={{ color: '#dc2626' }}>❌ Sin ubicación</span>
+                      )}
+                    </td>
+                    <td style={{ padding: '12px' }}>
+                      <span style={{
+                        padding: '4px 8px',
+                        borderRadius: '12px',
+                        fontSize: '12px',
+                        fontWeight: '500',
+                        backgroundColor: reporte.estado === 'resuelto' ? '#dcfce7' : 
+                                       reporte.estado === 'en_progreso' ? '#fef3c7' : 
+                                       reporte.estado === 'pendiente' ? '#dbeafe' : '#f3f4f6',
+                        color: reporte.estado === 'resuelto' ? '#166534' : 
+                               reporte.estado === 'en_progreso' ? '#92400e' : 
+                               reporte.estado === 'pendiente' ? '#1d4ed8' : '#6b7280'
+                      }}>
+                        {reporte.estado || 'pendiente'}
+                      </span>
+                    </td>
+                    <td style={{ padding: '12px', color: '#9ca3af', fontSize: '13px' }}>
+                      {reporte.fecha_creacion ? 
+                        new Date(reporte.fecha_creacion).toLocaleDateString() : 
+                        'Sin fecha'
+                      }
+                    </td>
+                    <td style={{ padding: '12px', textAlign: 'center' }}>
+                      {reporte.foto_url ? (
+                        <span style={{ color: '#059669', fontSize: '14px' }}>📷</span>
+                      ) : (
+                        <span style={{ color: '#9ca3af', fontSize: '14px' }}>—</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
         </div>

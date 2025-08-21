@@ -139,12 +139,54 @@ const MapaInteractivo = ({
               popupAnchor: [0, -24]
             })}
           >
-            <Popup>
-              🏷️ <strong>{reporte.titulo}</strong><br />
-              📝 {reporte.descripcion}<br />
-              🏷️ Tipo: {reporte.tipo}<br />
-              📅 {new Date(reporte.fecha_creacion).toLocaleDateString()}<br />
-              {reporte.foto_url && '📷 Con foto'}
+            <Popup style={{ minWidth: '250px' }}>
+              <div style={{ textAlign: 'center' }}>
+                <h4 style={{ margin: '0 0 10px 0', color: '#1f2937' }}>
+                  🏷️ {reporte.titulo}
+                </h4>
+                
+                {/* 📷 Imagen del reporte */}
+                {reporte.foto_url && (
+                  <div style={{ marginBottom: '10px' }}>
+                    <img 
+                      src={reporte.foto_url} 
+                      alt="Foto del reporte"
+                      style={{
+                        width: '100%',
+                        maxWidth: '200px',
+                        height: 'auto',
+                        borderRadius: '8px',
+                        border: '2px solid #e5e7eb'
+                      }}
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.nextSibling.style.display = 'block';
+                      }}
+                    />
+                    <div style={{ display: 'none', color: '#6b7280', fontSize: '12px' }}>
+                      📷 Imagen no disponible
+                    </div>
+                  </div>
+                )}
+                
+                <div style={{ textAlign: 'left', fontSize: '13px' }}>
+                  <p style={{ margin: '5px 0' }}>
+                    📝 <strong>Descripción:</strong><br />
+                    {reporte.descripcion}
+                  </p>
+                  <p style={{ margin: '5px 0' }}>
+                    🏷️ <strong>Tipo:</strong> {reporte.tipo}
+                  </p>
+                  <p style={{ margin: '5px 0' }}>
+                    📅 <strong>Fecha:</strong> {new Date(reporte.fecha_creacion).toLocaleDateString()}
+                  </p>
+                  <p style={{ margin: '5px 0' }}>
+                    📍 <strong>Ubicación:</strong><br />
+                    Lat: {reporte.latitud.toFixed(6)}<br />
+                    Lng: {reporte.longitud.toFixed(6)}
+                  </p>
+                </div>
+              </div>
             </Popup>
           </Marker>
         ))}
