@@ -145,6 +145,15 @@ class ConfiguracionPerfil(Base):
     opciones_app = Column(Text, nullable=False)  # JSON string
     fecha_actualizacion = Column(DateTime, default=func.now(), onupdate=func.now())
 
+class ConfiguracionDashboard(Base):
+    __tablename__ = "configuraciones_dashboard"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    rol = Column(String(50), unique=True, nullable=False, index=True)
+    widgets = Column(Text, nullable=False)  # JSON string
+    fecha_creacion = Column(DateTime, default=func.now())
+    fecha_actualizacion = Column(DateTime, default=func.now(), onupdate=func.now())
+
 class UbicacionTiempoReal(Base):
     __tablename__ = "ubicaciones_tiempo_real"
     

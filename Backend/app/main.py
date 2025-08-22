@@ -18,6 +18,7 @@ import shutil
 import os
 import uuid
 import psycopg2
+import json
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 from contextlib import asynccontextmanager
 
@@ -44,7 +45,7 @@ from passlib.hash import bcrypt
 from pydantic import BaseModel
 from jose import jwt
 from datetime import datetime, timedelta
-from .models import Vehiculo as VehiculoModel, AsignacionMovilizacion as AsignacionMovilizacionModel, ConfiguracionPerfil as ConfiguracionPerfilModel, UbicacionTiempoReal as UbicacionTiempoRealModel
+from .models import Vehiculo as VehiculoModel, AsignacionMovilizacion as AsignacionMovilizacionModel, ConfiguracionPerfil as ConfiguracionPerfilModel, UbicacionTiempoReal as UbicacionTiempoRealModel, ConfiguracionDashboard as ConfiguracionDashboardModel
 from . import vehiculos, movilizaciones
 from sqlalchemy import func
 from .models import Noticia as NoticiaModel, Comentario as ComentarioModel, ReporteCiudadano as ReporteCiudadanoModel
@@ -3103,45 +3104,69 @@ async def obtener_configuracion_dashboard(
     if current_user.rol != "admin":
         raise HTTPException(status_code=403, detail="Solo administradores pueden ver configuraciones del dashboard")
     
-    # Configuraciones por defecto del dashboard para cada rol
-    configuraciones_dashboard = {
-        "admin": {
-            "widgets": ["total-personas", "total-eventos", "lideres-activos", "secciones-cubiertas", 
-                       "movilizacion-vehiculos", "asistencias-tiempo-real", "eventos-historicos", 
-                       "top-secciones", "top-lideres", "estructura-red"]
-        },
-        "presidente": {
-            "widgets": ["total-personas", "total-eventos", "lideres-activos", "secciones-cubiertas", 
-                       "movilizacion-vehiculos", "asistencias-tiempo-real", "eventos-historicos", 
-                       "top-secciones", "top-lideres", "estructura-red"]
-        },
-        "lider_estatal": {
-            "widgets": ["total-personas", "total-eventos", "lideres-activos", "secciones-cubiertas", 
-                       "movilizacion-vehiculos", "asistencias-tiempo-real", "eventos-historicos", 
-                       "top-secciones", "top-lideres", "estructura-red"]
-        },
-        "lider_regional": {
-            "widgets": ["total-personas", "total-eventos", "secciones-cubiertas", 
-                       "top-secciones", "top-lideres", "estructura-red"]
-        },
-        "lider_municipal": {
-            "widgets": ["total-personas", "total-eventos", "lideres-activos", "secciones-cubiertas", 
-                       "movilizacion-vehiculos", "asistencias-tiempo-real", "eventos-historicos", 
-                       "top-secciones", "top-lideres", "estructura-red"]
-        },
-        "lider_zona": {
-            "widgets": ["total-personas", "total-eventos", "secciones-cubiertas", 
-                       "top-secciones", "top-lideres", "estructura-red"]
-        },
-        "capturista": {
-            "widgets": ["total-personas", "total-eventos", "secciones-cubiertas"]
-        },
-        "ciudadano": {
-            "widgets": ["total-eventos", "estructura-red"]
-        }
-    }
-    
-    return configuraciones_dashboard
+    try:
+        # Obtener configuraciones desde la base de datos
+        configuraciones_db = db.query(ConfiguracionDashboardModel).all()
+        
+        # Crear diccionario con las configuraciones
+        configuraciones_dashboard = {}
+        
+        for config in configuraciones_db:
+            # Parsear el JSON de widgets
+            try:
+                widgets = json.loads(config.widgets) if isinstance(config.widgets, str) else config.widgets
+            except (json.JSONDecodeError, TypeError):
+                widgets = []
+            
+            configuraciones_dashboard[config.rol] = {
+                "widgets": widgets
+            }
+        
+        # Si no hay configuraciones en la BD, usar configuraciones por defecto
+        if not configuraciones_dashboard:
+            configuraciones_dashboard = {
+                "admin": {
+                    "widgets": ["total-personas", "total-eventos", "lideres-activos", "secciones-cubiertas", 
+                               "movilizacion-vehiculos", "asistencias-tiempo-real", "eventos-historicos", 
+                               "top-secciones", "top-lideres", "estructura-red"]
+                },
+                "presidente": {
+                    "widgets": ["total-personas", "total-eventos", "lideres-activos", "secciones-cubiertas", 
+                               "movilizacion-vehiculos", "asistencias-tiempo-real", "eventos-historicos", 
+                               "top-secciones", "top-lideres", "estructura-red"]
+                },
+                "lider_estatal": {
+                    "widgets": ["total-personas", "total-eventos", "lideres-activos", "secciones-cubiertas", 
+                               "movilizacion-vehiculos", "asistencias-tiempo-real", "eventos-historicos", 
+                               "top-secciones", "top-lideres", "estructura-red"]
+                },
+                "lider_regional": {
+                    "widgets": ["total-personas", "total-eventos", "secciones-cubiertas", 
+                               "top-secciones", "top-lideres", "estructura-red"]
+                },
+                "lider_municipal": {
+                    "widgets": ["total-personas", "total-eventos", "lideres-activos", "secciones-cubiertas", 
+                               "movilizacion-vehiculos", "asistencias-tiempo-real", "eventos-historicos", 
+                               "top-secciones", "top-lideres", "estructura-red"]
+                },
+                "lider_zona": {
+                    "widgets": ["total-personas", "total-eventos", "secciones-cubiertas", 
+                               "top-secciones", "top-lideres", "estructura-red"]
+                },
+                "capturista": {
+                    "widgets": ["total-personas", "total-eventos", "secciones-cubiertas"]
+                },
+                "ciudadano": {
+                    "widgets": ["total-eventos", "estructura-red"]
+                }
+            }
+        
+        print(f"🔧 Configuraciones del dashboard obtenidas: {configuraciones_dashboard}")
+        return configuraciones_dashboard
+        
+    except Exception as e:
+        print(f"❌ Error al obtener configuraciones del dashboard: {e}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 @app.put("/perfiles/configuracion-dashboard/{rol}")
 async def actualizar_configuracion_dashboard(
@@ -3159,15 +3184,36 @@ async def actualizar_configuracion_dashboard(
     if rol not in roles_validos:
         raise HTTPException(status_code=400, detail="Rol no válido")
     
-    # Aquí se implementaría la lógica para guardar en la base de datos
-    # Por ahora, solo retornamos éxito
-    print(f"🔧 Configuración del dashboard actualizada para rol '{rol}': {configuracion}")
-    
-    return {
-        "mensaje": f"Configuración del dashboard actualizada para rol '{rol}'",
-        "rol": rol,
-        "configuracion": configuracion
-    }
+    try:
+        # Verificar si ya existe una configuración para este rol
+        config_existente = db.query(ConfiguracionDashboardModel).filter(ConfiguracionDashboardModel.rol == rol).first()
+        
+        if config_existente:
+            # Actualizar configuración existente
+            config_existente.widgets = json.dumps(configuracion.get("widgets", []))
+            config_existente.fecha_actualizacion = datetime.now()
+            print(f"🔧 Configuración del dashboard actualizada para rol '{rol}': {configuracion}")
+        else:
+            # Crear nueva configuración
+            nueva_config = ConfiguracionDashboardModel(
+                rol=rol,
+                widgets=json.dumps(configuracion.get("widgets", []))
+            )
+            db.add(nueva_config)
+            print(f"🔧 Nueva configuración del dashboard creada para rol '{rol}': {configuracion}")
+        
+        db.commit()
+        
+        return {
+            "mensaje": f"Configuración del dashboard actualizada para rol '{rol}'",
+            "rol": rol,
+            "configuracion": configuracion
+        }
+        
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Error al guardar configuración del dashboard: {e}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000) 
