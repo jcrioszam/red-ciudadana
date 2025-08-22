@@ -229,6 +229,9 @@ print('📊 Ahora veremos exactamente qué datos se reciben y se guardan')
 print('🚨🚨🚨 FORZANDO NUEVO DEPLOY - Último commit: 33f32502b 🚨🚨🚨')
 print('🔥🔥🔥 ESTE DEPLOY DEBE INCLUIR LOGS DE DEBUG 🔥🔥🔥')
 print('⚡⚡⚡ SI NO VES ESTOS MENSAJES, EL DEPLOY NO FUNCIONÓ ⚡⚡⚡')
+print('🚨🚨🚨 CORS PROBLEM DETECTED - FORCING NEW DEPLOY 🚨🚨🚨')
+print('🔥🔥🔥 CORS CONFIGURATION VERIFICATION REQUIRED 🔥🔥🔥')
+print('⚡⚡⚡ DEPLOY MUST INCLUDE CORS FIX ⚡⚡⚡')
 
 # 🆕 NUEVO: Endpoint de prueba para forzar despliegue
 @app.get("/test-deployment")
