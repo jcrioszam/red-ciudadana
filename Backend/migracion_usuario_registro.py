@@ -15,7 +15,8 @@ ADMIN_PASSWORD = "admin123"
 def login_admin():
     """Iniciar sesión como administrador"""
     try:
-        response = requests.post(f"{BASE_URL}/login", data={
+        # Usar el endpoint /token que vimos en los logs
+        response = requests.post(f"{BASE_URL}/token", data={
             "username": ADMIN_EMAIL,
             "password": ADMIN_PASSWORD
         })
@@ -25,6 +26,7 @@ def login_admin():
             return data.get("access_token")
         else:
             print(f"❌ Error al iniciar sesión: {response.status_code}")
+            print(f"🔍 Respuesta del servidor: {response.text}")
             return None
     except Exception as e:
         print(f"❌ Error de conexión: {e}")

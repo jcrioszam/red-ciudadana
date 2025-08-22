@@ -454,12 +454,16 @@ async def list_personas(skip: int = 0, limit: int = 100, db: Session = Depends(g
 @app.get("/personas/con-usuario-registro/", response_model=List[dict])
 async def list_personas_con_usuario_registro(skip: int = 0, limit: int = 100, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
     """Lista personas con información del usuario que las registró"""
-    # Admin ve todas, líderes ven las de sus subordinados, capturista solo las que registró
+    # Filtros por rol:
+    # - admin y presidente: ven todas las personas
+    # - otros roles: solo ven las de su jerarquía hacia abajo
     query = db.query(PersonaModel).filter(PersonaModel.activo == True)
-    if current_user.rol == "admin":
+    
+    if current_user.rol in ["admin", "presidente"]:
+        # Admin y presidente ven todas las personas
         personas = query.offset(skip).limit(limit).all()
     elif current_user.rol in ["lider_estatal", "lider_regional", "lider_municipal", "lider_zona", "lider"]:
-        # Ver personas registradas por el líder y sus subordinados
+        # Líderes ven personas de su jerarquía hacia abajo
         def get_subordinate_ids(user_id):
             subs = db.query(UsuarioModel).filter(UsuarioModel.id_lider_superior == user_id, UsuarioModel.activo == True).all()
             ids = [user_id]
@@ -469,7 +473,8 @@ async def list_personas_con_usuario_registro(skip: int = 0, limit: int = 100, db
         ids = get_subordinate_ids(current_user.id)
         personas = query.filter(PersonaModel.id_lider_responsable.in_(ids)).offset(skip).limit(limit).all()
     else:
-        personas = query.filter(PersonaModel.id_lider_responsable == current_user.id).offset(skip).limit(limit).all()
+        # Capturistas y otros roles solo ven las personas que registraron
+        personas = query.filter(PersonaModel.id_usuario_registro == current_user.id).offset(skip).limit(limit).all()
     
     # Incluir información del usuario que registró cada persona
     resultado = []
@@ -933,7 +938,29 @@ async def buscar_personas(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_active_user)
 ):
+    # Filtros por rol:
+    # - admin y presidente: ven todas las personas
+    # - otros roles: solo ven las de su jerarquía hacia abajo
     query = db.query(PersonaModel).filter(PersonaModel.activo == True)
+    
+    if current_user.rol in ["admin", "presidente"]:
+        # Admin y presidente ven todas las personas
+        pass
+    elif current_user.rol in ["lider_estatal", "lider_regional", "lider_municipal", "lider_zona", "lider"]:
+        # Líderes ven personas de su jerarquía hacia abajo
+        def get_subordinate_ids(user_id):
+            subs = db.query(UsuarioModel).filter(UsuarioModel.id_lider_superior == user_id, UsuarioModel.activo == True).all()
+            ids = [user_id]
+            for sub in subs:
+                ids.extend(get_subordinate_ids(sub.id))
+            return ids
+        ids = get_subordinate_ids(current_user.id)
+        query = query.filter(PersonaModel.id_lider_responsable.in_(ids))
+    else:
+        # Capturistas y otros roles solo ven las personas que registraron
+        query = query.filter(PersonaModel.id_usuario_registro == current_user.id)
+    
+    # Aplicar filtros adicionales
     if clave_elector:
         query = query.filter(PersonaModel.clave_elector == clave_elector)
     if seccion_electoral:
@@ -942,6 +969,7 @@ async def buscar_personas(
         query = query.filter(PersonaModel.colonia == colonia)
     if id_lider_responsable:
         query = query.filter(PersonaModel.id_lider_responsable == id_lider_responsable)
+    
     return query.all()
 
 @app.get("/eventos/", response_model=List[Evento])
