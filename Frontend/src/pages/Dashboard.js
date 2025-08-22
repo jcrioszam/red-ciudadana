@@ -162,8 +162,17 @@ const Dashboard = () => {
     const permisoRequerido = mapeoSecciones[seccion];
     const tienePermiso = permisoRequerido ? opcionesPermitidas.includes(permisoRequerido) : false;
     
-    // Verificar también si el widget está habilitado en la configuración del dashboard
-    const widgetsHabilitados = configuracionDashboard?.widgets || [];
+    // Verificar también si el widget está habilitado en la configuración del dashboard PARA EL ROL ESPECÍFICO
+    const configuracionRol = configuracionDashboard?.[user?.rol];
+    const widgetsHabilitados = configuracionRol?.widgets || [];
+    
+    console.log(`🔍 Verificando sección '${seccion}' para rol '${user?.rol}':`);
+    console.log(`  - Permisos del perfil:`, opcionesPermitidas);
+    console.log(`  - Permiso requerido: ${permisoRequerido}`);
+    console.log(`  - Tiene permiso: ${tienePermiso}`);
+    console.log(`  - Configuración del rol:`, configuracionRol);
+    console.log(`  - Widgets habilitados:`, widgetsHabilitados);
+    
     const mapeoWidgets = {
       'usuarios': 'lideres-activos',
       'personas': 'total-personas',
@@ -176,6 +185,10 @@ const Dashboard = () => {
     
     const widgetRequerido = mapeoWidgets[seccion];
     const widgetHabilitado = widgetRequerido ? widgetsHabilitados.includes(widgetRequerido) : true;
+    
+    console.log(`  - Widget requerido: ${widgetRequerido}`);
+    console.log(`  - Widget habilitado: ${widgetHabilitado}`);
+    console.log(`  - Resultado final: ${tienePermiso && widgetHabilitado}`);
     
     return tienePermiso && widgetHabilitado;
   };
