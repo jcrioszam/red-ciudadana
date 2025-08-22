@@ -62,7 +62,9 @@ export default function Sidebar() {
   return (
     <nav
       style={{
+        width: 220,
         minWidth: 220,
+        maxWidth: 220,
         background: 'linear-gradient(180deg, #1a237e 0%, #3949ab 100%)',
         height: '100vh',
         padding: 0,
@@ -70,7 +72,11 @@ export default function Sidebar() {
         color: '#fff',
         display: 'flex',
         flexDirection: 'column',
-        justifyContent: 'space-between'
+        justifyContent: 'space-between',
+        position: 'fixed',
+        left: 0,
+        top: 0,
+        zIndex: 1000
       }}
     >
       <div>
