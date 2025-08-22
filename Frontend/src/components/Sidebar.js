@@ -2,7 +2,7 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useQuery } from 'react-query';
 import {
-  FiHome, FiUsers, FiUserCheck, FiCalendar, FiBarChart, FiGitBranch, FiCheckSquare, FiClock, FiShield, FiLogOut, FiMapPin, FiFileText, FiAlertTriangle, FiMap, FiSettings
+  FiHome, FiUsers, FiUserCheck, FiCalendar, FiBarChart, FiGitBranch, FiCheckSquare, FiClock, FiShield, FiMapPin, FiFileText, FiAlertTriangle, FiMap, FiSettings
 } from 'react-icons/fi';
 import api from '../api';
 import { useAuth } from '../contexts/AuthContext';
@@ -29,7 +29,7 @@ const menu = [
 
 export default function Sidebar() {
   const location = useLocation();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const [logoUrl, setLogoUrl] = React.useState(null);
 
   // Obtener configuración de permisos del usuario actual
@@ -154,28 +154,6 @@ export default function Sidebar() {
       <div style={{ padding: 24, textAlign: 'center', fontSize: 13, color: '#c5cae9', borderTop: '1px solid #283593' }}>
         <div>© {new Date().getFullYear()} Red Ciudadana</div>
         <div style={{ fontSize: 11, marginTop: 4 }}>Institucional</div>
-        <button
-          onClick={logout}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            marginTop: 16,
-            padding: '8px 16px',
-            backgroundColor: 'rgba(255,255,255,0.1)',
-            border: '1px solid rgba(255,255,255,0.2)',
-            borderRadius: 6,
-            color: '#fff',
-            cursor: 'pointer',
-            fontSize: 12,
-            transition: 'background 0.2s'
-          }}
-          onMouseOver={(e) => e.target.style.backgroundColor = 'rgba(255,255,255,0.2)'}
-          onMouseOut={(e) => e.target.style.backgroundColor = 'rgba(255,255,255,0.1)'}
-        >
-          <FiLogOut style={{ fontSize: 14 }} />
-          Cerrar Sesión
-        </button>
       </div>
     </nav>
   );
