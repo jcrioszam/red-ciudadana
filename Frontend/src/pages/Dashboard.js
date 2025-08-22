@@ -52,10 +52,13 @@ const Dashboard = () => {
       if (!user?.rol) return null;
       try {
         const response = await api.get('/perfiles/configuracion-dashboard');
-        return response.data[user.rol] || { widgets: [] };
+        console.log('🔍 Configuración completa del dashboard:', response.data);
+        console.log('🔍 Rol del usuario:', user.rol);
+        console.log('🔍 Configuración del rol:', response.data[user.rol]);
+        return response.data; // Devolver toda la configuración
       } catch (error) {
         console.error('Error al obtener configuración del dashboard:', error);
-        return { widgets: [] };
+        return {};
       }
     },
     {
