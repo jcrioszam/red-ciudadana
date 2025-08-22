@@ -21,7 +21,8 @@ class Usuario(Base):
 
     # Relaciones
     subordinados = relationship("Usuario", backref="lider_superior", remote_side=[id])
-    personas_registradas = relationship("Persona", back_populates="lider_responsable")
+    personas_registradas = relationship("Persona", back_populates="lider_responsable", foreign_keys="Persona.id_lider_responsable")
+    personas_registradas_por_mi = relationship("Persona", foreign_keys="Persona.id_usuario_registro")
     eventos_organizados = relationship("Evento", back_populates="lider_organizador")
 
 class Persona(Base):
