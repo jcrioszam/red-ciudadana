@@ -12,21 +12,33 @@ const AdminDashboard = () => {
   const [cambiosPendientes, setCambiosPendientes] = useState({});
 
   // Obtener todos los roles disponibles
-  const { data: roles, isLoading: cargandoRoles } = useQuery('roles', async () => {
+  const { data: roles, isLoading: cargandoRoles, error: errorRoles } = useQuery('roles', async () => {
     try {
+      console.log('🚀 Solicitando roles desde /perfiles/roles...');
       const response = await api.get('/perfiles/roles');
-      console.log('🔍 Respuesta de /perfiles/roles:', response.data);
+      console.log('🔍 Respuesta completa de /perfiles/roles:', response);
+      console.log('🔍 Status:', response.status);
+      console.log('🔍 Headers:', response.headers);
+      console.log('🔍 Data:', response.data);
+      console.log('🔍 Tipo de data:', typeof response.data);
+      console.log('🔍 Es array?', Array.isArray(response.data));
       
       if (Array.isArray(response.data)) {
+        console.log('✅ Data es array, devolviendo directamente');
         return response.data;
       } else if (response.data && typeof response.data === 'object') {
-        return Object.values(response.data);
+        console.log('🔧 Data es objeto, extrayendo valores...');
+        const valores = Object.values(response.data);
+        console.log('🔧 Valores extraídos:', valores);
+        return valores;
       } else {
         console.error('❌ Formato inesperado de /perfiles/roles:', response.data);
+        console.error('❌ Tipo:', typeof response.data);
         return [];
       }
     } catch (error) {
-      console.error('Error al obtener roles:', error);
+      console.error('❌ Error al obtener roles:', error);
+      console.error('❌ Error completo:', error.response || error);
       return [];
     }
   });
@@ -186,25 +198,80 @@ const AdminDashboard = () => {
             <h3 className="text-lg font-semibold text-secondary-900 mb-4">
               Seleccionar Rol
             </h3>
-            <div className="space-y-3">
-              {roles?.map(rol => (
-                <div
-                  key={rol.rol}
-                  onClick={() => setRolSeleccionado(rol.rol)}
-                  className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-                    rolSeleccionado === rol.rol
-                      ? 'border-primary-500 bg-primary-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <div className="font-medium text-secondary-900 capitalize">
-                    {rol.rol?.replace('_', ' ') || 'Sin rol'}
+            
+            {/* Mostrar error si existe */}
+            {errorRoles && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <div className="text-sm text-red-800">
+                  <strong>Error al cargar roles:</strong>
+                  <pre className="mt-2 text-xs bg-red-100 p-2 rounded overflow-auto">
+                    {JSON.stringify(errorRoles, null, 2)}
+                  </pre>
+                </div>
+              </div>
+            )}
+            
+            {/* Mostrar información de debugging */}
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="text-xs text-blue-800">
+                <strong>Debug Info:</strong>
+                <div>Roles cargados: {roles ? roles.length : 'undefined'}</div>
+                <div>Tipo de datos: {roles ? typeof roles : 'undefined'}</div>
+                <div>Es array: {Array.isArray(roles) ? 'Sí' : 'No'}</div>
+                {roles && (
+                  <div className="mt-2">
+                    <strong>Contenido:</strong>
+                    <pre className="mt-1 bg-blue-100 p-2 rounded overflow-auto text-xs">
+                      {JSON.stringify(roles, null, 2)}
+                    </pre>
                   </div>
-                  <div className="text-sm text-secondary-600">
-                    {rol.descripcion || 'Sin descripción'}
+                )}
+              </div>
+            </div>
+            
+            <div className="space-y-3">
+              {roles && Array.isArray(roles) && roles.length > 0 ? (
+                roles.map(rol => (
+                  <div
+                    key={rol.rol || rol.id || 'sin-rol'}
+                    onClick={() => setRolSeleccionado(rol.rol || rol.id)}
+                    className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                      rolSeleccionado === (rol.rol || rol.id)
+                        ? 'border-primary-500 bg-primary-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="font-medium text-secondary-900 capitalize">
+                      {rol.rol || rol.id || 'Sin rol'}
+                    </div>
+                    <div className="text-sm text-secondary-600">
+                      {rol.descripcion || 'Sin descripción'}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-8">
+                  <div className="text-gray-500">
+                    {cargandoRoles ? (
+                      <div className="flex items-center justify-center space-x-2">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600"></div>
+                        <span>Cargando roles...</span>
+                      </div>
+                    ) : (
+                      <div>
+                        <p className="text-lg font-medium mb-2">No se pudieron cargar los roles</p>
+                        <p className="text-sm mb-3">Verifica la consola para más detalles</p>
+                        <button 
+                          onClick={() => queryClient.invalidateQueries('roles')} 
+                          className="btn-primary text-sm"
+                        >
+                          Reintentar
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
-              ))}
+              )}
             </div>
           </div>
         </div>
