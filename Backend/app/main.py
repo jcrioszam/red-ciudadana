@@ -3215,5 +3215,62 @@ async def actualizar_configuracion_dashboard(
         print(f"❌ Error al guardar configuración del dashboard: {e}")
         raise HTTPException(status_code=500, detail="Error interno del servidor")
 
+@app.get("/perfiles/mi-configuracion-dashboard")
+async def obtener_mi_configuracion_dashboard(
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_active_user)
+):
+    """Obtener la configuración del dashboard para el usuario actual"""
+    try:
+        # Obtener configuración desde la base de datos
+        config_db = db.query(ConfiguracionDashboardModel).filter(ConfiguracionDashboardModel.rol == current_user.rol).first()
+        
+        if config_db:
+            # Parsear el JSON de widgets
+            try:
+                widgets = json.loads(config_db.widgets) if isinstance(config_db.widgets, str) else config_db.widgets
+            except (json.JSONDecodeError, TypeError):
+                widgets = []
+            
+            configuracion = {
+                "rol": current_user.rol,
+                "widgets": widgets
+            }
+        else:
+            # Si no hay configuración en la BD, usar configuración por defecto
+            configuraciones_default = {
+                "admin": ["total-personas", "total-eventos", "lideres-activos", "secciones-cubiertas", 
+                         "movilizacion-vehiculos", "asistencias-tiempo-real", "eventos-historicos", 
+                         "top-secciones", "top-lideres", "estructura-red"],
+                "presidente": ["total-personas", "total-eventos", "lideres-activos", "secciones-cubiertas", 
+                              "movilizacion-vehiculos", "asistencias-tiempo-real", "eventos-historicos", 
+                              "top-secciones", "top-lideres", "estructura-red"],
+                "lider_estatal": ["total-personas", "total-eventos", "lideres-activos", "secciones-cubiertas", 
+                                  "movilizacion-vehiculos", "asistencias-tiempo-real", "eventos-historicos", 
+                                  "top-secciones", "top-lideres", "estructura-red"],
+                "lider_regional": ["total-personas", "total-eventos", "secciones-cubiertas", 
+                                   "top-secciones", "top-lideres", "estructura-red"],
+                "lider_municipal": ["total-personas", "total-eventos", "lideres-activos", "secciones-cubiertas", 
+                                    "movilizacion-vehiculos", "asistencias-tiempo-real", "eventos-historicos", 
+                                    "top-secciones", "top-lideres", "estructura-red"],
+                "lider_zona": ["total-personas", "total-eventos", "secciones-cubiertas", 
+                               "top-secciones", "top-lideres", "estructura-red"],
+                "capturista": ["total-personas", "total-eventos", "secciones-cubiertas"],
+                "ciudadano": ["total-eventos", "estructura-red"]
+            }
+            
+            widgets = configuraciones_default.get(current_user.rol, [])
+            configuracion = {
+                "rol": current_user.rol,
+                "widgets": widgets
+            }
+        
+        print(f"🔧 Configuración del dashboard para {current_user.rol}: {configuracion}")
+        return configuracion
+        
+    except Exception as e:
+        print(f"❌ Error al obtener configuración del dashboard para {current_user.rol}: {e}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000) 
