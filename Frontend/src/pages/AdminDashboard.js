@@ -141,12 +141,23 @@ const AdminDashboard = () => {
       };
       
       console.log(`💾 Guardando configuración para ${rolSeleccionado}:`, configuracionNueva);
+      console.log(`🔍 Configuración actual antes de guardar:`, configuracionActual);
+      console.log(`🔍 Cambios pendientes:`, cambiosPendientes);
       
       // Llamar al endpoint del backend
       const response = await api.put(`/perfiles/configuracion-dashboard/${rolSeleccionado}`, configuracionNueva);
       
+      console.log(`📡 Respuesta del backend:`, response);
+      console.log(`📡 Status:`, response.status);
+      console.log(`📡 Data:`, response.data);
+      
       if (response.status === 200) {
         console.log('✅ Configuración guardada exitosamente');
+        
+        // Verificar qué devuelve el endpoint después de guardar
+        console.log('🔄 Verificando configuración guardada...');
+        const responseVerificacion = await api.get(`/perfiles/configuracion-dashboard`);
+        console.log('🔍 Configuración después de guardar:', responseVerificacion.data);
         
         // Actualizar estado local
         setConfiguracionActual(configuracionNueva);
@@ -160,6 +171,7 @@ const AdminDashboard = () => {
       }
     } catch (error) {
       console.error('❌ Error al guardar configuración:', error);
+      console.error('❌ Error completo:', error.response || error);
       alert('Error al guardar la configuración');
     }
   };
