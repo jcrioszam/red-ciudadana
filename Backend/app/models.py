@@ -54,7 +54,7 @@ class Persona(Base):
     activo = Column(Boolean, default=True)
 
     # Relaciones
-    lider_responsable = relationship("Usuario", back_populates="personas_registradas")
+    lider_responsable = relationship("Usuario", back_populates="personas_registradas", foreign_keys=[id_lider_responsable])
     usuario_registro = relationship("Usuario", foreign_keys=[id_usuario_registro])
     asistencias = relationship("Asistencia", back_populates="persona")
 
