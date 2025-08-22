@@ -244,6 +244,16 @@ async def test_deployment():
         "timestamp": "2024-12-28"
     }
 
+# 🆕 NUEVO: Endpoint de prueba CORS
+@app.get("/test-cors")
+async def test_cors():
+    return {
+        "message": "CORS TEST - Si ves esto, el backend está actualizado",
+        "cors_status": "verificando",
+        "deploy_version": "b34282a10",
+        "timestamp": "2024-12-28"
+    }
+
 app.include_router(vehiculos.router)
 app.include_router(movilizaciones.router)
 
