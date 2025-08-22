@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useQuery } from 'react-query';
 import {
-  FiHome, FiUsers, FiUserCheck, FiCalendar, FiBarChart, FiGitBranch, FiCheckSquare, FiClock, FiShield, FiMapPin, FiFileText, FiAlertTriangle, FiMap, FiSettings
+  FiHome, FiUsers, FiUserCheck, FiCalendar, FiBarChart, FiGitBranch, FiCheckSquare, FiClock, FiShield, FiMapPin, FiFileText, FiAlertTriangle, FiMap, FiSettings, FiMenu, FiX
 } from 'react-icons/fi';
 import api from '../api';
 import { useAuth } from '../contexts/AuthContext';
@@ -31,6 +31,25 @@ export default function Sidebar() {
   const location = useLocation();
   const { user } = useAuth();
   const [logoUrl, setLogoUrl] = React.useState(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detectar si es móvil
+  useEffect(() => {
+    const checkIsMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    
+    checkIsMobile();
+    window.addEventListener('resize', checkIsMobile);
+    
+    return () => window.removeEventListener('resize', checkIsMobile);
+  }, []);
+
+  // Cerrar menú móvil al cambiar de ruta
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [location.pathname]);
 
   // Obtener configuración de permisos del usuario actual
   const { data: configuracionPerfil } = useQuery(
@@ -59,102 +78,184 @@ export default function Sidebar() {
     setLogoUrl(`${baseURL}/logo?` + Date.now());
   }, [location.pathname]);
 
-  return (
-    <nav
+  // Botón de menú móvil
+  const MobileMenuButton = () => (
+    <button
+      onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
       style={{
-        width: 220,
-        minWidth: 220,
-        maxWidth: 220,
-        background: 'linear-gradient(180deg, #1a237e 0%, #3949ab 100%)',
-        height: '100vh',
-        padding: 0,
-        boxShadow: '2px 0 8px rgba(0,0,0,0.07)',
-        color: '#fff',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'space-between',
         position: 'fixed',
-        left: 0,
-        top: 0,
-        zIndex: 1000
+        top: 20,
+        left: 20,
+        zIndex: 1001,
+        background: '#1a237e',
+        border: 'none',
+        borderRadius: '8px',
+        padding: '12px',
+        color: 'white',
+        cursor: 'pointer',
+        display: isMobile ? 'block' : 'none',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
       }}
     >
-      <div>
-        <div style={{ textAlign: 'center', marginBottom: 20, marginTop: 32 }}>
-          {logoUrl ? (
-            <img src={logoUrl} alt="Logo" style={{ maxWidth: 120, maxHeight: 120, margin: '0 auto', borderRadius: 12, background: '#fff' }} onError={e => { e.target.style.display = 'none'; }} />
-          ) : (
-            <div style={{ fontWeight: 'bold', fontSize: 22, letterSpacing: 1, padding: '32px 0 24px 0' }}>
-              Red Ciudadana
-            </div>
-          )}
+      {isMobileMenuOpen ? <FiX size={24} /> : <FiMenu size={24} />}
+    </button>
+  );
+
+  // Estilos del sidebar
+  const sidebarStyles = {
+    width: isMobile ? '100vw' : 220,
+    minWidth: isMobile ? '100vw' : 220,
+    maxWidth: isMobile ? '100vw' : 220,
+    background: 'linear-gradient(180deg, #1a237e 0%, #3949ab 100%)',
+    height: '100vh',
+    padding: 0,
+    boxShadow: '2px 0 8px rgba(0,0,0,0.07)',
+    color: '#fff',
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'space-between',
+    position: 'fixed',
+    left: 0,
+    top: 0,
+    zIndex: 1000,
+    transform: isMobile && !isMobileMenuOpen ? 'translateX(-100%)' : 'translateX(0)',
+    transition: 'transform 0.3s ease-in-out',
+    overflowY: 'auto'
+  };
+
+  // Overlay para móvil
+  const MobileOverlay = () => (
+    isMobile && isMobileMenuOpen ? (
+      <div
+        onClick={() => setIsMobileMenuOpen(false)}
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.5)',
+          zIndex: 999
+        }}
+      />
+    ) : null
+  );
+
+  return (
+    <>
+      <MobileMenuButton />
+      <MobileOverlay />
+      <nav style={sidebarStyles}>
+        <div>
+          <div style={{ 
+            textAlign: 'center', 
+            marginBottom: 20, 
+            marginTop: isMobile ? 80 : 32,
+            padding: isMobile ? '0 20px' : '0'
+          }}>
+            {logoUrl ? (
+              <img 
+                src={logoUrl} 
+                alt="Logo" 
+                style={{ 
+                  maxWidth: isMobile ? 80 : 120, 
+                  maxHeight: isMobile ? 80 : 120, 
+                  margin: '0 auto', 
+                  borderRadius: 12, 
+                  background: '#fff' 
+                }} 
+                onError={e => { e.target.style.display = 'none'; }} 
+              />
+            ) : (
+              <div style={{ 
+                fontWeight: 'bold', 
+                fontSize: isMobile ? 18 : 22, 
+                letterSpacing: 1, 
+                padding: isMobile ? '20px 0 16px 0' : '32px 0 24px 0' 
+              }}>
+                Red Ciudadana
+              </div>
+            )}
+          </div>
+          <ul style={{ 
+            listStyle: 'none', 
+            padding: 0, 
+            margin: 0,
+            paddingBottom: isMobile ? 20 : 0
+          }}>
+            {menu.map(item => {
+              // Verificar si el usuario tiene permiso para ver esta opción
+              const opcionesPermitidas = configuracionPerfil?.configuracion?.opciones_web || [];
+              
+              // Convertir la ruta del menú al formato de permisos del backend
+              let permisoRequerido = item.to.replace('/', '');
+              if (permisoRequerido === '') permisoRequerido = 'dashboard';
+              
+              // Mapeo específico para coincidir con el backend
+              const mapeoPermisos = {
+                'eventos-historicos': 'eventos-historicos',
+                'estructura-red': 'estructura-red',
+                'reportes-ciudadanos': 'reportes_ciudadanos',
+                'mapa-reportes': 'reportes_ciudadanos', // Usar los mismos permisos que reportes ciudadanos
+                'seguimiento-reportes': 'seguimiento_reportes',
+                'admin-perfiles': 'admin-perfiles',
+                'admin-dashboard': 'admin-perfiles' // Usar los mismos permisos que admin-perfiles
+              };
+              
+              // Aplicar mapeo si existe, sino usar el valor original
+              permisoRequerido = mapeoPermisos[permisoRequerido] || permisoRequerido;
+              
+              const tienePermiso = opcionesPermitidas.includes(permisoRequerido);
+              
+              // Debug logs para desarrollo
+              if (process.env.NODE_ENV === 'development') {
+                console.log(`Sidebar - Checking ${item.to} permission:`);
+                console.log(`  - User role: ${user?.rol}`);
+                console.log(`  - Permiso requerido: ${permisoRequerido}`);
+                console.log(`  - Opciones permitidas:`, opcionesPermitidas);
+                console.log(`  - Tiene permiso: ${tienePermiso}`);
+              }
+              
+              // VALIDACIÓN DE PERMISOS HABILITADA: Si no tiene permiso, no mostrar la opción
+              if (!tienePermiso) return null;
+              
+              return (
+                <li key={item.to}>
+                  <Link
+                    to={item.to}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: isMobile ? 8 : 12,
+                      padding: isMobile ? '16px 20px' : '14px 32px',
+                      color: location.pathname === item.to ? '#fff' : '#c5cae9',
+                      background: location.pathname === item.to ? 'rgba(255,255,255,0.10)' : 'none',
+                      fontWeight: location.pathname === item.to ? 'bold' : 'normal',
+                      textDecoration: 'none',
+                      borderLeft: location.pathname === item.to ? '4px solid #ffb300' : '4px solid transparent',
+                      transition: 'background 0.2s, color 0.2s',
+                      fontSize: isMobile ? '14px' : '16px'
+                    }}
+                  >
+                    <span style={{ fontSize: isMobile ? 18 : 20 }}>{item.icon}</span>
+                    {item.label}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
         </div>
-        <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-          {menu.map(item => {
-            // Verificar si el usuario tiene permiso para ver esta opción
-            const opcionesPermitidas = configuracionPerfil?.configuracion?.opciones_web || [];
-            
-            // Convertir la ruta del menú al formato de permisos del backend
-            let permisoRequerido = item.to.replace('/', '');
-            if (permisoRequerido === '') permisoRequerido = 'dashboard';
-            
-            // Mapeo específico para coincidir con el backend
-            const mapeoPermisos = {
-              'eventos-historicos': 'eventos-historicos',
-              'estructura-red': 'estructura-red',
-              'reportes-ciudadanos': 'reportes_ciudadanos',
-              'mapa-reportes': 'reportes_ciudadanos', // Usar los mismos permisos que reportes ciudadanos
-              'seguimiento-reportes': 'seguimiento_reportes',
-              'admin-perfiles': 'admin-perfiles',
-              'admin-dashboard': 'admin-perfiles' // Usar los mismos permisos que admin-perfiles
-            };
-            
-            // Aplicar mapeo si existe, sino usar el valor original
-            permisoRequerido = mapeoPermisos[permisoRequerido] || permisoRequerido;
-            
-            const tienePermiso = opcionesPermitidas.includes(permisoRequerido);
-            
-            // Debug logs para desarrollo
-            if (process.env.NODE_ENV === 'development') {
-              console.log(`Sidebar - Checking ${item.to} permission:`);
-              console.log(`  - User role: ${user?.rol}`);
-              console.log(`  - Permiso requerido: ${permisoRequerido}`);
-              console.log(`  - Opciones permitidas:`, opcionesPermitidas);
-              console.log(`  - Tiene permiso: ${tienePermiso}`);
-            }
-            
-            // VALIDACIÓN DE PERMISOS HABILITADA: Si no tiene permiso, no mostrar la opción
-            if (!tienePermiso) return null;
-            
-            return (
-              <li key={item.to}>
-                <Link
-                  to={item.to}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 12,
-                    padding: '14px 32px',
-                    color: location.pathname === item.to ? '#fff' : '#c5cae9',
-                    background: location.pathname === item.to ? 'rgba(255,255,255,0.10)' : 'none',
-                    fontWeight: location.pathname === item.to ? 'bold' : 'normal',
-                    textDecoration: 'none',
-                    borderLeft: location.pathname === item.to ? '4px solid #ffb300' : '4px solid transparent',
-                    transition: 'background 0.2s, color 0.2s'
-                  }}
-                >
-                  <span style={{ fontSize: 20 }}>{item.icon}</span>
-                  {item.label}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      </div>
-      <div style={{ padding: 24, textAlign: 'center', fontSize: 13, color: '#c5cae9', borderTop: '1px solid #283593' }}>
-        <div>© {new Date().getFullYear()} Red Ciudadana</div>
-        <div style={{ fontSize: 11, marginTop: 4 }}>Institucional</div>
-      </div>
-    </nav>
+        <div style={{ 
+          padding: isMobile ? '16px 20px' : 24, 
+          textAlign: 'center', 
+          fontSize: isMobile ? 11 : 13, 
+          color: '#c5cae9', 
+          borderTop: '1px solid #283593' 
+        }}>
+          <div>© {new Date().getFullYear()} Red Ciudadana</div>
+          <div style={{ fontSize: isMobile ? 9 : 11, marginTop: 4 }}>Institucional</div>
+        </div>
+      </nav>
+    </>
   );
 } 

@@ -76,7 +76,7 @@ const Personas = () => {
     Object.entries(searchFilters).forEach(([key, value]) => {
       if (value) params.append(key, value);
     });
-    const response = await api.get(`/personas/buscar/?${params.toString()}`);
+    const response = await api.get(`/personas/con-usuario-registro/?${params.toString()}`);
     return response.data;
   });
 
@@ -434,6 +434,9 @@ const Personas = () => {
                   Estado
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                  Registrado Por
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
                   Acciones
                 </th>
               </tr>
@@ -495,6 +498,21 @@ const Personas = () => {
                     }`}>
                       {persona.activo ? 'Activo' : 'Inactivo'}
                     </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-secondary-900">
+                      {persona.usuario_registro ? (
+                        <div className="flex items-center">
+                          <FiUser className="h-4 w-4 text-secondary-400 mr-1" />
+                          {persona.usuario_registro.nombre}
+                        </div>
+                      ) : (
+                        <span className="text-secondary-400">N/A</span>
+                      )}
+                    </div>
+                    <div className="text-xs text-secondary-500">
+                      {persona.usuario_registro?.rol && `${persona.usuario_registro.rol}`}
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex space-x-2">
