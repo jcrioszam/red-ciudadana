@@ -44,6 +44,7 @@ class Persona(Base):
     firma = Column(String(255))
     acepta_politica = Column(Boolean, default=False)
     id_lider_responsable = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
+    id_usuario_registro = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
     latitud = Column(Float)
     longitud = Column(Float)
     colonia = Column(String(100), index=True)
@@ -53,6 +54,7 @@ class Persona(Base):
 
     # Relaciones
     lider_responsable = relationship("Usuario", back_populates="personas_registradas")
+    usuario_registro = relationship("Usuario", foreign_keys=[id_usuario_registro])
     asistencias = relationship("Asistencia", back_populates="persona")
 
 class Evento(Base):

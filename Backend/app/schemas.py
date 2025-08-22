@@ -64,6 +64,7 @@ class PersonaUbicacion(BaseModel):
 class PersonaCreate(PersonaBase):
     id_lider_responsable: int
     acepta_politica: bool = False
+    id_usuario_registro: Optional[int] = None
 
 class PersonaUpdate(BaseModel):
     nombre: Optional[str] = None
@@ -84,10 +85,12 @@ class PersonaUpdate(BaseModel):
     codigo_postal: Optional[str] = None
     activo: Optional[bool] = None
     id_lider_responsable: Optional[int] = None
+    id_usuario_registro: Optional[int] = None
 
 class Persona(PersonaBase):
     id: int
     id_lider_responsable: int
+    id_usuario_registro: Optional[int] = None
     acepta_politica: bool
     fecha_registro: datetime
     activo: bool

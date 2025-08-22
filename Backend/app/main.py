@@ -438,6 +438,58 @@ async def list_personas(skip: int = 0, limit: int = 100, db: Session = Depends(g
         personas = query.filter(PersonaModel.id_lider_responsable == current_user.id).offset(skip).limit(limit).all()
     return personas
 
+@app.get("/personas/con-usuario-registro/", response_model=List[dict])
+async def list_personas_con_usuario_registro(skip: int = 0, limit: int = 100, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
+    """Lista personas con información del usuario que las registró"""
+    # Admin ve todas, líderes ven las de sus subordinados, capturista solo las que registró
+    query = db.query(PersonaModel).filter(PersonaModel.activo == True)
+    if current_user.rol == "admin":
+        personas = query.offset(skip).limit(limit).all()
+    elif current_user.rol in ["lider_estatal", "lider_regional", "lider_municipal", "lider_zona", "lider"]:
+        # Ver personas registradas por el líder y sus subordinados
+        def get_subordinate_ids(user_id):
+            subs = db.query(UsuarioModel).filter(UsuarioModel.id_lider_superior == user_id, UsuarioModel.activo == True).all()
+            ids = [user_id]
+            for sub in subs:
+                ids.extend(get_subordinate_ids(sub.id))
+            return ids
+        ids = get_subordinate_ids(current_user.id)
+        personas = query.filter(PersonaModel.id_lider_responsable.in_(ids)).offset(skip).limit(limit).all()
+    else:
+        personas = query.filter(PersonaModel.id_lider_responsable == current_user.id).offset(skip).limit(limit).all()
+    
+    # Incluir información del usuario que registró cada persona
+    resultado = []
+    for persona in personas:
+        usuario_registro = db.query(UsuarioModel).filter(UsuarioModel.id == persona.id_usuario_registro).first()
+        persona_data = {
+            "id": persona.id,
+            "nombre": persona.nombre,
+            "telefono": persona.telefono,
+            "direccion": persona.direccion,
+            "edad": persona.edad,
+            "sexo": persona.sexo,
+            "clave_elector": persona.clave_elector,
+            "curp": persona.curp,
+            "num_emision": persona.num_emision,
+            "seccion_electoral": persona.seccion_electoral,
+            "distrito": persona.distrito,
+            "municipio": persona.municipio,
+            "estado": persona.estado,
+            "colonia": persona.colonia,
+            "codigo_postal": persona.codigo_postal,
+            "fecha_registro": persona.fecha_registro,
+            "activo": persona.activo,
+            "usuario_registro": {
+                "id": usuario_registro.id if usuario_registro else None,
+                "nombre": usuario_registro.nombre if usuario_registro else "N/A",
+                "rol": usuario_registro.rol if usuario_registro else "N/A"
+            } if usuario_registro else None
+        }
+        resultado.append(persona_data)
+    
+    return resultado
+
 @app.get("/personas/ubicaciones", response_model=List[PersonaUbicacion])
 async def obtener_ubicaciones_personas(db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
     personas = db.query(PersonaModel).filter(
@@ -805,7 +857,12 @@ async def create_persona(persona: PersonaCreate, db: Session = Depends(get_db), 
         exists = db.query(PersonaModel).filter(PersonaModel.clave_elector == persona.clave_elector).first()
         if exists:
             raise HTTPException(status_code=400, detail="Clave de elector ya registrada")
-    db_persona = PersonaModel(**persona.dict())
+    
+    # Crear la persona con el usuario que la registra
+    persona_data = persona.dict()
+    persona_data['id_usuario_registro'] = current_user.id
+    
+    db_persona = PersonaModel(**persona_data)
     db.add(db_persona)
     db.commit()
     db.refresh(db_persona)
