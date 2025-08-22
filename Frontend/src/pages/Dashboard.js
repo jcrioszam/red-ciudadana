@@ -46,24 +46,24 @@ const Dashboard = () => {
   );
 
   // Obtener configuración del dashboard para el rol del usuario
-  const { data: configuracionDashboard } = useQuery(
-    ['configuracion-dashboard-usuario', user?.rol],
+  const { data: configuracionDashboard, refetch: refetchDashboard } = useQuery(
+    ['mi-configuracion-dashboard', user?.rol],
     async () => {
       if (!user?.rol) return null;
       try {
-        const response = await api.get('/perfiles/configuracion-dashboard');
-        console.log('🔍 Configuración completa del dashboard:', response.data);
-        console.log('🔍 Rol del usuario:', user.rol);
-        console.log('🔍 Configuración del rol:', response.data[user.rol]);
-        return response.data; // Devolver toda la configuración
+        const response = await api.get('/perfiles/mi-configuracion-dashboard');
+        console.log('🔍 Configuración del dashboard para', user.rol, ':', response.data);
+        return response.data; // Devolver configuración del usuario actual
       } catch (error) {
         console.error('Error al obtener configuración del dashboard:', error);
-        return {};
+        return { widgets: [] };
       }
     },
     {
       enabled: !!user?.rol,
-      staleTime: 5 * 60 * 1000, // 5 minutos
+      staleTime: 0, // Siempre obtener datos frescos
+      refetchOnWindowFocus: true, // Actualizar al enfocar la ventana
+      refetchOnMount: true, // Actualizar al montar el componente
     }
   );
 
@@ -115,6 +115,7 @@ const Dashboard = () => {
     refetchEventosHistoricos();
     refetchAsistencias();
     refetchMovilizacion();
+    refetchDashboard(); // Actualizar también la configuración del dashboard
   };
 
   // Función para obtener color según porcentaje de asistencia
@@ -166,14 +167,13 @@ const Dashboard = () => {
     const tienePermiso = permisoRequerido ? opcionesPermitidas.includes(permisoRequerido) : false;
     
     // Verificar también si el widget está habilitado en la configuración del dashboard PARA EL ROL ESPECÍFICO
-    const configuracionRol = configuracionDashboard?.[user?.rol];
-    const widgetsHabilitados = configuracionRol?.widgets || [];
+    const widgetsHabilitados = configuracionDashboard?.widgets || [];
     
     console.log(`🔍 Verificando sección '${seccion}' para rol '${user?.rol}':`);
     console.log(`  - Permisos del perfil:`, opcionesPermitidas);
     console.log(`  - Permiso requerido: ${permisoRequerido}`);
     console.log(`  - Tiene permiso: ${tienePermiso}`);
-    console.log(`  - Configuración del rol:`, configuracionRol);
+    console.log(`  - Configuración del dashboard:`, configuracionDashboard);
     console.log(`  - Widgets habilitados:`, widgetsHabilitados);
     
     const mapeoWidgets = {
