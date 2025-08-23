@@ -236,11 +236,29 @@ class ReporteCiudadano(Base):
     fecha_creacion = Column(DateTime, default=func.now())
     fecha_actualizacion = Column(DateTime, default=func.now(), onupdate=func.now())
     fecha_resolucion = Column(DateTime, nullable=True)
-    ciudadano_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
+    ciudadano_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)  # Nullable para reportes públicos
     administrador_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)  # Quien gestiona el reporte
     observaciones_admin = Column(Text, nullable=True)
+    es_publico = Column(Boolean, default=False)  # Para reportes sin login
+    contacto_email = Column(String(100), nullable=True)  # Email del ciudadano para reportes públicos
     activo = Column(Boolean, default=True)
     
     # Relaciones
     ciudadano = relationship("Usuario", foreign_keys=[ciudadano_id])
-    administrador = relationship("Usuario", foreign_keys=[administrador_id]) 
+    administrador = relationship("Usuario", foreign_keys=[administrador_id])
+    fotos = relationship("FotoReporte", back_populates="reporte", cascade="all, delete-orphan")
+
+class FotoReporte(Base):
+    __tablename__ = "fotos_reportes"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    id_reporte = Column(Integer, ForeignKey("reportes_ciudadanos.id"), nullable=False)
+    nombre_archivo = Column(String(255), nullable=False)
+    tipo = Column(String(100), nullable=False)  # MIME type
+    tamaño = Column(Integer, nullable=False)  # en bytes
+    url = Column(String(500), nullable=False)
+    fecha_creacion = Column(DateTime, default=func.now())
+    activo = Column(Boolean, default=True)
+    
+    # Relaciones
+    reporte = relationship("ReporteCiudadano", back_populates="fotos") 

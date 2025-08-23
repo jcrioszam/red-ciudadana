@@ -36,7 +36,7 @@ from .auth import (
     can_access_user
 )
 
-from typing import List
+from typing import List, Optional
 from .models import Usuario as UsuarioModel
 from .models import Persona as PersonaModel
 from .models import Evento as EventoModel
@@ -48,7 +48,7 @@ from datetime import datetime, timedelta
 from .models import Vehiculo as VehiculoModel, AsignacionMovilizacion as AsignacionMovilizacionModel, ConfiguracionPerfil as ConfiguracionPerfilModel, UbicacionTiempoReal as UbicacionTiempoRealModel, ConfiguracionDashboard as ConfiguracionDashboardModel
 from . import vehiculos, movilizaciones
 from sqlalchemy import func
-from .models import Noticia as NoticiaModel, Comentario as ComentarioModel, ReporteCiudadano as ReporteCiudadanoModel
+from .models import Noticia as NoticiaModel, Comentario as ComentarioModel, ReporteCiudadano as ReporteCiudadanoModel, FotoReporte as FotoReporteModel
 from .schemas import Noticia, NoticiaCreate, NoticiaUpdate, Comentario, ComentarioCreate, ComentarioUpdate
 from .schemas_reportes import ReporteCiudadano, ReporteCiudadanoCreate, ReporteCiudadanoUpdate
 
@@ -251,6 +251,33 @@ async def test_cors():
         "message": "CORS TEST - Si ves esto, el backend está actualizado",
         "cors_status": "verificando",
         "deploy_version": "b34282a10",
+        "timestamp": "2024-12-28"
+    }
+
+# 🆕 NUEVO: Endpoint de prueba COMPLETAMENTE PÚBLICO
+@app.get("/test-public")
+async def test_public():
+    return {
+        "message": "ENDPOINT PÚBLICO FUNCIONANDO",
+        "status": "public",
+        "timestamp": "2024-12-28"
+    }
+
+# 🆕 NUEVO: Endpoint de prueba COMPLETAMENTE PÚBLICO 2
+@app.get("/test-public-2")
+async def test_public_2():
+    return {
+        "message": "ENDPOINT PÚBLICO 2 FUNCIONANDO",
+        "status": "public",
+        "timestamp": "2024-12-28"
+    }
+
+# 🆕 NUEVO: Endpoint de prueba IDÉNTICO al que falla
+@app.get("/test-reportes-publicos")
+async def test_reportes_publicos():
+    return {
+        "message": "ENDPOINT DE PRUEBA IDÉNTICO AL QUE FALLA",
+        "status": "public",
         "timestamp": "2024-12-28"
     }
 
@@ -3369,6 +3396,165 @@ async def obtener_mi_configuracion_dashboard(
     except Exception as e:
         print(f"❌ Error al obtener configuración del dashboard para {current_user.rol}: {e}")
         raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+@app.post("/reportes-ciudadanos/publico", response_model=dict)
+async def crear_reporte_ciudadano_publico(
+    titulo: str = Form(...),
+    descripcion: str = Form(...),
+    tipo: str = Form(...),
+    latitud: Optional[float] = Form(None),
+    longitud: Optional[float] = Form(None),
+    direccion: Optional[str] = Form(None),
+    prioridad: Optional[str] = Form("normal"),
+    foto: Optional[UploadFile] = File(None),
+    es_publico: bool = Form(True),
+    db: Session = Depends(get_db)
+):
+    """Crear reporte ciudadano público (sin autenticación)"""
+    print(f"🚀 DEBUG: Recibiendo reporte público - titulo: {titulo}, tipo: {tipo}")
+    print(f"🚀 DEBUG: Datos recibidos - lat: {latitud}, lng: {longitud}, foto: {foto}")
+    
+    try:
+        # Crear el reporte
+        reporte_data = {
+            "titulo": titulo,
+            "descripcion": descripcion,
+            "tipo": tipo,
+            "latitud": latitud,
+            "longitud": longitud,
+            "direccion": direccion,
+            "prioridad": prioridad,
+            "es_publico": es_publico,
+            "estado": "pendiente",
+            "fecha_creacion": datetime.now(),
+            "activo": True
+        }
+        
+        print(f"🚀 DEBUG: Creando reporte en BD con datos: {reporte_data}")
+        
+        # Crear el reporte en la base de datos
+        db_reporte = ReporteCiudadanoModel(**reporte_data)
+        print(f"🚀 DEBUG: Modelo creado: {db_reporte}")
+        
+        db.add(db_reporte)
+        print(f"🚀 DEBUG: Reporte agregado a sesión")
+        
+        try:
+            db.commit()
+            print(f"🚀 DEBUG: Commit exitoso, ID: {db_reporte.id}")
+        except Exception as commit_error:
+            print(f"❌ ERROR EN COMMIT: {commit_error}")
+            print(f"❌ TIPO DE ERROR: {type(commit_error)}")
+            db.rollback()
+            raise HTTPException(status_code=500, detail=f"Error en commit: {str(commit_error)}")
+        
+        db.refresh(db_reporte)
+        
+        # Procesar foto si se proporcionó
+        if foto and foto.size > 0:
+            # Guardar la foto
+            contenido = await foto.read()
+            nombre_archivo = f"reporte_{db_reporte.id}_{foto.filename}"
+            
+            # Aquí se guardaría la foto en el sistema de archivos o cloud storage
+            # Por ahora solo guardamos la referencia en la base de datos
+            foto_data = {
+                "id_reporte": db_reporte.id,
+                "nombre_archivo": nombre_archivo,
+                "tipo": foto.content_type,
+                "tamaño": foto.size,
+                "url": f"/uploads/{nombre_archivo}"  # URL temporal
+            }
+            
+            # Crear registro de foto en la base de datos
+            db_foto = FotoReporteModel(**foto_data)
+            db.add(db_foto)
+            db.commit()
+        
+        return {
+            "mensaje": "Reporte ciudadano creado exitosamente",
+            "id": db_reporte.id,
+            "estado": "pendiente"
+        }
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error al crear reporte: {str(e)}")
+
+@app.get("/reportes-publicos", response_model=List[dict])
+async def obtener_reportes_ciudadanos_publicos(
+    skip: int = 0,
+    limit: int = 100,
+    tipo: Optional[str] = None,
+    estado: Optional[str] = None,
+    fecha_inicio: Optional[str] = None,
+    fecha_fin: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """Obtener reportes ciudadanos públicos (sin autenticación)"""
+    print(f"🚀 DEBUG: Endpoint público llamado - skip: {skip}, limit: {limit}")
+    print(f"🚀 DEBUG: Filtros - tipo: {tipo}, estado: {estado}, fecha_inicio: {fecha_inicio}, fecha_fin: {fecha_fin}")
+    try:
+        print(f"🚀 DEBUG: Construyendo query...")
+        query = db.query(ReporteCiudadanoModel).filter(
+            ReporteCiudadanoModel.activo == True,
+            ReporteCiudadanoModel.es_publico == True
+        )
+        print(f"🚀 DEBUG: Query base construida")
+        
+        # Aplicar filtros si se proporcionan
+        if tipo:
+            query = query.filter(ReporteCiudadanoModel.tipo == tipo)
+            print(f"🚀 DEBUG: Filtro tipo aplicado: {tipo}")
+        if estado:
+            query = query.filter(ReporteCiudadanoModel.estado == estado)
+            print(f"🚀 DEBUG: Filtro estado aplicado: {estado}")
+        if fecha_inicio:
+            query = query.filter(ReporteCiudadanoModel.fecha_creacion >= fecha_inicio)
+            print(f"🚀 DEBUG: Filtro fecha_inicio aplicado: {fecha_inicio}")
+        if fecha_fin:
+            query = query.filter(ReporteCiudadanoModel.fecha_creacion <= fecha_fin)
+            print(f"🚀 DEBUG: Filtro fecha_fin aplicado: {fecha_fin}")
+        
+        print(f"🚀 DEBUG: Ejecutando query...")
+        # Ordenar por fecha de creación (más recientes primero)
+        reportes = query.order_by(ReporteCiudadanoModel.fecha_creacion.desc()).offset(skip).limit(limit).all()
+        print(f"🚀 DEBUG: Query ejecutada, {len(reportes)} reportes encontrados")
+        
+        # Formatear respuesta
+        resultado = []
+        for reporte in reportes:
+            # Obtener fotos del reporte
+            fotos = db.query(FotoReporteModel).filter(
+                FotoReporteModel.id_reporte == reporte.id,
+                FotoReporteModel.activo == True
+            ).all()
+            
+            reporte_data = {
+                "id": reporte.id,
+                "titulo": reporte.titulo,
+                "descripcion": reporte.descripcion,
+                "tipo": reporte.tipo,
+                "direccion": reporte.direccion,
+                "latitud": reporte.latitud,
+                "longitud": reporte.longitud,
+                "estado": reporte.estado,
+                "prioridad": reporte.prioridad,
+                "fecha_creacion": reporte.fecha_creacion,
+                "fecha_actualizacion": reporte.fecha_actualizacion,
+                "observaciones_admin": reporte.observaciones_admin,
+                "foto_url": reporte.foto_url,
+                "fotos": [{"url": foto.url} for foto in fotos]
+            }
+            resultado.append(reporte_data)
+        
+        print(f"🚀 DEBUG: Respuesta formateada, {len(resultado)} reportes en resultado")
+        return resultado
+        
+    except Exception as e:
+        print(f"❌ ERROR en endpoint público: {str(e)}")
+        print(f"❌ TIPO DE ERROR: {type(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al obtener reportes: {str(e)}")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000) 
