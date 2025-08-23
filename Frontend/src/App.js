@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Personas from './pages/Personas';
@@ -20,6 +21,8 @@ import AdminDashboard from './pages/AdminDashboard';
 import Seguimiento from './pages/Seguimiento';
 import Noticias from './pages/Noticias';
 import ReportesCiudadanos from './pages/ReportesCiudadanos';
+import ReportesCiudadanosPublico from './pages/ReportesCiudadanosPublico';
+import ListaReportesPublica from './pages/ListaReportesPublica';
 import SeguimientoReportes from './pages/SeguimientoReportes';
 import MapaReportes from './pages/MapaReportes';
 import Layout from './components/Layout';
@@ -57,11 +60,20 @@ function App() {
       <AuthProvider>
         <Router>
           <Routes>
+            {/* Rutas públicas */}
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/reportes-ciudadanos" element={<ReportesCiudadanosPublico />} />
+            <Route path="/lista-reportes" element={<ListaReportesPublica />} />
+            <Route path="/mapa-reportes" element={<MapaReportes />} />
+            
+            {/* Rutas de autenticación */}
             <Route path="/login" element={<Login />} />
             <Route path="/registro-invitacion" element={<RegistroInvitacion />} />
             <Route path="/registro-persona-invitacion" element={<RegistroPersonaInvitacion />} />
+            
+            {/* Rutas protegidas (requieren login) */}
             <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-              <Route path="/" element={<Dashboard />} />
+              <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/personas" element={<Personas />} />
               <Route path="/eventos" element={<Eventos />} />
               <Route path="/usuarios" element={<Usuarios />} />
@@ -75,9 +87,9 @@ function App() {
               <Route path="/admin-dashboard" element={<AdminDashboard />} />
               <Route path="/seguimiento" element={<Seguimiento />} />
               <Route path="/noticias" element={<Noticias />} />
-              <Route path="/reportes-ciudadanos" element={<ReportesCiudadanos />} />
-              <Route path="/mapa-reportes" element={<MapaReportes />} />
-            <Route path="/seguimiento-reportes" element={<SeguimientoReportes />} />
+              <Route path="/reportes-ciudadanos-admin" element={<ReportesCiudadanos />} />
+              <Route path="/mapa-reportes-admin" element={<MapaReportes />} />
+              <Route path="/seguimiento-reportes" element={<SeguimientoReportes />} />
             </Route>
           </Routes>
         </Router>
