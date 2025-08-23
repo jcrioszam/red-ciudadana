@@ -1,112 +1,169 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiArrowLeft, FiMapPin, FiCamera, FiAlertTriangle, FiCheck } from 'react-icons/fi';
+import MapaInteractivo from '../components/MapaInteractivo';
 import api from '../api';
 
-export default function ReportesCiudadanosPublico() {
-  const navigate = useNavigate();
+// 🎯 FLUJO DE LÍNEA DE TIEMPO PARA REPORTES CIUDADANOS PÚBLICOS
+const ReportesCiudadanosPublico = () => {
+  // 📋 Estado del flujo step-by-step
+  const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
+    tipo: '',
+    // 🔧 CAMPOS REQUERIDOS POR EL BACKEND
     titulo: '',
     descripcion: '',
-    categoria: '',
-    ubicacion: '',
-    latitud: null,
-    longitud: null,
-    contacto_email: '',
-    fotos: []
+    latitud: 0, // Valor por defecto
+    longitud: 0, // Valor por defecto
+    // Campos opcionales
+    direccion: '',
+    prioridad: 'normal',
+    // 🆕 NUEVO: Campo para foto
+    foto: null
   });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitSuccess, setSubmitSuccess] = useState(false);
-  const [errors, setErrors] = useState({});
 
-  const categorias = [
-    'Infraestructura',
-    'Seguridad',
-    'Medio Ambiente',
-    'Transporte',
-    'Salud',
-    'Educación',
-    'Otros'
-  ];
+  // 🗺️ Estado para ubicación seleccionada en mapa
+  const [selectedLocation, setSelectedLocation] = useState(null);
+  
+  const [mensaje, setMensaje] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const navigate = useNavigate();
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    // Limpiar error del campo
-    if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: ''
-      }));
+  // 🔧 FUNCIÓN: Generar título automático basado en tipo
+  const generarTitulo = (tipo) => {
+    const titulos = {
+      'dano_via_publica': 'Reporte de Daño en Vía Pública',
+      'servicios_publicos': 'Reporte de Servicios Públicos',
+      'seguridad': 'Reporte de Seguridad',
+      'limpieza': 'Reporte de Limpieza',
+      'otro': 'Reporte Ciudadano'
+    };
+    return titulos[tipo] || 'Reporte Ciudadano';
+  };
+
+  // 🔧 FUNCIÓN: Convertir archivo a Base64
+  const convertFileToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = error => reject(error);
+    });
+  };
+
+  // 🗺️ Función para obtener ubicación GPS actual
+  const getCurrentLocation = () => {
+    setLoading(true);
+    setMensaje('🔄 Obteniendo su ubicación GPS...');
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          setFormData(prev => ({
+            ...prev,
+            latitud: latitude,
+            longitud: longitude,
+          }));
+          
+          setSelectedLocation({ lat: latitude, lng: longitude });
+          setLoading(false);
+          setMensaje('✅ Ubicación GPS obtenida exitosamente');
+          
+          // Avanzar al siguiente paso después de 2 segundos
+          setTimeout(() => {
+            setMensaje('');
+            setCurrentStep(3);
+          }, 2000);
+        },
+        (error) => {
+          console.error('Error GPS:', error);
+          setLoading(false);
+          setMensaje('❌ Error al obtener ubicación GPS. Use el mapa para seleccionar manualmente.');
+          setTimeout(() => {
+            setMensaje('');
+            setCurrentStep(2.5);
+          }, 2000);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 300000
+        }
+      );
+    } else {
+      setLoading(false);
+      setMensaje('❌ Geolocalización no soportada en este navegador. Usa el mapa para seleccionar manualmente.');
+      setTimeout(() => {
+        setMensaje('');
+        setCurrentStep(2.5);
+      }, 2000);
     }
   };
 
-  const handleFileChange = (e) => {
-    const files = Array.from(e.target.files);
+  // 🗺️ Función para manejar selección de ubicación en mapa
+  const handleLocationSelect = (lat, lng) => {
     setFormData(prev => ({
       ...prev,
-      fotos: [...prev.fotos, ...files]
+      latitud: lat,
+      longitud: lng,
     }));
-  };
-
-  const removeFile = (index) => {
-    setFormData(prev => ({
-      ...prev,
-      fotos: prev.fotos.filter((_, i) => i !== index)
-    }));
-  };
-
-  const validateForm = () => {
-    const newErrors = {};
     
-    if (!formData.titulo.trim()) {
-      newErrors.titulo = 'El título es requerido';
-    }
+    setSelectedLocation({ lat, lng });
+    setMensaje('✅ Ubicación seleccionada en mapa');
     
-    if (!formData.descripcion.trim()) {
-      newErrors.descripcion = 'La descripción es requerida';
-    }
-    
-    if (!formData.categoria) {
-      newErrors.categoria = 'Selecciona una categoría';
-    }
-    
-    if (!formData.ubicacion.trim()) {
-      newErrors.ubicacion = 'La ubicación es requerida';
-    }
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    // Avanzar al siguiente paso después de 2 segundos
+    setTimeout(() => {
+      setMensaje('');
+      setCurrentStep(3);
+    }, 2000);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (!validateForm()) {
+    console.log('🚀 SUBMIT INICIADO - Datos del formulario:', formData);
+
+    // Validar que tengamos los datos mínimos
+    if (!formData.tipo || !formData.descripcion.trim()) {
+      setMensaje('❌ Por favor complete tipo de reporte y descripción');
       return;
     }
 
-    setIsSubmitting(true);
-    
+    // 🔧 PREPARAR DATOS COMPLETOS PARA EL BACKEND - TODOS LOS CAMPOS REQUERIDOS
+    const reporteData = {
+      titulo: generarTitulo(formData.tipo), // ✅ REQUERIDO por backend
+      descripcion: formData.descripcion.trim(), // ✅ REQUERIDO por backend
+      tipo: formData.tipo, // ✅ REQUERIDO por backend
+      latitud: formData.latitud, // ✅ REQUERIDO por backend (0 por defecto)
+      longitud: formData.longitud, // ✅ REQUERIDO por backend (0 por defecto)
+      direccion: formData.direccion || null, // ❌ OPCIONAL
+      prioridad: formData.prioridad, // ❌ OPCIONAL
+      // 🆕 NUEVO: Incluir foto si existe
+      foto_url: formData.foto ? await convertFileToBase64(formData.foto) : null,
+      es_publico: true // ✅ MARCADO COMO PÚBLICO
+    };
+
+    console.log('📋 DATOS COMPLETOS PARA BACKEND:', reporteData);
+
+    setLoading(true);
+    setMensaje('🔄 Enviando reporte...');
+
     try {
       // Crear FormData para enviar archivos
       const submitData = new FormData();
-      submitData.append('titulo', formData.titulo);
-      submitData.append('descripcion', formData.descripcion);
-      submitData.append('categoria', formData.categoria);
-      submitData.append('ubicacion', formData.ubicacion);
-      submitData.append('latitud', formData.latitud || '');
-      submitData.append('longitud', formData.longitud || '');
-      submitData.append('contacto_email', formData.contacto_email);
+      submitData.append('titulo', reporteData.titulo);
+      submitData.append('descripcion', reporteData.descripcion);
+      submitData.append('tipo', reporteData.tipo);
+      submitData.append('latitud', reporteData.latitud);
+      submitData.append('longitud', reporteData.longitud);
+      submitData.append('direccion', reporteData.direccion || '');
+      submitData.append('prioridad', reporteData.prioridad);
       submitData.append('es_publico', 'true');
       
-      // Agregar fotos
-      formData.fotos.forEach((foto, index) => {
-        submitData.append(`fotos`, foto);
-      });
+      // Agregar foto si existe
+      if (formData.foto) {
+        submitData.append('foto', formData.foto);
+      }
 
       // Enviar reporte público
       const response = await api.post('/reportes-ciudadanos/publico', submitData, {
@@ -116,264 +173,568 @@ export default function ReportesCiudadanosPublico() {
       });
 
       if (response.status === 201) {
-        setSubmitSuccess(true);
+        setLoading(false);
+        setMensaje('✅ Reporte enviado exitosamente');
+        setShowSuccess(true);
+        setCurrentStep(5); // Paso de agradecimiento
+        
+        // Reset after 5 seconds and redirect
         setTimeout(() => {
           navigate('/');
-        }, 3000);
+        }, 5000);
       }
     } catch (error) {
       console.error('Error al crear reporte:', error);
-      setErrors({ general: 'Error al crear el reporte. Intenta nuevamente.' });
-    } finally {
-      setIsSubmitting(false);
+      setLoading(false);
+      setMensaje('❌ Error al crear el reporte. Intenta nuevamente.');
     }
   };
 
-  if (submitSuccess) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center px-4">
-        <div className="bg-white p-8 rounded-lg shadow-lg text-center max-w-md">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <FiCheck className="w-8 h-8 text-green-600" />
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">¡Reporte Enviado!</h2>
-          <p className="text-gray-600 mb-6">
-            Tu reporte ha sido enviado exitosamente. Será revisado y procesado por nuestro equipo.
-          </p>
-          <p className="text-sm text-gray-500">
-            Redirigiendo a la página principal...
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+  };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center h-16">
-            <button
-              onClick={() => navigate('/')}
-              className="flex items-center text-gray-600 hover:text-gray-900 transition-colors duration-200"
-            >
-              <FiArrowLeft className="w-5 h-5 mr-2" />
-              Volver al inicio
-            </button>
-            <div className="ml-6">
-              <h1 className="text-xl font-bold text-gray-900">Crear Reporte Ciudadano</h1>
-              <p className="text-sm text-gray-500">Reporta un incidente o problema en tu comunidad</p>
+  // 🎯 FLUJO CON MAPA Y FOTO - 5 PASOS TOTAL
+  const renderStepContent = () => {
+    switch (currentStep) {
+      case 1: return renderTipoReporte();
+      case 2: return renderDescripcion();
+      case 2.5: return renderUbicacion(); // 🆕 NUEVO: Paso de ubicación (mapa/GPS)
+      case 3: return renderFoto(); // 🆕 NUEVO: Paso de foto
+      case 4: return renderResumen();
+      case 5: return renderAgradecimiento();
+      default: return renderTipoReporte();
+    }
+  };
+
+  // 📝 PASO 1: Selección de tipo de reporte
+  const renderTipoReporte = () => (
+    <div style={{ textAlign: 'center', padding: '20px' }}>
+      <h2 style={{ color: '#374151', marginBottom: '10px' }}>
+        📝 ¿Qué tipo de reporte desea realizar?
+      </h2>
+      <p style={{ color: '#6b7280', marginBottom: '30px' }}>
+        Seleccione la categoría que mejor describa su reporte
+      </p>
+      
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+        gap: '15px',
+        maxWidth: '800px',
+        margin: '0 auto'
+      }}>
+        {[
+          { value: 'dano_via_publica', icon: '🚧', title: 'Daño Vía Pública', desc: 'Baches, señales dañadas, etc.' },
+          { value: 'servicios_publicos', icon: '🚰', title: 'Servicios Públicos', desc: 'Agua, luz, drenaje' },
+          { value: 'seguridad', icon: '🚨', title: 'Seguridad', desc: 'Situaciones de riesgo' },
+          { value: 'limpieza', icon: '🧹', title: 'Limpieza', desc: 'Basura, espacios sucios' },
+          { value: 'otro', icon: '📋', title: 'Otro', desc: 'Otros problemas ciudadanos' }
+        ].map((tipo) => (
+          <button
+            key={tipo.value}
+            onClick={() => {
+              setFormData(prev => ({ ...prev, tipo: tipo.value }));
+              setCurrentStep(2);
+            }}
+            style={{
+              backgroundColor: 'white',
+              border: '2px solid #e2e8f0',
+              borderRadius: '12px',
+              padding: '20px',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              textAlign: 'center'
+            }}
+            onMouseOver={(e) => {
+              e.target.style.borderColor = '#2563eb';
+              e.target.style.transform = 'translateY(-2px)';
+              e.target.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+            }}
+            onMouseOut={(e) => {
+              e.target.style.borderColor = '#e2e8f0';
+              e.target.style.transform = 'translateY(0)';
+              e.target.style.boxShadow = 'none';
+            }}
+          >
+            <div style={{ fontSize: '2.5rem', marginBottom: '10px' }}>{tipo.icon}</div>
+            <div style={{ fontWeight: 'bold', color: '#374151', marginBottom: '5px' }}>
+              {tipo.title}
             </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Formulario */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white rounded-lg shadow-lg p-6 md:p-8">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Título */}
-            <div>
-              <label htmlFor="titulo" className="block text-sm font-medium text-gray-700 mb-2">
-                Título del Reporte *
-              </label>
-              <input
-                type="text"
-                id="titulo"
-                name="titulo"
-                value={formData.titulo}
-                onChange={handleInputChange}
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                  errors.titulo ? 'border-red-500' : 'border-gray-300'
-                }`}
-                placeholder="Describe brevemente el problema"
-              />
-              {errors.titulo && (
-                <p className="mt-1 text-sm text-red-600">{errors.titulo}</p>
-              )}
+            <div style={{ fontSize: '14px', color: '#6b7280' }}>
+              {tipo.desc}
             </div>
-
-            {/* Categoría */}
-            <div>
-              <label htmlFor="categoria" className="block text-sm font-medium text-gray-700 mb-2">
-                Categoría *
-              </label>
-              <select
-                id="categoria"
-                name="categoria"
-                value={formData.categoria}
-                onChange={handleInputChange}
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                  errors.categoria ? 'border-red-500' : 'border-gray-300'
-                }`}
-              >
-                <option value="">Selecciona una categoría</option>
-                {categorias.map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-              </select>
-              {errors.categoria && (
-                <p className="mt-1 text-sm text-red-600">{errors.categoria}</p>
-              )}
-            </div>
-
-            {/* Descripción */}
-            <div>
-              <label htmlFor="descripcion" className="block text-sm font-medium text-gray-700 mb-2">
-                Descripción Detallada *
-              </label>
-              <textarea
-                id="descripcion"
-                name="descripcion"
-                value={formData.descripcion}
-                onChange={handleInputChange}
-                rows={4}
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                  errors.descripcion ? 'border-red-500' : 'border-gray-300'
-                }`}
-                placeholder="Describe detalladamente el problema, incluye información relevante como fecha, hora, personas involucradas, etc."
-              />
-              {errors.descripcion && (
-                <p className="mt-1 text-sm text-red-600">{errors.descripcion}</p>
-              )}
-            </div>
-
-            {/* Ubicación */}
-            <div>
-              <label htmlFor="ubicacion" className="block text-sm font-medium text-gray-700 mb-2">
-                Ubicación *
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  id="ubicacion"
-                  name="ubicacion"
-                  value={formData.ubicacion}
-                  onChange={handleInputChange}
-                  className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                    errors.ubicacion ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="Dirección, colonia, referencia, etc."
-                />
-                <FiMapPin className="absolute left-3 top-2.5 text-gray-400 w-5 h-5" />
-              </div>
-              {errors.ubicacion && (
-                <p className="mt-1 text-sm text-red-600">{errors.ubicacion}</p>
-              )}
-            </div>
-
-            {/* Email de contacto (opcional) */}
-            <div>
-              <label htmlFor="contacto_email" className="block text-sm font-medium text-gray-700 mb-2">
-                Email de Contacto (Opcional)
-              </label>
-              <input
-                type="email"
-                id="contacto_email"
-                name="contacto_email"
-                value={formData.contacto_email}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                placeholder="tu@email.com"
-              />
-              <p className="mt-1 text-sm text-gray-500">
-                Si proporcionas tu email, podremos contactarte para más detalles o seguimiento.
-              </p>
-            </div>
-
-            {/* Fotos */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Fotos (Opcional)
-              </label>
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                <FiCamera className="mx-auto h-12 w-12 text-gray-400" />
-                <div className="mt-2">
-                  <label htmlFor="fotos" className="cursor-pointer">
-                    <span className="text-indigo-600 hover:text-indigo-500 font-medium">
-                      Selecciona archivos
-                    </span>
-                    <span className="text-gray-500"> o arrastra y suelta</span>
-                  </label>
-                  <input
-                    id="fotos"
-                    name="fotos"
-                    type="file"
-                    multiple
-                    accept="image/*"
-                    onChange={handleFileChange}
-                    className="sr-only"
-                  />
-                </div>
-                <p className="text-xs text-gray-500 mt-2">
-                  PNG, JPG, GIF hasta 10MB cada una
-                </p>
-              </div>
-              
-              {/* Mostrar fotos seleccionadas */}
-              {formData.fotos.length > 0 && (
-                <div className="mt-4">
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">Fotos seleccionadas:</h4>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                    {formData.fotos.map((foto, index) => (
-                      <div key={index} className="relative">
-                        <img
-                          src={URL.createObjectURL(foto)}
-                          alt={`Foto ${index + 1}`}
-                          className="w-full h-24 object-cover rounded-lg"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => removeFile(index)}
-                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm hover:bg-red-600"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Error general */}
-            {errors.general && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                <div className="flex">
-                  <FiAlertTriangle className="w-5 h-5 text-red-400 mr-2" />
-                  <p className="text-sm text-red-600">{errors.general}</p>
-                </div>
-              </div>
-            )}
-
-            {/* Botones */}
-            <div className="flex flex-col sm:flex-row gap-4 pt-6">
-              <button
-                type="button"
-                onClick={() => navigate('/')}
-                className="flex-1 px-6 py-3 border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors duration-200"
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="flex-1 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 flex items-center justify-center"
-              >
-                {isSubmitting ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Enviando...
-                  </>
-                ) : (
-                  'Enviar Reporte'
-                )}
-              </button>
-            </div>
-          </form>
-        </div>
+          </button>
+        ))}
       </div>
     </div>
   );
-}
+
+  // 📝 PASO 2: Descripción del reporte
+  const renderDescripcion = () => (
+    <div style={{ textAlign: 'center', padding: '20px' }}>
+      <h2 style={{ color: '#374151', marginBottom: '10px' }}>
+        📝 Describe el problema
+      </h2>
+      <p style={{ color: '#6b7280', marginBottom: '20px' }}>
+        Proporciona detalles sobre la situación que estás reportando
+      </p>
+
+      <div style={{ maxWidth: '600px', margin: '0 auto' }}>
+        <textarea
+          name="descripcion"
+          value={formData.descripcion}
+          onChange={handleChange}
+          placeholder="Describe el problema en detalle..."
+          style={{
+            width: '100%',
+            minHeight: '120px',
+            padding: '15px',
+            border: '2px solid #e2e8f0',
+            borderRadius: '8px',
+            fontSize: '16px',
+            resize: 'vertical'
+          }}
+        />
+      </div>
+
+      <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '20px' }}>
+        <button
+          onClick={() => setCurrentStep(1)}
+          style={{
+            backgroundColor: 'transparent',
+            color: '#6b7280',
+            border: '1px solid #d1d5db',
+            borderRadius: '8px',
+            padding: '12px 20px',
+            fontSize: '14px',
+            cursor: 'pointer'
+          }}
+        >
+          ← Volver
+        </button>
+
+        <button
+          onClick={() => setCurrentStep(2.5)}
+          disabled={!formData.descripcion.trim()}
+          style={{
+            backgroundColor: formData.descripcion.trim() ? '#8b5cf6' : '#9ca3af',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            padding: '12px 24px',
+            fontSize: '16px',
+            cursor: formData.descripcion.trim() ? 'pointer' : 'not-allowed',
+            opacity: formData.descripcion.trim() ? 1 : 0.6
+          }}
+        >
+          Continuar →
+        </button>
+      </div>
+    </div>
+  );
+
+  // 🗺️ PASO 2.5: Selección de ubicación (GPS o mapa)
+  const renderUbicacion = () => (
+    <div style={{ textAlign: 'center', padding: '20px' }}>
+      <h2 style={{ color: '#374151', marginBottom: '10px' }}>
+        🗺️ Selecciona la ubicación del reporte
+      </h2>
+      <p style={{ color: '#6b7280', marginBottom: '20px' }}>
+        Usa GPS automático o selecciona manualmente en el mapa
+      </p>
+
+      {/* 🗺️ Opciones de ubicación */}
+      <div style={{ 
+        display: 'flex', 
+        gap: '15px', 
+        justifyContent: 'center', 
+        marginBottom: '20px',
+        flexWrap: 'wrap'
+      }}>
+        <button
+          onClick={getCurrentLocation}
+          disabled={loading}
+          style={{
+            backgroundColor: loading ? '#9ca3af' : '#10b981',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            padding: '12px 24px',
+            fontSize: '16px',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}
+        >
+          {loading ? '🔄' : '📍'} {loading ? 'Obteniendo GPS...' : 'Usar mi ubicación (GPS)'}
+        </button>
+
+        <button
+          onClick={() => setCurrentStep(3)}
+          style={{
+            backgroundColor: '#6b7280',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            padding: '12px 24px',
+            fontSize: '16px',
+            cursor: 'pointer'
+          }}
+        >
+          🗺️ Seleccionar en mapa
+        </button>
+      </div>
+
+      {/* 🗺️ Mapa interactivo */}
+      <div style={{ marginTop: '20px' }}>
+        <MapaInteractivo
+          onLocationSelect={handleLocationSelect}
+          selectedLocation={selectedLocation}
+          modo="seleccion"
+          center={[19.4326, -99.1332]} // México City
+          zoom={12}
+        />
+      </div>
+
+      {/* 📍 Información de ubicación seleccionada */}
+      {selectedLocation && (
+        <div style={{
+          marginTop: '20px',
+          padding: '15px',
+          backgroundColor: '#f0fdf4',
+          border: '2px solid #10b981',
+          borderRadius: '8px',
+          maxWidth: '400px',
+          margin: '20px auto 0'
+        }}>
+          <h3 style={{ color: '#10b981', marginBottom: '10px' }}>
+            ✅ Ubicación seleccionada
+          </h3>
+          <p style={{ margin: '5px 0', fontSize: '14px' }}>
+            <strong>Latitud:</strong> {selectedLocation.lat.toFixed(6)}
+          </p>
+          <p style={{ margin: '5px 0', fontSize: '14px' }}>
+            <strong>Longitud:</strong> {selectedLocation.lng.toFixed(6)}
+          </p>
+        </div>
+      )}
+
+      {/* 🔙 Botón para regresar */}
+      <button
+        onClick={() => setCurrentStep(2)}
+        style={{
+          backgroundColor: '#6b7280',
+          color: 'white',
+          border: 'none',
+          borderRadius: '8px',
+          padding: '10px 20px',
+          fontSize: '14px',
+          cursor: 'pointer',
+          marginTop: '20px'
+        }}
+      >
+        🔙 Regresar
+      </button>
+    </div>
+  );
+
+  // 📝 PASO 3: Foto del reporte (opcional)
+  const renderFoto = () => (
+    <div style={{ textAlign: 'center', padding: '20px' }}>
+      <h2 style={{ color: '#374151', marginBottom: '10px' }}>
+        📸 Foto del problema (opcional)
+      </h2>
+      <p style={{ color: '#6b7280', marginBottom: '20px' }}>
+        Si tienes una foto que ilustre mejor la situación, puedes subirla aquí.
+      </p>
+
+      <div style={{ maxWidth: '600px', margin: '0 auto' }}>
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) => setFormData(prev => ({ ...prev, foto: e.target.files[0] }))}
+          style={{
+            width: '100%',
+            padding: '10px',
+            border: '2px solid #e2e8f0',
+            borderRadius: '8px',
+            fontSize: '16px',
+            cursor: 'pointer'
+          }}
+        />
+        {formData.foto && (
+          <div style={{ marginTop: '20px', textAlign: 'center' }}>
+            <img
+              src={URL.createObjectURL(formData.foto)}
+              alt="Reporte"
+              style={{ maxWidth: '100%', borderRadius: '8px', marginBottom: '10px' }}
+            />
+            <button
+              onClick={() => setFormData(prev => ({ ...prev, foto: null }))}
+              style={{
+                backgroundColor: '#ef4444',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '10px 20px',
+                fontSize: '14px',
+                cursor: 'pointer'
+              }}
+            >
+              Eliminar Foto
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '20px' }}>
+        <button
+          onClick={() => setCurrentStep(2)}
+          style={{
+            backgroundColor: 'transparent',
+            color: '#6b7280',
+            border: '1px solid #d1d5db',
+            borderRadius: '8px',
+            padding: '12px 20px',
+            fontSize: '14px',
+            cursor: 'pointer'
+          }}
+        >
+          ← Volver
+        </button>
+
+        <button
+          onClick={() => setCurrentStep(4)}
+          style={{
+            backgroundColor: '#8b5cf6',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            padding: '12px 24px',
+            fontSize: '16px',
+            cursor: 'pointer',
+            opacity: 1
+          }}
+        >
+          Continuar →
+        </button>
+      </div>
+    </div>
+  );
+
+  // 📋 PASO 4: Resumen del reporte
+  const renderResumen = () => (
+    <div style={{ textAlign: 'center', padding: '20px' }}>
+      <h2 style={{ color: '#374151', marginBottom: '10px' }}>
+        📋 Resumen de su reporte
+      </h2>
+      <p style={{ color: '#6b7280', marginBottom: '30px' }}>
+        Revise los datos antes de enviar
+      </p>
+
+      <div style={{
+        backgroundColor: 'white',
+        border: '2px solid #e2e8f0',
+        borderRadius: '12px',
+        padding: '30px',
+        maxWidth: '600px',
+        margin: '0 auto',
+        textAlign: 'left'
+      }}>
+        <div style={{ marginBottom: '15px' }}>
+          <strong style={{ color: '#374151' }}>Tipo:</strong>
+          <div style={{ color: '#6b7280', marginTop: '5px' }}>
+            {formData.tipo === 'dano_via_publica' && '🚧 Daño Vía Pública'}
+            {formData.tipo === 'servicios_publicos' && '🚰 Servicios Públicos'}
+            {formData.tipo === 'seguridad' && '🚨 Seguridad'}
+            {formData.tipo === 'limpieza' && '🧹 Limpieza'}
+            {formData.tipo === 'otro' && '📋 Otro'}
+          </div>
+        </div>
+
+        <div style={{ marginBottom: '15px' }}>
+          <strong style={{ color: '#374151' }}>Descripción:</strong>
+          <div style={{ color: '#6b7280', marginTop: '5px' }}>
+            {formData.descripcion}
+          </div>
+        </div>
+
+        {/* 🆕 NUEVO: Mostrar estado de la foto */}
+        <div style={{ marginBottom: '15px' }}>
+          <strong style={{ color: '#374151' }}>Foto:</strong>
+          <div style={{ color: '#6b7280', marginTop: '5px' }}>
+            {formData.foto ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ color: '#10b981' }}>✅ Foto adjunta</span>
+                <span style={{ fontSize: '12px', color: '#9ca3af' }}>
+                  ({formData.foto.name} - {(formData.foto.size / 1024).toFixed(1)} KB)
+                </span>
+              </div>
+            ) : (
+              <span style={{ color: '#6b7280' }}>📷 Sin foto</span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '30px' }}>
+        <button
+          onClick={() => setCurrentStep(3)}
+          style={{
+            backgroundColor: 'transparent',
+            color: '#6b7280',
+            border: '1px solid #d1d5db',
+            borderRadius: '8px',
+            padding: '12px 20px',
+            fontSize: '14px',
+            cursor: 'pointer'
+          }}
+        >
+          ← Volver
+        </button>
+
+        <button
+          onClick={handleSubmit}
+          disabled={loading}
+          style={{
+            backgroundColor: loading ? '#9ca3af' : '#10b981',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            padding: '12px 24px',
+            fontSize: '16px',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            opacity: loading ? 0.6 : 1
+          }}
+        >
+          {loading ? '🔄 Enviando...' : '📤 Enviar Reporte'}
+        </button>
+      </div>
+    </div>
+  );
+
+  // 🎉 PASO 5: Mensaje de agradecimiento
+  const renderAgradecimiento = () => (
+    <div style={{ textAlign: 'center', padding: '40px' }}>
+      <div style={{ fontSize: '4rem', marginBottom: '20px' }}>🎉</div>
+      <h2 style={{ color: '#10b981', marginBottom: '15px' }}>
+        ¡Gracias por su participación!
+      </h2>
+      <p style={{ color: '#6b7280', fontSize: '18px', lineHeight: '1.6', marginBottom: '20px' }}>
+        Su reporte ha sido enviado exitosamente. <br />
+        <strong>¡Gracias por su participación ciudadana y su tiempo!</strong>
+      </p>
+      <p style={{ color: '#9ca3af', fontSize: '14px' }}>
+        Su colaboración ayuda a mejorar nuestra comunidad
+      </p>
+      
+      <div style={{ 
+        marginTop: '30px', 
+        padding: '15px', 
+        backgroundColor: '#ecfdf5',
+        border: '1px solid #bbf7d0',
+        borderRadius: '8px',
+        color: '#166534'
+      }}>
+        ✅ Reporte registrado correctamente
+      </div>
+      
+      <p style={{ color: '#6b7280', fontSize: '14px', marginTop: '20px' }}>
+        Redirigiendo a la página principal en unos segundos...
+      </p>
+    </div>
+  );
+
+  return (
+    <div style={{ padding: '20px', maxWidth: '900px', margin: '0 auto', minHeight: '80vh' }}>
+      {/* 📊 Header con progreso */}
+      <div style={{ marginBottom: '30px' }}>
+        <h1 style={{ color: '#2563eb', marginBottom: '20px', textAlign: 'center' }}>
+          📋 Reportes Ciudadanos Públicos
+        </h1>
+        
+        {/* 📊 Barra de progreso */}
+        {currentStep <= 5 && (
+          <div style={{
+            width: '100%',
+            maxWidth: '600px',
+            margin: '0 auto 20px auto',
+            backgroundColor: '#e2e8f0',
+            borderRadius: '10px',
+            height: '8px',
+            overflow: 'hidden'
+          }}>
+            <div
+              style={{
+                height: '100%',
+                backgroundColor: '#8b5cf6',
+                width: `${(currentStep / 5) * 100}%`,
+                transition: 'width 0.3s ease'
+              }}
+            />
+          </div>
+        )}
+        {currentStep <= 5 && (
+          <p style={{ textAlign: 'center', color: '#6b7280', fontSize: '14px' }}>
+            Paso {currentStep} de 5
+          </p>
+        )}
+      </div>
+
+      {/* 🎯 Contenido del paso actual */}
+      <div style={{ 
+        backgroundColor: 'white', 
+        borderRadius: '16px',
+        border: '1px solid #e2e8f0',
+        minHeight: '400px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        {renderStepContent()}
+      </div>
+      
+      {/* Mensajes de estado */}
+      {mensaje && (
+        <div style={{ 
+          marginTop: '20px', 
+          padding: '15px', 
+          borderRadius: '8px',
+          backgroundColor: mensaje.includes('✅') ? '#dcfce7' : '#fef2f2',
+          color: mensaje.includes('✅') ? '#166534' : '#dc2626',
+          border: `1px solid ${mensaje.includes('✅') ? '#bbf7d0' : '#fecaca'}`,
+          textAlign: 'center'
+        }}>
+          {mensaje}
+        </div>
+      )}
+
+      {/* 🔙 Botón para volver al inicio */}
+      {currentStep === 1 && (
+        <div style={{ textAlign: 'center', marginTop: '20px' }}>
+          <button
+            onClick={() => navigate('/')}
+            style={{
+              backgroundColor: 'transparent',
+              color: '#6b7280',
+              border: '1px solid #d1d5db',
+              borderRadius: '8px',
+              padding: '12px 20px',
+              fontSize: '14px',
+              cursor: 'pointer'
+            }}
+          >
+            ← Volver al inicio
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default ReportesCiudadanosPublico;
