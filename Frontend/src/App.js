@@ -23,6 +23,7 @@ import Noticias from './pages/Noticias';
 import ReportesCiudadanos from './pages/ReportesCiudadanos';
 import ReportesCiudadanosPublico from './pages/ReportesCiudadanosPublico';
 import ListaReportesPublica from './pages/ListaReportesPublica';
+import MapaReportesPublico from './pages/MapaReportesPublico';
 import SeguimientoReportes from './pages/SeguimientoReportes';
 import MapaReportes from './pages/MapaReportes';
 import Layout from './components/Layout';
@@ -64,6 +65,7 @@ function App() {
             <Route path="/" element={<LandingPage />} />
             <Route path="/reportes-ciudadanos" element={<ReportesCiudadanosPublico />} />
             <Route path="/lista-reportes" element={<ListaReportesPublica />} />
+            <Route path="/mapa-reportes-publico" element={<MapaReportesPublico />} />
             <Route path="/mapa-reportes" element={<MapaReportes />} />
             
             {/* Rutas de autenticación */}

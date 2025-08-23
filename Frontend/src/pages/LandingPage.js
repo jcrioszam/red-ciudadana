@@ -23,7 +23,7 @@ export default function LandingPage() {
   };
 
   const handleViewMap = () => {
-    navigate('/mapa-reportes');
+    navigate('/mapa-reportes-publico');
   };
 
   const handleViewReports = () => {

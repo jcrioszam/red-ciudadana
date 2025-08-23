@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MapaInteractivo from '../components/MapaInteractivo';
 import api from '../api';
@@ -23,6 +23,12 @@ const ReportesCiudadanosPublico = () => {
 
   // 🗺️ Estado para ubicación seleccionada en mapa
   const [selectedLocation, setSelectedLocation] = useState(null);
+  
+  // 📸 Estado para funcionalidad de cámara
+  const [showCamera, setShowCamera] = useState(false);
+  const [cameraStream, setCameraStream] = useState(null);
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
   
   const [mensaje, setMensaje] = useState('');
   const [loading, setLoading] = useState(false);
@@ -172,7 +178,7 @@ const ReportesCiudadanosPublico = () => {
         },
       });
 
-      if (response.status === 201) {
+      if (response.status === 200 || response.status === 201) {
         setLoading(false);
         setMensaje('✅ Reporte enviado exitosamente');
         setShowSuccess(true);
@@ -195,6 +201,56 @@ const ReportesCiudadanosPublico = () => {
       ...formData,
       [e.target.name]: e.target.value
     });
+  };
+
+  // 📸 Funciones para funcionalidad de cámara
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment' } // Usar cámara trasera si está disponible
+      });
+      setCameraStream(stream);
+      setShowCamera(true);
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (error) {
+      console.error('Error al acceder a la cámara:', error);
+      alert('No se pudo acceder a la cámara. Usa la opción de subir archivo.');
+    }
+  };
+
+  const stopCamera = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+      setCameraStream(null);
+    }
+    setShowCamera(false);
+  };
+
+  const takePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      const context = canvas.getContext('2d');
+      
+      // Configurar canvas con las dimensiones del video
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      
+      // Dibujar el frame actual del video en el canvas
+      context.drawImage(video, 0, 0);
+      
+      // Convertir canvas a blob
+      canvas.toBlob((blob) => {
+        if (blob) {
+          // Crear un archivo File desde el blob
+          const file = new File([blob], `foto_${Date.now()}.jpg`, { type: 'image/jpeg' });
+          setFormData(prev => ({ ...prev, foto: file }));
+          stopCamera();
+        }
+      }, 'image/jpeg', 0.8);
+    }
   };
 
   // 🎯 FLUJO CON MAPA Y FOTO - 5 PASOS TOTAL
@@ -444,88 +500,215 @@ const ReportesCiudadanosPublico = () => {
   );
 
   // 📝 PASO 3: Foto del reporte (opcional)
-  const renderFoto = () => (
-    <div style={{ textAlign: 'center', padding: '20px' }}>
-      <h2 style={{ color: '#374151', marginBottom: '10px' }}>
-        📸 Foto del problema (opcional)
-      </h2>
-      <p style={{ color: '#6b7280', marginBottom: '20px' }}>
-        Si tienes una foto que ilustre mejor la situación, puedes subirla aquí.
-      </p>
+  const renderFoto = () => {
 
-      <div style={{ maxWidth: '600px', margin: '0 auto' }}>
-        <input
-          type="file"
-          accept="image/*"
-          onChange={(e) => setFormData(prev => ({ ...prev, foto: e.target.files[0] }))}
-          style={{
-            width: '100%',
-            padding: '10px',
-            border: '2px solid #e2e8f0',
-            borderRadius: '8px',
-            fontSize: '16px',
-            cursor: 'pointer'
-          }}
-        />
-        {formData.foto && (
-          <div style={{ marginTop: '20px', textAlign: 'center' }}>
-            <img
-              src={URL.createObjectURL(formData.foto)}
-              alt="Reporte"
-              style={{ maxWidth: '100%', borderRadius: '8px', marginBottom: '10px' }}
-            />
+    return (
+      <div style={{ textAlign: 'center', padding: '20px' }}>
+        <h2 style={{ color: '#374151', marginBottom: '10px' }}>
+          📸 Foto del problema (opcional)
+        </h2>
+        <p style={{ color: '#6b7280', marginBottom: '20px' }}>
+          Toma una foto con tu cámara o sube una imagen existente.
+        </p>
+
+        <div style={{ maxWidth: '600px', margin: '0 auto' }}>
+          {/* Opciones de foto */}
+          <div style={{ 
+            display: 'flex', 
+            gap: '15px', 
+            justifyContent: 'center', 
+            marginBottom: '20px',
+            flexWrap: 'wrap'
+          }}>
             <button
-              onClick={() => setFormData(prev => ({ ...prev, foto: null }))}
+              onClick={startCamera}
               style={{
-                backgroundColor: '#ef4444',
+                backgroundColor: '#10b981',
                 color: 'white',
                 border: 'none',
                 borderRadius: '8px',
-                padding: '10px 20px',
-                fontSize: '14px',
-                cursor: 'pointer'
+                padding: '12px 24px',
+                fontSize: '16px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
               }}
             >
-              Eliminar Foto
+              📷 Tomar Foto
             </button>
+
+            <label style={{
+              backgroundColor: '#8b5cf6',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '12px 24px',
+              fontSize: '16px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              📁 Subir Archivo
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setFormData(prev => ({ ...prev, foto: e.target.files[0] }))}
+                style={{ display: 'none' }}
+              />
+            </label>
           </div>
-        )}
-      </div>
 
-      <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '20px' }}>
-        <button
-          onClick={() => setCurrentStep(2)}
-          style={{
-            backgroundColor: 'transparent',
-            color: '#6b7280',
-            border: '1px solid #d1d5db',
-            borderRadius: '8px',
-            padding: '12px 20px',
-            fontSize: '14px',
-            cursor: 'pointer'
-          }}
-        >
-          ← Volver
-        </button>
+          {/* Cámara activa */}
+          {showCamera && (
+            <div style={{ 
+              marginBottom: '20px',
+              padding: '20px',
+              backgroundColor: '#f8fafc',
+              borderRadius: '12px',
+              border: '2px solid #e2e8f0'
+            }}>
+              <h3 style={{ color: '#374151', marginBottom: '15px' }}>
+                📷 Cámara Activa
+              </h3>
+              
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                style={{
+                  width: '100%',
+                  maxWidth: '400px',
+                  borderRadius: '8px',
+                  marginBottom: '15px'
+                }}
+              />
+              
+              <canvas ref={canvasRef} style={{ display: 'none' }} />
+              
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                <button
+                  onClick={takePhoto}
+                  style={{
+                    backgroundColor: '#10b981',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '12px 24px',
+                    fontSize: '16px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  📸 Capturar
+                </button>
+                
+                <button
+                  onClick={stopCamera}
+                  style={{
+                    backgroundColor: '#ef4444',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '12px 24px',
+                    fontSize: '16px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  ❌ Cancelar
+                </button>
+              </div>
+            </div>
+          )}
 
-        <button
-          onClick={() => setCurrentStep(4)}
-          style={{
-            backgroundColor: '#8b5cf6',
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            padding: '12px 24px',
-            fontSize: '16px',
-            cursor: 'pointer',
-            opacity: 1
-          }}
-        >
-          Continuar →
-        </button>
+          {/* Foto seleccionada */}
+          {formData.foto && (
+            <div style={{ 
+              marginTop: '20px', 
+              textAlign: 'center',
+              padding: '20px',
+              backgroundColor: '#f0fdf4',
+              borderRadius: '12px',
+              border: '2px solid #10b981'
+            }}>
+              <h3 style={{ color: '#10b981', marginBottom: '15px' }}>
+                ✅ Foto Seleccionada
+              </h3>
+              
+              <img
+                src={URL.createObjectURL(formData.foto)}
+                alt="Reporte"
+                style={{ 
+                  maxWidth: '100%', 
+                  maxHeight: '300px',
+                  borderRadius: '8px', 
+                  marginBottom: '15px',
+                  border: '2px solid #10b981'
+                }}
+              />
+              
+              <div style={{ marginBottom: '15px' }}>
+                <p style={{ color: '#374151', margin: '5px 0' }}>
+                  <strong>Nombre:</strong> {formData.foto.name}
+                </p>
+                <p style={{ color: '#374151', margin: '5px 0' }}>
+                  <strong>Tamaño:</strong> {(formData.foto.size / 1024).toFixed(1)} KB
+                </p>
+              </div>
+              
+              <button
+                onClick={() => setFormData(prev => ({ ...prev, foto: null }))}
+                style={{
+                  backgroundColor: '#ef4444',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '10px 20px',
+                  fontSize: '14px',
+                  cursor: 'pointer'
+                }}
+              >
+                🗑️ Eliminar Foto
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '20px' }}>
+          <button
+            onClick={() => setCurrentStep(2)}
+            style={{
+              backgroundColor: 'transparent',
+              color: '#6b7280',
+              border: '1px solid #d1d5db',
+              borderRadius: '8px',
+              padding: '12px 20px',
+              fontSize: '14px',
+              cursor: 'pointer'
+            }}
+          >
+            ← Volver
+          </button>
+
+          <button
+            onClick={() => setCurrentStep(4)}
+            style={{
+              backgroundColor: '#8b5cf6',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '12px 24px',
+              fontSize: '16px',
+              cursor: 'pointer',
+              opacity: 1
+            }}
+          >
+            Continuar →
+          </button>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   // 📋 PASO 4: Resumen del reporte
   const renderResumen = () => (

@@ -21,21 +21,15 @@ const api = axios.create({
   timeout: 120000, // 2 minutos para cold start muy lento
 });
 
-// Interceptor REQUEST para debug y FORZAR HTTPS AGRESIVAMENTE
+// Interceptor REQUEST para debug y FORZAR HTTPS SOLO en producción
 api.interceptors.request.use(
   (config) => {
     console.log('🚀 API REQUEST:', config.method?.toUpperCase(), config.url, 'BASE:', config.baseURL);
     
-    // 🚨 FORZAR HTTPS AGRESIVAMENTE en TODAS las URLs
-    if (config.baseURL && config.baseURL.startsWith('http://')) {
+    // 🚨 FORZAR HTTPS SOLO en producción (Railway)
+    if (process.env.NODE_ENV === 'production' && config.baseURL && config.baseURL.startsWith('http://')) {
       config.baseURL = config.baseURL.replace('http://', 'https://');
-      console.warn('🔒 INTERCEPTOR: FORZANDO HTTPS en baseURL:', config.baseURL);
-    }
-    
-    // Forzar HTTPS en URL relativa también
-    if (config.url && config.url.includes('http://')) {
-      config.url = config.url.replace('http://', 'https://');
-      console.warn('🔒 INTERCEPTOR: FORZANDO HTTPS en URL:', config.url);
+      console.warn('🔒 INTERCEPTOR: FORZANDO HTTPS en producción:', config.baseURL);
     }
     
     // Verificar Railway URL específicamente
