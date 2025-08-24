@@ -3,6 +3,7 @@ print('🚨🚨🚨 LOGS SUPER AGRESIVOS AGREGADOS AL ENDPOINT /reportes-ciudada
 print('🚨🚨🚨 LOGS SUPER AGRESIVOS AGREGADOS AL ENDPOINT /reportes-ciudadanos/ 🚨🚨🚨')
 print('🚨🚨🚨 LOGS SUPER AGRESIVOS AGREGADOS AL ENDPOINT /reportes-ciudadanos/ 🚨🚨🚨')
 from fastapi import FastAPI, Depends, HTTPException, status, Body, UploadFile, File, Form, Request
+from sqlalchemy import text
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response, JSONResponse
@@ -63,20 +64,20 @@ def verificar_y_crear_columnas():
         
         # Verificar si existe la columna es_publico
         try:
-            db.execute("SELECT es_publico FROM reportes_ciudadanos LIMIT 1")
+            db.execute(text("SELECT es_publico FROM reportes_ciudadanos LIMIT 1"))
             print("✅ Columna es_publico ya existe")
         except Exception:
             print("🔧 Creando columna es_publico...")
-            db.execute("ALTER TABLE reportes_ciudadanos ADD COLUMN es_publico BOOLEAN DEFAULT true")
+            db.execute(text("ALTER TABLE reportes_ciudadanos ADD COLUMN es_publico BOOLEAN DEFAULT true"))
             print("✅ Columna es_publico creada exitosamente")
         
         # Verificar si existe la columna contacto_email
         try:
-            db.execute("SELECT contacto_email FROM reportes_ciudadanos LIMIT 1")
+            db.execute(text("SELECT contacto_email FROM reportes_ciudadanos LIMIT 1"))
             print("✅ Columna contacto_email ya existe")
         except Exception:
             print("🔧 Creando columna contacto_email...")
-            db.execute("ALTER TABLE reportes_ciudadanos ADD COLUMN contacto_email VARCHAR(255)")
+            db.execute(text("ALTER TABLE reportes_ciudadanos ADD COLUMN contacto_email VARCHAR(255)"))
             print("✅ Columna contacto_email creada exitosamente")
         
         db.commit()
