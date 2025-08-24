@@ -26,7 +26,19 @@ export default function MapaReportesPublico() {
   const cargarReportes = async () => {
     try {
       setLoading(true);
+      console.log('🔍 Cargando reportes públicos...');
       const response = await api.get('/reportes-publicos');
+      console.log('✅ Reportes cargados:', response.data);
+      console.log('📊 Cantidad de reportes:', response.data.length);
+      
+      if (response.data.length > 0) {
+        console.log('📍 Primer reporte:', {
+          latitud: response.data[0].latitud,
+          longitud: response.data[0].longitud,
+          titulo: response.data[0].titulo
+        });
+      }
+      
       setReportes(response.data);
       setError(null);
     } catch (error) {
@@ -124,14 +136,24 @@ export default function MapaReportesPublico() {
 
   // Calcular el centro del mapa basado en los reportes
   const calcularCentroMapa = () => {
+    console.log('🔍 Calculando centro del mapa...');
+    console.log('📊 Total de reportes:', reportes.length);
+    
     if (reportes.length === 0) {
+      console.log('📍 No hay reportes, usando CDMX por defecto');
       return [19.4326, -99.1332]; // CDMX por defecto
     }
     
     const totalLat = reportes.reduce((sum, reporte) => sum + reporte.latitud, 0);
     const totalLng = reportes.reduce((sum, reporte) => sum + reporte.longitud, 0);
     
-    return [totalLat / reportes.length, totalLng / reportes.length];
+    const centroLat = totalLat / reportes.length;
+    const centroLng = totalLng / reportes.length;
+    
+    console.log('📍 Centro calculado:', [centroLat, centroLng]);
+    console.log('📊 Reportes disponibles:', reportes.map(r => `[${r.latitud}, ${r.longitud}]`));
+    
+    return [centroLat, centroLng];
   };
 
   return (
@@ -381,6 +403,11 @@ export default function MapaReportesPublico() {
                center={calcularCentroMapa()}
                zoom={reportes.length > 0 ? 12 : 10}
              />
+             {console.log('🗺️ Mapa renderizado con:', {
+               center: calcularCentroMapa(),
+               zoom: reportes.length > 0 ? 12 : 10,
+               reportesCount: reportes.length
+             })}
           </div>
         )}
       </div>
