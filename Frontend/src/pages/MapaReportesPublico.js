@@ -122,6 +122,18 @@ export default function MapaReportesPublico() {
     });
   };
 
+  // Calcular el centro del mapa basado en los reportes
+  const calcularCentroMapa = () => {
+    if (reportes.length === 0) {
+      return [19.4326, -99.1332]; // CDMX por defecto
+    }
+    
+    const totalLat = reportes.reduce((sum, reporte) => sum + reporte.latitud, 0);
+    const totalLng = reportes.reduce((sum, reporte) => sum + reporte.longitud, 0);
+    
+    return [totalLat / reportes.length, totalLng / reportes.length];
+  };
+
   return (
     <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
       {/* Header */}
@@ -362,13 +374,13 @@ export default function MapaReportesPublico() {
           </div>
         ) : (
           <div style={{ height: '500px', borderRadius: '8px', overflow: 'hidden' }}>
-            <MapaInteractivo
-              modo="visualizacion"
-              reportes={reportes}
-              onReporteClick={setReporteSeleccionado}
-              center={[19.4326, -99.1332]}
-              zoom={10}
-            />
+                         <MapaInteractivo
+               modo="visualizacion"
+               reportes={reportes}
+               onReporteClick={setReporteSeleccionado}
+               center={calcularCentroMapa()}
+               zoom={reportes.length > 0 ? 12 : 10}
+             />
           </div>
         )}
       </div>
