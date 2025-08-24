@@ -59,35 +59,48 @@ Base.metadata.create_all(bind=engine)
 # Función para verificar y crear columnas faltantes
 def verificar_y_crear_columnas():
     """Verificar si existen las columnas necesarias y crearlas si no existen"""
+    
+    # Verificar columna es_publico
     try:
         db = SessionLocal()
-        
-        # Verificar si existe la columna es_publico
-        try:
-            db.execute(text("SELECT es_publico FROM reportes_ciudadanos LIMIT 1"))
-            print("✅ Columna es_publico ya existe")
-        except Exception:
-            print("🔧 Creando columna es_publico...")
-            db.execute(text("ALTER TABLE reportes_ciudadanos ADD COLUMN es_publico BOOLEAN DEFAULT true"))
-            print("✅ Columna es_publico creada exitosamente")
-        
-        # Verificar si existe la columna contacto_email
-        try:
-            db.execute(text("SELECT contacto_email FROM reportes_ciudadanos LIMIT 1"))
-            print("✅ Columna contacto_email ya existe")
-        except Exception:
-            print("🔧 Creando columna contacto_email...")
-            db.execute(text("ALTER TABLE reportes_ciudadanos ADD COLUMN contacto_email VARCHAR(255)"))
-            print("✅ Columna contacto_email creada exitosamente")
-        
-        db.commit()
-        print("🎯 Todas las columnas verificadas y creadas correctamente")
-        
-    except Exception as e:
-        print(f"❌ Error al verificar/crear columnas: {str(e)}")
-        db.rollback()
-    finally:
+        db.execute(text("SELECT es_publico FROM reportes_ciudadanos LIMIT 1"))
+        print("✅ Columna es_publico ya existe")
         db.close()
+    except Exception:
+        print("🔧 Creando columna es_publico...")
+        try:
+            db = SessionLocal()
+            db.execute(text("ALTER TABLE reportes_ciudadanos ADD COLUMN es_publico BOOLEAN DEFAULT true"))
+            db.commit()
+            print("✅ Columna es_publico creada exitosamente")
+            db.close()
+        except Exception as e:
+            print(f"❌ Error al crear columna es_publico: {str(e)}")
+            if db:
+                db.rollback()
+                db.close()
+    
+    # Verificar columna contacto_email
+    try:
+        db = SessionLocal()
+        db.execute(text("SELECT contacto_email FROM reportes_ciudadanos LIMIT 1"))
+        print("✅ Columna contacto_email ya existe")
+        db.close()
+    except Exception:
+        print("🔧 Creando columna contacto_email...")
+        try:
+            db = SessionLocal()
+            db.execute(text("ALTER TABLE reportes_ciudadanos ADD COLUMN contacto_email VARCHAR(255)"))
+            db.commit()
+            print("✅ Columna contacto_email creada exitosamente")
+            db.close()
+        except Exception as e:
+            print(f"❌ Error al crear columna contacto_email: {str(e)}")
+            if db:
+                db.rollback()
+                db.close()
+    
+    print("🎯 Verificación de columnas completada")
 
 # Ejecutar verificación de columnas
 verificar_y_crear_columnas()
