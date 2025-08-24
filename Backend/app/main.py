@@ -55,6 +55,42 @@ from .schemas_reportes import ReporteCiudadano, ReporteCiudadanoCreate, ReporteC
 # Crear las tablas en la base de datos
 Base.metadata.create_all(bind=engine)
 
+# Función para verificar y crear columnas faltantes
+def verificar_y_crear_columnas():
+    """Verificar si existen las columnas necesarias y crearlas si no existen"""
+    try:
+        db = SessionLocal()
+        
+        # Verificar si existe la columna es_publico
+        try:
+            db.execute("SELECT es_publico FROM reportes_ciudadanos LIMIT 1")
+            print("✅ Columna es_publico ya existe")
+        except Exception:
+            print("🔧 Creando columna es_publico...")
+            db.execute("ALTER TABLE reportes_ciudadanos ADD COLUMN es_publico BOOLEAN DEFAULT true")
+            print("✅ Columna es_publico creada exitosamente")
+        
+        # Verificar si existe la columna contacto_email
+        try:
+            db.execute("SELECT contacto_email FROM reportes_ciudadanos LIMIT 1")
+            print("✅ Columna contacto_email ya existe")
+        except Exception:
+            print("🔧 Creando columna contacto_email...")
+            db.execute("ALTER TABLE reportes_ciudadanos ADD COLUMN contacto_email VARCHAR(255)")
+            print("✅ Columna contacto_email creada exitosamente")
+        
+        db.commit()
+        print("🎯 Todas las columnas verificadas y creadas correctamente")
+        
+    except Exception as e:
+        print(f"❌ Error al verificar/crear columnas: {str(e)}")
+        db.rollback()
+    finally:
+        db.close()
+
+# Ejecutar verificación de columnas
+verificar_y_crear_columnas()
+
 # Crear usuarios iniciales
 def create_initial_users():
     """Crear usuarios iniciales si no existen"""
