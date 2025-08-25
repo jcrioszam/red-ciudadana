@@ -48,6 +48,16 @@ export default function MapaReportesPublico() {
         const reportesConFotos = response.data.filter(r => r.fotos && r.fotos.length > 0);
         console.log('📸 Reportes con fotos:', reportesConFotos.length);
         console.log('📸 Detalles de reportes con fotos:', reportesConFotos);
+        
+        // 🔧 NUEVO: Logging detallado de cada reporte con fotos
+        reportesConFotos.forEach((reporte, index) => {
+          console.log(`📸 REPORTE ${index + 1} CON FOTOS:`);
+          console.log(`   ID: ${reporte.id}`);
+          console.log(`   Título: ${reporte.titulo}`);
+          console.log(`   Coordenadas: [${reporte.latitud}, ${reporte.longitud}]`);
+          console.log(`   Fotos:`, reporte.fotos);
+          console.log(`   Tiene foto: ${reporte.tiene_foto}`);
+        });
       }
       
       setReportes(response.data);
