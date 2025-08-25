@@ -3616,10 +3616,12 @@ async def obtener_reportes_ciudadanos_publicos(
             # Formatear datos de fotos
             fotos_data = []
             for foto in fotos:
+                # 🔧 CORREGIR: Generar URL absoluta en lugar de relativa
+                foto_url_absoluta = f"https://red-ciudadana-production.up.railway.app{foto.url}"
                 fotos_data.append({
                     "id": foto.id,
                     "nombre_archivo": foto.nombre_archivo,
-                    "url": foto.url,
+                    "url": foto_url_absoluta,  # 🔧 URL absoluta
                     "tipo": foto.tipo,
                     "tamaño": foto.tamaño
                 })
