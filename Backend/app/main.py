@@ -295,7 +295,7 @@ app.add_middleware(
 )
 
 # 🔧 NUEVO: Montar directorio de archivos estáticos
-app.mount("/uploads", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "uploads")), name="uploads")
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # 🔧 NUEVO: Endpoint para servir imágenes específicas
 @app.get("/uploads/{filename}")
