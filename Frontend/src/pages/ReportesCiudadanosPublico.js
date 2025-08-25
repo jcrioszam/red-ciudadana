@@ -225,19 +225,64 @@ const ReportesCiudadanosPublico = () => {
 
   // 📸 Funciones para funcionalidad de cámara
   const startCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'environment' } // Usar cámara trasera si está disponible
-      });
-      setCameraStream(stream);
-      setShowCamera(true);
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
+    // En dispositivos móviles, usar input file con capture
+    if (/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+      // Crear input file temporal
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.capture = 'environment'; // Usar cámara trasera
+      
+      input.onchange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          setFormData(prev => ({ ...prev, foto: file }));
+          setMensaje('✅ Foto capturada exitosamente');
+          setTimeout(() => {
+            setMensaje('');
+            setCurrentStep(4); // Ir al resumen
+          }, 2000);
+        }
+      };
+      
+      input.click();
+    } else {
+      // En desktop, usar cámara web
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode: 'environment' } // Usar cámara trasera si está disponible
+        });
+        setCameraStream(stream);
+        setShowCamera(true);
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      } catch (error) {
+        console.error('Error al acceder a la cámara:', error);
+        alert('No se pudo acceder a la cámara. Usa la opción de subir archivo.');
       }
-    } catch (error) {
-      console.error('Error al acceder a la cámara:', error);
-      alert('No se pudo acceder a la cámara. Usa la opción de subir archivo.');
     }
+  };
+
+  const openFileSelector = () => {
+    // Crear input file para seleccionar archivo
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    
+    input.onchange = (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        setFormData(prev => ({ ...prev, foto: file }));
+        setMensaje('✅ Archivo seleccionado exitosamente');
+        setTimeout(() => {
+          setMensaje('');
+          setCurrentStep(4); // Ir al resumen
+        }, 2000);
+      }
+    };
+    
+    input.click();
   };
 
   const stopCamera = () => {
@@ -558,26 +603,23 @@ const ReportesCiudadanosPublico = () => {
               📷 Tomar Foto
             </button>
 
-            <label style={{
-              backgroundColor: '#8b5cf6',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              padding: '12px 24px',
-              fontSize: '16px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px'
-            }}>
-              📁 Subir Archivo
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => setFormData(prev => ({ ...prev, foto: e.target.files[0] }))}
-                style={{ display: 'none' }}
-              />
-            </label>
+            <button
+              onClick={openFileSelector}
+              style={{
+                backgroundColor: '#8b5cf6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '12px 24px',
+                fontSize: '16px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              📁 Seleccionar Archivo
+            </button>
           </div>
 
           {/* Cámara activa */}
