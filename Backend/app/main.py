@@ -216,16 +216,40 @@ def migrate_foto_url_auto():
         # Si ya tiene el tamaño correcto, no hacer nada
         if current_length and current_length >= 50000:
             print("✅ Campo foto_url ya tiene el tamaño correcto")
-            return True
+        else:
+            # Alterar el campo para aumentar el límite
+            print("🔧 Alterando campo foto_url...")
+            cursor.execute("""
+                ALTER TABLE reportes_ciudadanos 
+                ALTER COLUMN foto_url TYPE VARCHAR(50000);
+            """)
+            print("✅ Campo foto_url alterado exitosamente")
         
-        # Alterar el campo para aumentar el límite
-        print("🔧 Alterando campo foto_url...")
+        # 🔧 NUEVA MIGRACIÓN: Hacer nullable ciudadano_id
+        print("🔧 Iniciando migración automática de ciudadano_id...")
         cursor.execute("""
-            ALTER TABLE reportes_ciudadanos 
-            ALTER COLUMN foto_url TYPE VARCHAR(50000);
+            SELECT column_name, is_nullable
+            FROM information_schema.columns 
+            WHERE table_name = 'reportes_ciudadanos' 
+            AND column_name = 'ciudadano_id';
         """)
         
-        print("✅ Campo foto_url alterado exitosamente")
+        ciudadano_info = cursor.fetchone()
+        if ciudadano_info:
+            is_nullable = ciudadano_info[1]
+            print(f"📏 Campo ciudadano_id actual - nullable: {is_nullable}")
+            
+            if is_nullable == 'NO':
+                print("🔧 Haciendo nullable la columna ciudadano_id...")
+                cursor.execute("""
+                    ALTER TABLE reportes_ciudadanos 
+                    ALTER COLUMN ciudadano_id DROP NOT NULL;
+                """)
+                print("✅ Campo ciudadano_id ahora es nullable")
+            else:
+                print("✅ Campo ciudadano_id ya es nullable")
+        else:
+            print("⚠️ Columna ciudadano_id no encontrada")
         
         cursor.close()
         conn.close()
