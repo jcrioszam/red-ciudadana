@@ -2,7 +2,7 @@ print('🚀 INICIO DEL MAIN.PY - RAILWAY DEPLOYMENT - CORS WORKING! 🎉')
 print('🚨🚨🚨 LOGS SUPER AGRESIVOS AGREGADOS AL ENDPOINT /reportes-ciudadanos/ 🚨🚨🚨')
 print('🚨🚨🚨 LOGS SUPER AGRESIVOS AGREGADOS AL ENDPOINT /reportes-ciudadanos/ 🚨🚨🚨')
 print('🚨🚨🚨 LOGS SUPER AGRESIVOS AGREGADOS AL ENDPOINT /reportes-ciudadanos/ 🚨🚨🚨')
-from fastapi import FastAPI, Depends, HTTPException, status, Body, UploadFile, File, Form, Request
+from fastapi import FastAPI, Depends, HTTPException, status, Body, UploadFile, File, Form, Request, Query
 from sqlalchemy import text
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
@@ -293,6 +293,19 @@ app.add_middleware(
     allow_methods=["*"],  # Permitir todos los métodos
     allow_headers=["*"],  # Permitir todos los headers
 )
+
+# 🔧 NUEVO: Montar directorio de archivos estáticos
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
+# 🔧 NUEVO: Endpoint para servir imágenes específicas
+@app.get("/uploads/{filename}")
+async def get_image(filename: str):
+    """Servir imágenes desde el directorio uploads"""
+    file_path = f"uploads/{filename}"
+    if os.path.exists(file_path):
+        return FileResponse(file_path)
+    else:
+        raise HTTPException(status_code=404, detail="Imagen no encontrada")
 
 print('🔧 CORS SIMPLIFICADO - TODOS LOS MÉTODOS Y HEADERS PERMITIDOS')
 print('🚀 FORZANDO DESPLIEGUE - Último commit: 7555c01ae')
@@ -3535,24 +3548,38 @@ async def crear_reporte_ciudadano_publico(
         
         # Procesar foto si se proporcionó
         if foto and foto.size > 0:
-            # Guardar la foto
+            # 🔧 NUEVO: Crear directorio de uploads si no existe
+            import os
+            upload_dir = "uploads"
+            if not os.path.exists(upload_dir):
+                os.makedirs(upload_dir)
+            
+            # Guardar la foto físicamente
             contenido = await foto.read()
             nombre_archivo = f"reporte_{db_reporte.id}_{foto.filename}"
+            file_path = os.path.join(upload_dir, nombre_archivo)
             
-            # Aquí se guardaría la foto en el sistema de archivos o cloud storage
-            # Por ahora solo guardamos la referencia en la base de datos
+            # 🔧 NUEVO: Escribir archivo al sistema de archivos
+            with open(file_path, "wb") as f:
+                f.write(contenido)
+            
+            print(f"✅ Foto guardada físicamente en: {file_path}")
+            
+            # Crear registro de foto en la base de datos
             foto_data = {
                 "id_reporte": db_reporte.id,
                 "nombre_archivo": nombre_archivo,
                 "tipo": foto.content_type,
                 "tamaño": foto.size,
-                "url": f"/uploads/{nombre_archivo}"  # URL temporal
+                "url": f"/uploads/{nombre_archivo}"  # URL relativa para la BD
             }
             
             # Crear registro de foto en la base de datos
             db_foto = FotoReporteModel(**foto_data)
             db.add(db_foto)
             db.commit()
+            
+            print(f"✅ Registro de foto guardado en BD: {foto_data}")
         
         return {
             "mensaje": "Reporte ciudadano creado exitosamente",
