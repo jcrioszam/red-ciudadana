@@ -140,8 +140,8 @@ export default function MapaReportesPublico() {
     console.log('📊 Total de reportes:', reportes.length);
     
     if (reportes.length === 0) {
-      console.log('📍 No hay reportes, usando CDMX por defecto');
-      return [19.4326, -99.1332]; // CDMX por defecto
+      console.log('📍 No hay reportes, usando Sonora por defecto');
+      return [29.0729, -110.9559]; // Sonora por defecto (Hermosillo)
     }
     
     const totalLat = reportes.reduce((sum, reporte) => sum + reporte.latitud, 0);
@@ -401,7 +401,7 @@ export default function MapaReportesPublico() {
                reportes={reportes}
                onReporteClick={setReporteSeleccionado}
                center={calcularCentroMapa()}
-               zoom={reportes.length > 0 ? 12 : 10}
+               zoom={reportes.length > 0 ? 12 : 8}
              />
              {console.log('🗺️ Mapa renderizado con:', {
                center: calcularCentroMapa(),
@@ -513,6 +513,18 @@ export default function MapaReportesPublico() {
                     <FiCalendar />
                     {formatearFecha(reporte.fecha_creacion)}
                   </div>
+                  {/* 🔧 NUEVO: Indicador de foto */}
+                  {reporte.tiene_foto && (
+                    <div style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '5px',
+                      color: '#10b981',
+                      fontWeight: 'bold'
+                    }}>
+                      📸 Con foto
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -587,6 +599,61 @@ export default function MapaReportesPublico() {
                   {reporteSeleccionado.descripcion}
                 </p>
               </div>
+              
+              {/* 🔧 NUEVO: Sección de fotos */}
+              {reporteSeleccionado.fotos && reporteSeleccionado.fotos.length > 0 && (
+                <div style={{ marginBottom: '20px' }}>
+                  <h4 style={{ color: '#374151', margin: '0 0 12px 0' }}>
+                    📸 Fotos del Reporte ({reporteSeleccionado.fotos.length})
+                  </h4>
+                  <div style={{ 
+                    display: 'grid', 
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', 
+                    gap: '15px'
+                  }}>
+                    {reporteSeleccionado.fotos.map((foto, index) => (
+                      <div key={foto.id} style={{ textAlign: 'center' }}>
+                        <img
+                          src={foto.url}
+                          alt={`Foto ${index + 1} del reporte`}
+                          style={{
+                            width: '100%',
+                            height: '120px',
+                            objectFit: 'cover',
+                            borderRadius: '8px',
+                            border: '2px solid #e2e8f0',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s'
+                          }}
+                          onMouseOver={(e) => {
+                            e.target.style.transform = 'scale(1.05)';
+                            e.target.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
+                          }}
+                          onMouseOut={(e) => {
+                            e.target.style.transform = 'scale(1)';
+                            e.target.style.boxShadow = 'none';
+                          }}
+                          onClick={() => {
+                            // 🔧 NUEVO: Abrir foto en modal grande
+                            window.open(foto.url, '_blank');
+                          }}
+                          title="Haz clic para ver en tamaño completo"
+                        />
+                        <p style={{ 
+                          fontSize: '12px', 
+                          color: '#6b7280', 
+                          margin: '5px 0 0 0',
+                          textOverflow: 'ellipsis',
+                          overflow: 'hidden',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {foto.nombre_archivo}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               
               <div style={{ 
                 display: 'grid', 
