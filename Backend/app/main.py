@@ -3477,7 +3477,11 @@ async def crear_reporte_ciudadano_publico(
             "es_publico": es_publico,
             "estado": "pendiente",
             "fecha_creacion": datetime.now(),
-            "activo": True
+            "activo": True,
+            "ciudadano_id": None,  # 🔧 EXPLÍCITO: Para reportes públicos
+            "administrador_id": None,  # 🔧 EXPLÍCITO: Sin administrador asignado
+            "observaciones_admin": None,  # 🔧 EXPLÍCITO: Sin observaciones
+            "contacto_email": None  # 🔧 EXPLÍCITO: Sin email de contacto
         }
         
         print(f"🚀 DEBUG: Creando reporte en BD con datos: {reporte_data}")
