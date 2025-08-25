@@ -135,21 +135,23 @@ const ReportesCiudadanosPublico = () => {
       return;
     }
 
-    // 🔧 PREPARAR DATOS COMPLETOS PARA EL BACKEND - TODOS LOS CAMPOS REQUERIDOS
-    const reporteData = {
-      titulo: generarTitulo(formData.tipo), // ✅ REQUERIDO por backend
-      descripcion: formData.descripcion.trim(), // ✅ REQUERIDO por backend
-      tipo: formData.tipo, // ✅ REQUERIDO por backend
-      latitud: formData.latitud, // ✅ REQUERIDO por backend (0 por defecto)
-      longitud: formData.longitud, // ✅ REQUERIDO por backend (0 por defecto)
-      direccion: formData.direccion || null, // ❌ OPCIONAL
-      prioridad: formData.prioridad, // ❌ OPCIONAL
-      // 🆕 NUEVO: Incluir foto si existe
-      foto_url: formData.foto ? await convertFileToBase64(formData.foto) : null,
-      es_publico: true // ✅ MARCADO COMO PÚBLICO
-    };
+    // Validar que tengamos ubicación
+    if (!formData.latitud || !formData.longitud) {
+      setMensaje('❌ Por favor seleccione una ubicación en el mapa o use GPS');
+      return;
+    }
 
-    console.log('📋 DATOS COMPLETOS PARA BACKEND:', reporteData);
+    console.log('📋 DATOS COMPLETOS PARA BACKEND:', {
+      titulo: generarTitulo(formData.tipo),
+      descripcion: formData.descripcion.trim(),
+      tipo: formData.tipo,
+      latitud: formData.latitud,
+      longitud: formData.longitud,
+      direccion: formData.direccion || '',
+      prioridad: formData.prioridad,
+      es_publico: true,
+      foto: formData.foto ? 'Archivo adjunto' : 'Sin foto'
+    });
 
     setLoading(true);
     setMensaje('🔄 Enviando reporte...');
@@ -157,13 +159,13 @@ const ReportesCiudadanosPublico = () => {
     try {
       // Crear FormData para enviar archivos
       const submitData = new FormData();
-      submitData.append('titulo', reporteData.titulo);
-      submitData.append('descripcion', reporteData.descripcion);
-      submitData.append('tipo', reporteData.tipo);
-      submitData.append('latitud', reporteData.latitud);
-      submitData.append('longitud', reporteData.longitud);
-      submitData.append('direccion', reporteData.direccion || '');
-      submitData.append('prioridad', reporteData.prioridad);
+      submitData.append('titulo', generarTitulo(formData.tipo));
+      submitData.append('descripcion', formData.descripcion.trim());
+      submitData.append('tipo', formData.tipo);
+      submitData.append('latitud', formData.latitud);
+      submitData.append('longitud', formData.longitud);
+      submitData.append('direccion', formData.direccion || '');
+      submitData.append('prioridad', formData.prioridad);
       submitData.append('es_publico', 'true');
       
       // Agregar foto si existe
@@ -171,12 +173,16 @@ const ReportesCiudadanosPublico = () => {
         submitData.append('foto', formData.foto);
       }
 
+      console.log('📤 Enviando FormData al backend...');
+
       // Enviar reporte público
       const response = await api.post('/reportes-ciudadanos/publico', submitData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
+
+      console.log('✅ Respuesta del backend:', response);
 
       if (response.status === 200 || response.status === 201) {
         setLoading(false);
@@ -190,9 +196,23 @@ const ReportesCiudadanosPublico = () => {
         }, 5000);
       }
     } catch (error) {
-      console.error('Error al crear reporte:', error);
+      console.error('❌ Error al crear reporte:', error);
+      console.error('❌ Detalles del error:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+      
       setLoading(false);
-      setMensaje('❌ Error al crear el reporte. Intenta nuevamente.');
+      
+      // Mensaje de error más específico
+      if (error.response?.status === 500) {
+        setMensaje('❌ Error del servidor. Por favor, intente más tarde o contacte al administrador.');
+      } else if (error.response?.status === 400) {
+        setMensaje('❌ Datos inválidos. Verifique la información ingresada.');
+      } else {
+        setMensaje('❌ Error al crear el reporte. Intenta nuevamente.');
+      }
     }
   };
 
