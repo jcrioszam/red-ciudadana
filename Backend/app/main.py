@@ -3461,6 +3461,7 @@ async def crear_reporte_ciudadano_publico(
     db: Session = Depends(get_db)
 ):
     """Crear reporte ciudadano público (sin autenticación)"""
+    print(f"🚀🚀🚀 NUEVO DEPLOY DETECTADO - Endpoint corregido ejecutándose 🚀🚀🚀")
     print(f"🚀 DEBUG: Recibiendo reporte público - titulo: {titulo}, tipo: {tipo}")
     print(f"🚀 DEBUG: Datos recibidos - lat: {latitud}, lng: {longitud}, foto: {foto}")
     
@@ -3485,20 +3486,24 @@ async def crear_reporte_ciudadano_publico(
         }
         
         print(f"🚀 DEBUG: Creando reporte en BD con datos: {reporte_data}")
+        print(f"🚀 DEBUG: ciudadano_id será: {reporte_data['ciudadano_id']}")
+        print(f"🚀 DEBUG: Tipo de ciudadano_id: {type(reporte_data['ciudadano_id'])}")
         
         # Crear el reporte en la base de datos
         db_reporte = ReporteCiudadanoModel(**reporte_data)
         print(f"🚀 DEBUG: Modelo creado: {db_reporte}")
+        print(f"🚀 DEBUG: ciudadano_id en modelo: {db_reporte.ciudadano_id}")
         
         db.add(db_reporte)
         print(f"🚀 DEBUG: Reporte agregado a sesión")
         
         try:
             db.commit()
-            print(f"🚀 DEBUG: Commit exitoso, ID: {db_reporte.id}")
+            print(f"✅✅✅ COMMIT EXITOSO - ID: {db_reporte.id} ✅✅✅")
         except Exception as commit_error:
-            print(f"❌ ERROR EN COMMIT: {commit_error}")
+            print(f"❌❌❌ ERROR EN COMMIT: {commit_error} ❌❌❌")
             print(f"❌ TIPO DE ERROR: {type(commit_error)}")
+            print(f"❌ DETALLES COMPLETOS: {str(commit_error)}")
             db.rollback()
             raise HTTPException(status_code=500, detail=f"Error en commit: {str(commit_error)}")
         
