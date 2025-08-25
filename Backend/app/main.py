@@ -3600,34 +3600,45 @@ async def obtener_reportes_ciudadanos_publicos(
             print(f"🚀 DEBUG: Filtro fecha_fin aplicado: {fecha_fin}")
         
         print(f"🚀 DEBUG: Ejecutando query...")
-        # Ordenar por fecha de creación (más recientes primero)
-        reportes = query.order_by(ReporteCiudadanoModel.fecha_creacion.desc()).offset(skip).limit(limit).all()
+        # Obtener reportes con paginación
+        reportes = query.offset(skip).limit(limit).all()
         print(f"🚀 DEBUG: Query ejecutada, {len(reportes)} reportes encontrados")
         
-        # Formatear respuesta
+        # Formatear respuesta incluyendo fotos
         resultado = []
         for reporte in reportes:
-            # Obtener fotos del reporte
+            # Buscar fotos asociadas al reporte
             fotos = db.query(FotoReporteModel).filter(
                 FotoReporteModel.id_reporte == reporte.id,
                 FotoReporteModel.activo == True
             ).all()
+            
+            # Formatear datos de fotos
+            fotos_data = []
+            for foto in fotos:
+                fotos_data.append({
+                    "id": foto.id,
+                    "nombre_archivo": foto.nombre_archivo,
+                    "url": foto.url,
+                    "tipo": foto.tipo,
+                    "tamaño": foto.tamaño
+                })
             
             reporte_data = {
                 "id": reporte.id,
                 "titulo": reporte.titulo,
                 "descripcion": reporte.descripcion,
                 "tipo": reporte.tipo,
-                "direccion": reporte.direccion,
                 "latitud": reporte.latitud,
                 "longitud": reporte.longitud,
+                "direccion": reporte.direccion,
                 "estado": reporte.estado,
                 "prioridad": reporte.prioridad,
-                "fecha_creacion": reporte.fecha_creacion,
-                "fecha_actualizacion": reporte.fecha_actualizacion,
-                "observaciones_admin": reporte.observaciones_admin,
-                "foto_url": reporte.foto_url,
-                "fotos": [{"url": foto.url} for foto in fotos]
+                "fecha_creacion": reporte.fecha_creacion.isoformat() if reporte.fecha_creacion else None,
+                "fecha_actualizacion": reporte.fecha_actualizacion.isoformat() if reporte.fecha_actualizacion else None,
+                "es_publico": reporte.es_publico,
+                "fotos": fotos_data,  # 🔧 NUEVO: Incluir fotos asociadas
+                "tiene_foto": len(fotos_data) > 0  # 🔧 NUEVO: Indicador de si tiene foto
             }
             resultado.append(reporte_data)
         
