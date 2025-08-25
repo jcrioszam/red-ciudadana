@@ -33,6 +33,139 @@ const MapaInteractivo = ({
   const [map, setMap] = useState(null);
   const mapRef = useRef();
 
+  // 🔧 Función para calcular el centro y zoom óptimo basado en los reportes
+  const calcularCentroYZoomOptimo = (reportes) => {
+    if (!reportes || reportes.length === 0) {
+      return { center: center, zoom: zoom };
+    }
+
+    // Calcular límites (bounds) de todos los reportes
+    let minLat = Infinity, maxLat = -Infinity;
+    let minLng = Infinity, maxLng = -Infinity;
+
+    reportes.forEach(reporte => {
+      if (reporte.latitud && reporte.longitud) {
+        minLat = Math.min(minLat, reporte.latitud);
+        maxLat = Math.max(maxLat, reporte.latitud);
+        minLng = Math.min(minLng, reporte.longitud);
+        maxLng = Math.max(maxLng, reporte.longitud);
+      }
+    });
+
+    // Si no hay coordenadas válidas, usar valores por defecto
+    if (minLat === Infinity) {
+      return { center: center, zoom: zoom };
+    }
+
+    // Calcular el centro
+    const centerLat = (minLat + maxLat) / 2;
+    const centerLng = (minLng + maxLng) / 2;
+
+    // Calcular la extensión geográfica
+    const latDiff = maxLat - minLat;
+    const lngDiff = maxLng - minLng;
+    const maxDiff = Math.max(latDiff, lngDiff);
+
+    // Calcular densidad de reportes (reportes por unidad de área aproximada)
+    const area = latDiff * lngDiff;
+    const densidad = reportes.length / Math.max(area, 0.0001); // Evitar división por cero
+
+    // Calcular zoom óptimo basado en extensión y densidad
+    let optimalZoom;
+    
+    if (maxDiff > 10) {
+      optimalZoom = 8; // Zoom muy lejano para reportes muy dispersos
+    } else if (maxDiff > 5) {
+      optimalZoom = 10;
+    } else if (maxDiff > 1) {
+      optimalZoom = 12;
+    } else if (maxDiff > 0.1) {
+      optimalZoom = 14;
+    } else if (maxDiff > 0.01) {
+      optimalZoom = 16;
+    } else {
+      optimalZoom = 18; // Zoom muy cercano para reportes muy concentrados
+    }
+
+    // Ajustar zoom basado en densidad
+    if (densidad > 1000) {
+      optimalZoom = Math.min(optimalZoom + 2, 18); // Zoom más cercano para alta densidad
+    } else if (densidad > 100) {
+      optimalZoom = Math.min(optimalZoom + 1, 18);
+    } else if (densidad < 10) {
+      optimalZoom = Math.max(optimalZoom - 1, 8); // Zoom más lejano para baja densidad
+    }
+
+    // Agregar padding para mejor visualización
+    const padding = Math.max(0.05, Math.min(0.2, 1 / reportes.length)); // Padding adaptativo
+    const paddedMinLat = minLat - (latDiff * padding);
+    const paddedMaxLat = maxLat + (latDiff * padding);
+    const paddedMinLng = minLng - (lngDiff * padding);
+    const paddedMaxLng = maxLng + (lngDiff * padding);
+
+    return {
+      center: [centerLat, centerLng],
+      zoom: optimalZoom,
+      bounds: [
+        [paddedMinLat, paddedMinLng],
+        [paddedMaxLat, paddedMaxLng]
+      ],
+      densidad: densidad,
+      totalReportes: reportes.length
+    };
+  };
+
+  // 🔧 Función para encontrar el área con mayor concentración de reportes
+  const encontrarAreaConMasReportes = (reportes) => {
+    if (!reportes || reportes.length === 0) return null;
+
+    // Dividir el área en una cuadrícula y contar reportes en cada celda
+    const gridSize = 10; // 10x10 cuadrícula
+    const grid = {};
+    
+    reportes.forEach(reporte => {
+      if (reporte.latitud && reporte.longitud) {
+        // Crear coordenadas de cuadrícula (redondear a 2 decimales para agrupar)
+        const gridLat = Math.round(reporte.latitud * 100) / 100;
+        const gridLng = Math.round(reporte.longitud * 100) / 100;
+        const key = `${gridLat},${gridLng}`;
+        
+        if (!grid[key]) {
+          grid[key] = {
+            lat: reporte.latitud,
+            lng: reporte.longitud,
+            count: 0,
+            reportes: []
+          };
+        }
+        grid[key].count++;
+        grid[key].reportes.push(reporte);
+      }
+    });
+
+    // Encontrar la celda con más reportes
+    let maxCount = 0;
+    let bestCell = null;
+    
+    Object.values(grid).forEach(cell => {
+      if (cell.count > maxCount) {
+        maxCount = cell.count;
+        bestCell = cell;
+      }
+    });
+
+    if (bestCell) {
+      return {
+        center: [bestCell.lat, bestCell.lng],
+        zoom: 16, // Zoom cercano para ver el área con más reportes
+        count: bestCell.count,
+        reportes: bestCell.reportes
+      };
+    }
+
+    return null;
+  };
+
   // 🔧 Función para obtener coordenadas del usuario
   const getCurrentLocation = () => {
     if (navigator.geolocation) {
@@ -68,6 +201,39 @@ const MapaInteractivo = ({
     }
   }, [selectedLocation, map]);
 
+  // 🔧 Efecto para ajustar automáticamente el mapa cuando cambien los reportes
+  useEffect(() => {
+    if (map && modo === 'visualizacion' && reportes.length > 0) {
+      const { center: optimalCenter, zoom: optimalZoom, bounds } = calcularCentroYZoomOptimo(reportes);
+      
+      if (bounds) {
+        // Usar fitBounds para ajustar el mapa a todos los reportes
+        map.fitBounds(bounds, { padding: [20, 20] });
+      } else {
+        // Fallback a setView si no hay bounds
+        map.setView(optimalCenter, optimalZoom);
+      }
+    }
+  }, [reportes, map, modo]);
+
+  // 🔧 Efecto para ajustar automáticamente el mapa cuando se carga por primera vez
+  useEffect(() => {
+    if (map && modo === 'visualizacion' && reportes.length > 0) {
+      // Pequeño delay para asegurar que el mapa esté completamente cargado
+      const timer = setTimeout(() => {
+        const { center: optimalCenter, zoom: optimalZoom, bounds } = calcularCentroYZoomOptimo(reportes);
+        
+        if (bounds) {
+          map.fitBounds(bounds, { padding: [20, 20] });
+        } else {
+          map.setView(optimalCenter, optimalZoom);
+        }
+      }, 500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [map, modo]); // Solo se ejecuta cuando cambia el mapa o el modo
+
   return (
     <div className="mapa-container" style={{ width: '100%', height: '400px', position: 'relative' }}>
       {/* 🗺️ Botón de GPS */}
@@ -91,6 +257,70 @@ const MapaInteractivo = ({
       >
         📍 GPS
       </button>
+
+      {/* 🗺️ Botón para ajustar vista a todos los reportes */}
+      {modo === 'visualizacion' && reportes.length > 0 && (
+        <button
+          onClick={() => {
+            if (map) {
+              const { bounds } = calcularCentroYZoomOptimo(reportes);
+              if (bounds) {
+                map.fitBounds(bounds, { padding: [20, 20] });
+              }
+            }
+          }}
+          style={{
+            position: 'absolute',
+            top: '50px',
+            right: '10px',
+            zIndex: 1000,
+            backgroundColor: '#3b82f6',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            padding: '8px 12px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+          }}
+          title="Ajustar vista a todos los reportes"
+        >
+          🎯 Ajustar Vista
+        </button>
+      )}
+
+      {/* 🗺️ Botón para ir al área con más reportes */}
+      {modo === 'visualizacion' && reportes.length > 0 && (
+        <button
+          onClick={() => {
+            if (map) {
+              const areaConMasReportes = encontrarAreaConMasReportes(reportes);
+              if (areaConMasReportes) {
+                map.setView(areaConMasReportes.center, areaConMasReportes.zoom);
+                // Mostrar información sobre el área
+                alert(`📍 Área con más reportes:\n${areaConMasReportes.count} reportes en esta zona`);
+              }
+            }
+          }}
+          style={{
+            position: 'absolute',
+            top: '90px',
+            right: '10px',
+            zIndex: 1000,
+            backgroundColor: '#8b5cf6',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            padding: '8px 12px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+          }}
+          title="Ir al área con más reportes"
+        >
+          🔥 Zona Caliente
+        </button>
+      )}
 
       {/* 🗺️ Mapa interactivo */}
       <MapContainer
