@@ -176,12 +176,18 @@ const MapaInteractivo = ({
           const { latitude, longitude } = position.coords;
           console.log('✅ Ubicación obtenida:', { latitude, longitude });
           
-          onLocationSelect(latitude, longitude);
+          // Verificar que onLocationSelect sea una función antes de llamarla
+          if (typeof onLocationSelect === 'function') {
+            onLocationSelect(latitude, longitude);
+          } else {
+            console.log('⚠️ onLocationSelect no es una función, saltando...');
+          }
           
           // Centrar mapa en ubicación del usuario
-          if (map) {
+          const mapInstance = getMapInstance();
+          if (mapInstance) {
             console.log('🗺️ Centrando mapa en ubicación del usuario...');
-            map.setView([latitude, longitude], 15);
+            mapInstance.setView([latitude, longitude], 15);
           } else {
             console.log('⚠️ Mapa no disponible aún');
           }
@@ -222,37 +228,40 @@ const MapaInteractivo = ({
 
   // 🔧 Función para centrar mapa en ubicación seleccionada
   useEffect(() => {
-    if (selectedLocation && selectedLocation.lat && selectedLocation.lng && map) {
-      map.setView([selectedLocation.lat, selectedLocation.lng], 16);
+    const mapInstance = getMapInstance();
+    if (selectedLocation && selectedLocation.lat && selectedLocation.lng && mapInstance) {
+      mapInstance.setView([selectedLocation.lat, selectedLocation.lng], 16);
     }
   }, [selectedLocation, map]);
 
   // 🔧 Efecto para ajustar automáticamente el mapa cuando cambien los reportes
   useEffect(() => {
-    if (map && modo === 'visualizacion' && reportes.length > 0) {
+    const mapInstance = getMapInstance();
+    if (mapInstance && modo === 'visualizacion' && reportes.length > 0) {
       const { center: optimalCenter, zoom: optimalZoom, bounds } = calcularCentroYZoomOptimo(reportes);
       
       if (bounds) {
         // Usar fitBounds para ajustar el mapa a todos los reportes
-        map.fitBounds(bounds, { padding: [20, 20] });
+        mapInstance.fitBounds(bounds, { padding: [20, 20] });
       } else {
         // Fallback a setView si no hay bounds
-        map.setView(optimalCenter, optimalZoom);
+        mapInstance.setView(optimalCenter, optimalZoom);
       }
     }
   }, [reportes, map, modo]);
 
   // 🔧 Efecto para ajustar automáticamente el mapa cuando se carga por primera vez
   useEffect(() => {
-    if (map && modo === 'visualizacion' && reportes.length > 0) {
+    const mapInstance = getMapInstance();
+    if (mapInstance && modo === 'visualizacion' && reportes.length > 0) {
       // Pequeño delay para asegurar que el mapa esté completamente cargado
       const timer = setTimeout(() => {
         const { center: optimalCenter, zoom: optimalZoom, bounds } = calcularCentroYZoomOptimo(reportes);
         
         if (bounds) {
-          map.fitBounds(bounds, { padding: [20, 20] });
+          mapInstance.fitBounds(bounds, { padding: [20, 20] });
         } else {
-          map.setView(optimalCenter, optimalZoom);
+          mapInstance.setView(optimalCenter, optimalZoom);
         }
       }, 500);
 
@@ -267,6 +276,21 @@ const MapaInteractivo = ({
       console.log('📊 Estado actual:', { modo, reportesCount: reportes.length });
     }
   }, [map, modo, reportes.length]);
+
+  // 🔧 Efecto para establecer el mapa cuando se cree la referencia
+  useEffect(() => {
+    if (mapRef.current && mapRef.current._map) {
+      console.log('🗺️ Mapa detectado a través de ref');
+      setMap(mapRef.current._map);
+    }
+  }, [mapRef.current]);
+
+  // 🔧 Función para obtener la instancia del mapa
+  const getMapInstance = () => {
+    if (map) return map;
+    if (mapRef.current && mapRef.current._map) return mapRef.current._map;
+    return null;
+  };
 
   return (
     <div className="mapa-container" style={{ width: '100%', height: '400px', position: 'relative' }}>
@@ -297,15 +321,22 @@ const MapaInteractivo = ({
         <button
           onClick={() => {
             console.log('🎯 Botón "Ajustar Vista" clickeado');
-            console.log('🗺️ Estado del mapa:', { map: !!map, modo, reportesCount: reportes.length });
+            const mapInstance = getMapInstance();
+            console.log('🗺️ Estado del mapa:', { 
+              map: !!mapInstance, 
+              modo, 
+              reportesCount: reportes.length,
+              mapRef: !!mapRef.current,
+              mapRefMap: !!(mapRef.current && mapRef.current._map)
+            });
             
-            if (map) {
+            if (mapInstance) {
               const { bounds } = calcularCentroYZoomOptimo(reportes);
               console.log('📊 Bounds calculados:', bounds);
               
               if (bounds) {
                 console.log('🗺️ Ajustando mapa a bounds...');
-                map.fitBounds(bounds, { padding: [20, 20] });
+                mapInstance.fitBounds(bounds, { padding: [20, 20] });
               } else {
                 console.log('⚠️ No se pudieron calcular bounds');
               }
@@ -339,15 +370,22 @@ const MapaInteractivo = ({
         <button
           onClick={() => {
             console.log('🔥 Botón "Zona Caliente" clickeado');
-            console.log('🗺️ Estado del mapa:', { map: !!map, modo, reportesCount: reportes.length });
+            const mapInstance = getMapInstance();
+            console.log('🗺️ Estado del mapa:', { 
+              map: !!mapInstance, 
+              modo, 
+              reportesCount: reportes.length,
+              mapRef: !!mapRef.current,
+              mapRefMap: !!(mapRef.current && mapRef.current._map)
+            });
             
-            if (map) {
+            if (mapInstance) {
               const areaConMasReportes = encontrarAreaConMasReportes(reportes);
               console.log('📍 Área con más reportes encontrada:', areaConMasReportes);
               
               if (areaConMasReportes) {
                 console.log('🗺️ Navegando al área con más reportes...');
-                map.setView(areaConMasReportes.center, areaConMasReportes.zoom);
+                mapInstance.setView(areaConMasReportes.center, areaConMasReportes.zoom);
                 // Mostrar información sobre el área
                 alert(`📍 Área con más reportes:\n${areaConMasReportes.count} reportes en esta zona`);
               } else {
@@ -364,7 +402,7 @@ const MapaInteractivo = ({
             top: '90px',
             right: '10px',
             zIndex: 1000,
-            backgroundColor: '#8b5cf6',
+            backgroundColor: '#8b82f6',
             color: 'white',
             border: 'none',
             borderRadius: '8px',
