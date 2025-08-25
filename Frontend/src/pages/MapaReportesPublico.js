@@ -37,6 +37,17 @@ export default function MapaReportesPublico() {
           longitud: response.data[0].longitud,
           titulo: response.data[0].titulo
         });
+        
+        // 🔧 NUEVO: Logging detallado del primer reporte
+        console.log('🔍 ESTRUCTURA COMPLETA del primer reporte:', response.data[0]);
+        console.log('📸 ¿Tiene fotos?', response.data[0].fotos);
+        console.log('📸 ¿Tiene flag tiene_foto?', response.data[0].tiene_foto);
+        console.log('📸 Array de fotos:', response.data[0].fotos);
+        
+        // 🔧 NUEVO: Verificar todos los reportes que tienen fotos
+        const reportesConFotos = response.data.filter(r => r.fotos && r.fotos.length > 0);
+        console.log('📸 Reportes con fotos:', reportesConFotos.length);
+        console.log('📸 Detalles de reportes con fotos:', reportesConFotos);
       }
       
       setReportes(response.data);
