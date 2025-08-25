@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -16,9 +16,31 @@ const MapClickHandler = ({ onLocationSelect, selectedLocation }) => {
   useMapEvents({
     click: (e) => {
       const { lat, lng } = e.latlng;
-      onLocationSelect(lat, lng);
+      if (typeof onLocationSelect === 'function') {
+        onLocationSelect(lat, lng);
+      }
     },
   });
+  return null;
+};
+
+// Hook personalizado para obtener la instancia del mapa
+const useMapInstance = () => {
+  const map = useMap();
+  return map;
+};
+
+// Componente para establecer el mapa en el estado del padre
+const MapController = ({ onMapReady }) => {
+  const map = useMapInstance();
+  
+  useEffect(() => {
+    if (map && onMapReady) {
+      console.log('🗺️ Mapa detectado a través de useMap hook');
+      onMapReady(map);
+    }
+  }, [map, onMapReady]);
+  
   return null;
 };
 
@@ -274,21 +296,35 @@ const MapaInteractivo = ({
     if (map) {
       console.log('🗺️ Mapa inicializado correctamente');
       console.log('📊 Estado actual:', { modo, reportesCount: reportes.length });
+      console.log('🗺️ Instancia del mapa:', map);
     }
   }, [map, modo, reportes.length]);
 
-  // 🔧 Efecto para establecer el mapa cuando se cree la referencia
+  // 🔧 Efecto para verificar el estado del mapa cada segundo
   useEffect(() => {
-    if (mapRef.current && mapRef.current._map) {
-      console.log('🗺️ Mapa detectado a través de ref');
-      setMap(mapRef.current._map);
-    }
-  }, [mapRef.current]);
+    const interval = setInterval(() => {
+      if (map) {
+        console.log('🗺️ Estado del mapa verificado:', { 
+          map: !!map, 
+          modo, 
+          reportesCount: reportes.length,
+          mapType: typeof map,
+          mapMethods: map ? Object.keys(map).filter(key => typeof map[key] === 'function') : []
+        });
+        clearInterval(interval);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [map, modo, reportes.length]);
 
   // 🔧 Función para obtener la instancia del mapa
   const getMapInstance = () => {
-    if (map) return map;
-    if (mapRef.current && mapRef.current._map) return mapRef.current._map;
+    if (map) {
+      console.log('🗺️ Usando instancia del mapa del estado');
+      return map;
+    }
+    console.log('⚠️ Mapa no disponible en el estado');
     return null;
   };
 
@@ -423,8 +459,10 @@ const MapaInteractivo = ({
         zoom={zoom}
         style={{ height: '100%', width: '100%' }}
         ref={mapRef}
-        onCreated={setMap}
       >
+        {/* 🔧 Controlador del mapa */}
+        <MapController onMapReady={setMap} />
+        
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
