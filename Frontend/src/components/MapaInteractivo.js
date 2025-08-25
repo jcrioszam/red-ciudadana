@@ -168,28 +168,54 @@ const MapaInteractivo = ({
 
   // 🔧 Función para obtener coordenadas del usuario
   const getCurrentLocation = () => {
+    console.log('🔍 Iniciando geolocalización...');
+    
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { latitude, longitude } = position.coords;
+          console.log('✅ Ubicación obtenida:', { latitude, longitude });
+          
           onLocationSelect(latitude, longitude);
           
           // Centrar mapa en ubicación del usuario
           if (map) {
+            console.log('🗺️ Centrando mapa en ubicación del usuario...');
             map.setView([latitude, longitude], 15);
+          } else {
+            console.log('⚠️ Mapa no disponible aún');
           }
         },
         (error) => {
           console.error('❌ Error de geolocalización:', error);
-          alert('❌ No se pudo obtener tu ubicación. Selecciona manualmente en el mapa.');
+          
+          // Mensajes de error más específicos
+          let errorMessage = '❌ No se pudo obtener tu ubicación. ';
+          
+          switch(error.code) {
+            case error.PERMISSION_DENIED:
+              errorMessage += 'Permiso denegado. Por favor, permite el acceso a la ubicación.';
+              break;
+            case error.POSITION_UNAVAILABLE:
+              errorMessage += 'Información de ubicación no disponible.';
+              break;
+            case error.TIMEOUT:
+              errorMessage += 'Tiempo de espera agotado. Intenta de nuevo.';
+              break;
+            default:
+              errorMessage += 'Error desconocido. Selecciona manualmente en el mapa.';
+          }
+          
+          alert(errorMessage);
         },
         {
           enableHighAccuracy: true,
-          timeout: 10000,
+          timeout: 15000, // Aumentar timeout a 15 segundos
           maximumAge: 300000
         }
       );
     } else {
+      console.error('❌ Geolocalización no soportada');
       alert('❌ Geolocalización no soportada en este navegador.');
     }
   };
@@ -234,6 +260,14 @@ const MapaInteractivo = ({
     }
   }, [map, modo]); // Solo se ejecuta cuando cambia el mapa o el modo
 
+  // 🔧 Efecto para verificar cuando el mapa esté listo
+  useEffect(() => {
+    if (map) {
+      console.log('🗺️ Mapa inicializado correctamente');
+      console.log('📊 Estado actual:', { modo, reportesCount: reportes.length });
+    }
+  }, [map, modo, reportes.length]);
+
   return (
     <div className="mapa-container" style={{ width: '100%', height: '400px', position: 'relative' }}>
       {/* 🗺️ Botón de GPS */}
@@ -262,11 +296,22 @@ const MapaInteractivo = ({
       {modo === 'visualizacion' && reportes.length > 0 && (
         <button
           onClick={() => {
+            console.log('🎯 Botón "Ajustar Vista" clickeado');
+            console.log('🗺️ Estado del mapa:', { map: !!map, modo, reportesCount: reportes.length });
+            
             if (map) {
               const { bounds } = calcularCentroYZoomOptimo(reportes);
+              console.log('📊 Bounds calculados:', bounds);
+              
               if (bounds) {
+                console.log('🗺️ Ajustando mapa a bounds...');
                 map.fitBounds(bounds, { padding: [20, 20] });
+              } else {
+                console.log('⚠️ No se pudieron calcular bounds');
               }
+            } else {
+              console.log('❌ Mapa no disponible');
+              alert('⚠️ El mapa aún no está listo. Espera un momento y vuelve a intentar.');
             }
           }}
           style={{
@@ -293,13 +338,25 @@ const MapaInteractivo = ({
       {modo === 'visualizacion' && reportes.length > 0 && (
         <button
           onClick={() => {
+            console.log('🔥 Botón "Zona Caliente" clickeado');
+            console.log('🗺️ Estado del mapa:', { map: !!map, modo, reportesCount: reportes.length });
+            
             if (map) {
               const areaConMasReportes = encontrarAreaConMasReportes(reportes);
+              console.log('📍 Área con más reportes encontrada:', areaConMasReportes);
+              
               if (areaConMasReportes) {
+                console.log('🗺️ Navegando al área con más reportes...');
                 map.setView(areaConMasReportes.center, areaConMasReportes.zoom);
                 // Mostrar información sobre el área
                 alert(`📍 Área con más reportes:\n${areaConMasReportes.count} reportes en esta zona`);
+              } else {
+                console.log('⚠️ No se pudo encontrar área con más reportes');
+                alert('⚠️ No se pudo determinar el área con más reportes.');
               }
+            } else {
+              console.log('❌ Mapa no disponible');
+              alert('⚠️ El mapa aún no está listo. Espera un momento y vuelve a intentar.');
             }
           }}
           style={{
@@ -328,7 +385,7 @@ const MapaInteractivo = ({
         zoom={zoom}
         style={{ height: '100%', width: '100%' }}
         ref={mapRef}
-        whenCreated={setMap}
+        onCreated={setMap}
       >
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -417,7 +474,7 @@ const MapaInteractivo = ({
                 
                 <div style={{ textAlign: 'left', fontSize: '13px' }}>
                   <p style={{ margin: '5px 0' }}>
-                    📝 <strong>Descripción:</strong><br />
+                    �� <strong>Descripción:</strong><br />
                     {reporte.descripcion}
                   </p>
                   <p style={{ margin: '5px 0' }}>
