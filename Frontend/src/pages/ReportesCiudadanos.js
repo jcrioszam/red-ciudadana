@@ -752,7 +752,7 @@ const ReportesCiudadanos = () => {
         </button>
         
         <button
-          onClick={() => window.location.href = '/dashboard'}
+          onClick={() => window.location.href = '/mapa-reportes'}
           style={{
             padding: '12px 24px',
             backgroundColor: '#10b981',
@@ -766,7 +766,7 @@ const ReportesCiudadanos = () => {
           onMouseOver={(e) => e.target.style.backgroundColor = '#059669'}
           onMouseOut={(e) => e.target.style.backgroundColor = '#10b981'}
         >
-          🏠 Ir al Dashboard
+          🗺️ Ir al Mapa de Reportes
         </button>
       </div>
     </div>

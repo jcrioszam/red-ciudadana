@@ -190,10 +190,10 @@ const ReportesCiudadanosPublico = () => {
         setShowSuccess(true);
         setCurrentStep(5); // Paso de agradecimiento
         
-        // Reset after 5 seconds and redirect
+        // Reset after 3 seconds and redirect to map
         setTimeout(() => {
-          navigate('/');
-        }, 5000);
+          navigate('/mapa-reportes');
+        }, 3000);
       }
     } catch (error) {
       console.error('❌ Error al crear reporte:', error);
@@ -890,8 +890,53 @@ const ReportesCiudadanosPublico = () => {
       </div>
       
       <p style={{ color: '#6b7280', fontSize: '14px', marginTop: '20px' }}>
-        Redirigiendo a la página principal en unos segundos...
+        Redirigiendo al mapa de reportes en unos segundos...
       </p>
+      
+      {/* 🚀 BOTONES DE NAVEGACIÓN MANUAL */}
+      <div style={{ 
+        marginTop: '30px',
+        display: 'flex',
+        gap: '15px',
+        justifyContent: 'center',
+        flexWrap: 'wrap'
+      }}>
+        <button
+          onClick={() => navigate('/mapa-reportes')}
+          style={{
+            padding: '12px 24px',
+            backgroundColor: '#3b82f6',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            fontSize: '16px',
+            cursor: 'pointer',
+            transition: 'background-color 0.2s'
+          }}
+          onMouseOver={(e) => e.target.style.backgroundColor = '#2563eb'}
+          onMouseOut={(e) => e.target.style.backgroundColor = '#3b82f6'}
+        >
+          🗺️ Ir al Mapa de Reportes
+        </button>
+        
+        <button
+          onClick={() => setCurrentStep(1)}
+          style={{
+            padding: '12px 24px',
+            backgroundColor: '#10b981',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            fontSize: '16px',
+            cursor: 'pointer',
+            transition: 'background-color 0.2s'
+          }}
+          onMouseOver={(e) => e.target.style.backgroundColor = '#059669'}
+          onMouseOut={(e) => e.target.style.backgroundColor = '#10b981'}
+        >
+          📝 Crear Otro Reporte
+        </button>
+      </div>
     </div>
   );
 
