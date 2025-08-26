@@ -509,10 +509,10 @@ const MapaInteractivo = ({
                 </h4>
                 
                 {/* 📷 Imagen del reporte */}
-                {reporte.foto_url && reporte.foto_url.trim() !== '' ? (
+                {reporte.fotos && reporte.fotos.length > 0 && reporte.fotos[0].url ? (
                   <div style={{ marginBottom: '10px' }}>
                     <img 
-                      src={reporte.foto_url} 
+                      src={reporte.fotos[0].url}
                       alt="Foto del reporte"
                       style={{
                         width: '100%',
