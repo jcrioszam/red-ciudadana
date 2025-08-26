@@ -3678,6 +3678,18 @@ async def obtener_reportes_ciudadanos_publicos(
         print(f"❌ ERROR en endpoint público: {str(e)}")
         print(f"❌ TIPO DE ERROR: {type(e)}")
         raise HTTPException(status_code=500, detail=f"Error al obtener reportes: {str(e)}")
+# ============================================================================
+# SISTEMA DE ADMINISTRACIÓN DE BASE DE DATOS
+# ============================================================================
 
+# Importar el sistema de administración
+from admin_database import register_admin_routes
+
+# Registrar las rutas de administración
+register_admin_routes(app)
+
+# ============================================================================
+# FIN DEL ARCHIVO
+# ============================================================================
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000) 
