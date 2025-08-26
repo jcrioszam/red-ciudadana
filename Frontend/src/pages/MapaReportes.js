@@ -10,7 +10,7 @@ const MapaReportes = () => {
     'reportes-ciudadanos-mapa',
     async () => {
       console.log('🗺️ Cargando reportes para el mapa...');
-      const response = await api.get('/reportes-ciudadanos/');
+      const response = await api.get('/reportes-ciudadanos/publicos/');
       return response.data;
     },
     {
