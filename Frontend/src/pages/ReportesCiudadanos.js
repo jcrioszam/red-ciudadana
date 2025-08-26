@@ -724,6 +724,51 @@ const ReportesCiudadanos = () => {
       }}>
         ✅ Reporte registrado correctamente
       </div>
+      
+      {/* 🚀 BOTONES DE NAVEGACIÓN */}
+      <div style={{ 
+        marginTop: '30px',
+        display: 'flex',
+        gap: '15px',
+        justifyContent: 'center',
+        flexWrap: 'wrap'
+      }}>
+        <button
+          onClick={() => setCurrentStep(1)}
+          style={{
+            padding: '12px 24px',
+            backgroundColor: '#3b82f6',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            fontSize: '16px',
+            cursor: 'pointer',
+            transition: 'background-color 0.2s'
+          }}
+          onMouseOver={(e) => e.target.style.backgroundColor = '#2563eb'}
+          onMouseOut={(e) => e.target.style.backgroundColor = '#3b82f6'}
+        >
+          📝 Crear Otro Reporte
+        </button>
+        
+        <button
+          onClick={() => window.location.href = '/dashboard'}
+          style={{
+            padding: '12px 24px',
+            backgroundColor: '#10b981',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            fontSize: '16px',
+            cursor: 'pointer',
+            transition: 'background-color 0.2s'
+          }}
+          onMouseOver={(e) => e.target.style.backgroundColor = '#059669'}
+          onMouseOut={(e) => e.target.style.backgroundColor = '#10b981'}
+        >
+          🏠 Ir al Dashboard
+        </button>
+      </div>
     </div>
   );
 
