@@ -19,7 +19,7 @@ function Login() {
       const success = await login(identificador, password);
       if (success) {
         console.log('Login exitoso, redirigiendo...');
-        navigate('/');
+        navigate('/dashboard');
       } else {
         setError('Usuario o contraseña incorrectos');
       }
