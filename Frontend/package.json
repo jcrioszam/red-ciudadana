@@ -21,6 +21,8 @@
     "postcss": "^8.4.21",
     "qrcode.react": "^4.2.0",
     "react": "^18.2.0",
+    "react-bootstrap": "^2.10.10",
+    "react-bootstrap-icons": "^1.11.6",
     "react-dom": "^18.2.0",
     "react-hook-form": "^7.43.5",
     "react-hot-toast": "^2.4.0",
@@ -41,7 +43,7 @@
     "install-legacy": "npm install --legacy-peer-deps",
     "build-production": "npm install --legacy-peer-deps && npm run build"
   },
-  "proxy": "https://red-ciudadana-backend.onrender.com",
+  "proxy": "https://red-ciudadana-production.up.railway.app",
   "eslintConfig": {
     "extends": [
       "react-app",

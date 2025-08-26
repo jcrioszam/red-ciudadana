@@ -1,17 +1,16 @@
 import axios from "axios";
 
-// 🚨 SOLUCIÓN DEFINITIVA: SIEMPRE HTTPS PARA RAILWAY
+// Configuración de URL del backend
 let baseURL;
 if (process.env.NODE_ENV === 'production') {
+  // En producción, usar la variable de entorno o fallback a Railway
+  baseURL = process.env.REACT_APP_API_URL || 'https://red-ciudadana-production.up.railway.app';
   console.log('🔍 REACT_APP_API_URL del environment:', process.env.REACT_APP_API_URL);
-  
-  // HARDCODED: Railway SIEMPRE con HTTPS - NO depender de variables
-  baseURL = 'https://red-ciudadana-production.up.railway.app';
-  
-  console.log('🔐 HTTPS HARDCODED para Railway:', baseURL);
+  console.log('🔐 URL de producción:', baseURL);
 } else {
   // En desarrollo, usar localhost
   baseURL = 'http://localhost:8000';
+  console.log('🔧 URL de desarrollo:', baseURL);
 }
 
 console.log(`API usando baseURL: ${baseURL}`);

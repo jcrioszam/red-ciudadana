@@ -17,7 +17,7 @@ import {
 } from 'react-bootstrap';
 import { 
   Trash, 
-  Users, 
+  Person, 
   FileText, 
   Database, 
   ExclamationTriangle,
@@ -27,12 +27,13 @@ import {
   Shield,
   BarChart,
   Activity,
-  AlertCircle,
-  RefreshCw,
-  Settings
+  ExclamationCircle,
+  ArrowClockwise,
+  Gear,
+  InfoCircle
 } from 'react-bootstrap-icons';
 import { useAuth } from '../contexts/AuthContext';
-import api from '../utils/api';
+import api from '../api';
 
 const AdminDatabase = () => {
   const { user } = useAuth();
@@ -151,11 +152,11 @@ const AdminDatabase = () => {
       case 'limpiar_reportes':
         return <FileText className="text-danger" />;
       case 'limpiar_usuarios':
-        return <Users className="text-warning" />;
+        return <Person className="text-warning" />;
       case 'backup_automatico':
         return <Database className="text-success" />;
       default:
-        return <Settings className="text-info" />;
+        return <Gear className="text-info" />;
     }
   };
 
@@ -210,7 +211,7 @@ const AdminDatabase = () => {
           disabled={loading}
           size="lg"
         >
-          {loading ? <Spinner size="sm" className="me-2" /> : <RefreshCw className="me-2" />}
+          {loading ? <Spinner size="sm" className="me-2" /> : <ArrowClockwise className="me-2" />}
           Actualizar Datos
         </Button>
       </div>
@@ -237,7 +238,7 @@ const AdminDatabase = () => {
         </Nav.Item>
         <Nav.Item>
           <Nav.Link eventKey="operations" className="d-flex align-items-center">
-            <Settings className="me-2" />
+            <Gear className="me-2" />
             Operaciones
           </Nav.Link>
         </Nav.Item>
@@ -270,7 +271,7 @@ const AdminDatabase = () => {
             <Col md={3}>
               <Card className="text-center h-100 border-0 shadow-sm">
                 <Card.Body className="py-4">
-                  <Users size={48} className="text-success mb-3" />
+                  <Person size={48} className="text-success mb-3" />
                   <h2 className="mb-2">{stats?.estadisticas?.usuarios || 0}</h2>
                   <Card.Title className="text-muted">Total Usuarios</Card.Title>
                   <div className="small text-muted mt-2">
@@ -282,7 +283,7 @@ const AdminDatabase = () => {
             <Col md={3}>
               <Card className="text-center h-100 border-0 shadow-sm">
                 <Card.Body className="py-4">
-                  <Users size={48} className="text-info mb-3" />
+                  <Person size={48} className="text-info mb-3" />
                   <h2 className="mb-2">{stats?.estadisticas?.personas || 0}</h2>
                   <Card.Title className="text-muted">Total Personas</Card.Title>
                   <div className="small text-muted mt-2">
@@ -414,7 +415,7 @@ const AdminDatabase = () => {
             <Col md={6}>
               <Card className="h-100 border-0 shadow-sm">
                 <Card.Header className="bg-warning text-dark">
-                  <Users className="me-2" />
+                  <Person className="me-2" />
                   Limpieza de Usuarios
                 </Card.Header>
                 <Card.Body>
@@ -428,7 +429,7 @@ const AdminDatabase = () => {
                       disabled={loading}
                       size="lg"
                     >
-                      <Users className="me-2" />
+                      <Person className="me-2" />
                       Usuarios Inactivos 30+ Días
                     </Button>
                     <Button 
@@ -439,14 +440,14 @@ const AdminDatabase = () => {
                       <Clock className="me-2" />
                       Usuarios Inactivos 90+ Días
                     </Button>
-                    <Button 
-                      variant="outline-secondary"
-                      onClick={() => confirmOperation('limpiar_usuarios', { inactivos_dias: 180 })}
-                      disabled={loading}
-                    >
-                      <AlertCircle className="me-2" />
-                      Usuarios Inactivos 180+ Días
-                    </Button>
+                                          <Button 
+                        variant="outline-secondary"
+                        onClick={() => confirmOperation('limpiar_usuarios', { inactivos_dias: 180 })}
+                        disabled={loading}
+                      >
+                        <ExclamationCircle className="me-2" />
+                        Usuarios Inactivos 180+ Días
+                      </Button>
                   </div>
                 </Card.Body>
               </Card>
@@ -489,7 +490,7 @@ const AdminDatabase = () => {
                         className="w-100 mb-2"
                         disabled={loading}
                       >
-                        <Settings className="me-2" />
+                        <Gear className="me-2" />
                         Optimizar Base de Datos
                       </Button>
                     </Col>
@@ -514,7 +515,7 @@ const AdminDatabase = () => {
                 onClick={loadLogs}
                 disabled={loading}
               >
-                <RefreshCw className="me-2" />
+                <ArrowClockwise className="me-2" />
                 Actualizar
               </Button>
             </Card.Header>
@@ -568,7 +569,7 @@ const AdminDatabase = () => {
       <Modal show={showConfirmModal} onHide={() => setShowConfirmModal(false)} size="lg">
         <Modal.Header closeButton className="bg-danger text-white">
           <Modal.Title>
-            <ExclamationTriangle className="me-2" />
+            <InfoCircle className="me-2" />
             Confirmar Operación Crítica
           </Modal.Title>
         </Modal.Header>
@@ -594,7 +595,7 @@ const AdminDatabase = () => {
           </div>
 
           <Alert variant="warning">
-            <strong>   Recomendaciones:</strong>
+            <strong>Recomendaciones:</strong>
             <ul className="mb-0 mt-2">
               <li>Verifica que tengas un backup reciente</li>
               <li>Confirma que realmente necesitas esta operación</li>
@@ -619,7 +620,7 @@ const AdminDatabase = () => {
               </>
             ) : (
               <>
-                <ExclamationTriangle className="me-2" />
+                <InfoCircle className="me-2" />
                 Confirmar y Ejecutar
               </>
             )}

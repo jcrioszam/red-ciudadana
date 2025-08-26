@@ -27,6 +27,7 @@ import MapaReportesPublico from './pages/MapaReportesPublico';
 import SeguimientoReportes from './pages/SeguimientoReportes';
 import MapaReportes from './pages/MapaReportes';
 import Layout from './components/Layout';
+import AdminDatabase from './components/AdminDatabase';
 
 const queryClient = new QueryClient();
 
@@ -92,6 +93,7 @@ function App() {
               <Route path="/reportes-ciudadanos-admin" element={<ReportesCiudadanos />} />
               <Route path="/mapa-reportes-admin" element={<MapaReportes />} />
               <Route path="/seguimiento-reportes" element={<SeguimientoReportes />} />
+              <Route path="/admin-database" element={<AdminDatabase />} />
             </Route>
           </Routes>
         </Router>
@@ -100,4 +102,4 @@ function App() {
   );
 }
 
-export default App; 
+export default App;

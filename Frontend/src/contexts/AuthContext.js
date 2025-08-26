@@ -49,21 +49,32 @@ export const AuthProvider = ({ children }) => {
   // Verificar token al cargar la aplicación
   useEffect(() => {
     const verifyToken = async () => {
+      console.log('AuthContext: verificando token...', { token: token ? 'existe' : 'no existe' });
+      
       if (token) {
         try {
+          console.log('AuthContext: llamando a /users/me...');
           const response = await api.get('/users/me');
+          console.log('AuthContext: respuesta de /users/me:', response.data);
           setUser(response.data);
-          console.log('AuthContext: usuario autenticado', response.data);
+          console.log('AuthContext: usuario autenticado establecido');
         } catch (error) {
+          console.error('AuthContext: error al verificar token:', error);
+          console.error('AuthContext: detalles del error:', {
+            status: error.response?.status,
+            data: error.response?.data,
+            message: error.message
+          });
           setUser(null);
           logout();
-          console.log('AuthContext: token inválido', error);
+          console.log('AuthContext: token inválido, cerrando sesión');
         }
       } else {
         setUser(null);
-        console.log('AuthContext: sin token');
+        console.log('AuthContext: sin token, usuario no autenticado');
       }
       setLoading(false);
+      console.log('AuthContext: verificación completada, loading = false');
     };
     verifyToken();
   }, [token]);

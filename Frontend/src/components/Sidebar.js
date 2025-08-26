@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useQuery } from 'react-query';
 import {
-  FiHome, FiUsers, FiUserCheck, FiCalendar, FiBarChart, FiGitBranch, FiCheckSquare, FiClock, FiShield, FiMapPin, FiFileText, FiAlertTriangle, FiMap, FiSettings, FiMenu, FiX
+  FiHome, FiUsers, FiUserCheck, FiCalendar, FiBarChart, FiGitBranch, FiCheckSquare, FiClock, FiShield, FiMapPin, FiFileText, FiAlertTriangle, FiMap, FiSettings, FiMenu, FiX, FiDatabase
 } from 'react-icons/fi';
 import api from '../api';
 import { useAuth } from '../contexts/AuthContext';
@@ -25,6 +25,8 @@ const menu = [
   { to: '/perfil', label: 'Perfil', icon: <FiUserCheck /> },
   { to: '/admin-perfiles', label: 'Administrar Perfiles', icon: <FiShield /> },
   { to: '/admin-dashboard', label: 'Administrar Dashboard', icon: <FiSettings /> },
+  // �� NUEVA OPCIÓN AGREGADA:
+  { to: '/admin-database', label: 'Administración BD', icon: <FiDatabase /> }
 ];
 
 export default function Sidebar() {
@@ -52,24 +54,44 @@ export default function Sidebar() {
   }, [location.pathname]);
 
   // Obtener configuración de permisos del usuario actual
-  const { data: configuracionPerfil } = useQuery(
+  const { data: configuracionPerfil, error: configError, isLoading: configLoading } = useQuery(
     ['configuracion-perfil-usuario', user?.rol],
     async () => {
-      if (!user?.rol) return null;
+      console.log('Sidebar: obteniendo configuración del perfil para rol:', user?.rol);
+      if (!user?.rol) {
+        console.log('Sidebar: sin rol de usuario, retornando null');
+        return null;
+      }
       try {
-        // Usar el endpoint que permite a cada usuario obtener su propia configuración
+        console.log('Sidebar: llamando a /perfiles/mi-configuracion...');
         const response = await api.get('/perfiles/mi-configuracion');
+        console.log('Sidebar: configuración obtenida:', response.data);
         return response.data;
       } catch (error) {
-        console.error('Error al obtener configuración del perfil:', error);
+        console.error('Sidebar: error al obtener configuración del perfil:', error);
+        console.error('Sidebar: detalles del error:', {
+          status: error.response?.status,
+          data: error.response?.data,
+          message: error.message
+        });
         return null;
       }
     },
     {
       enabled: !!user?.rol,
       staleTime: 5 * 60 * 1000, // 5 minutos
+      retry: 3,
+      retryDelay: 1000,
     }
   );
+
+  // Debug logs
+  console.log('Sidebar render:', {
+    user: user ? { id: user.id, email: user.email, rol: user.rol } : null,
+    configuracionPerfil,
+    configError,
+    configLoading
+  });
 
   // Refresca el logo cada vez que se monta el Sidebar o cambia la ruta
   React.useEffect(() => {
