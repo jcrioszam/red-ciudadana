@@ -196,6 +196,77 @@ def crear_backup_reportes(db: Session):
     except Exception as e:
         return {"backup_creado": False, "error": str(e)}
 
+@admin_router.post("/database/optimizar")
+async def optimizar_base_datos(
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(verify_admin)
+):
+    """Optimizar la base de datos"""
+    try:
+        # Simular proceso de optimización
+        # En producción, aquí irían comandos reales de optimización
+        
+        # Ejecutar VACUUM (PostgreSQL) o similar
+        db.execute("VACUUM ANALYZE")
+        
+        # Obtener estadísticas después de la optimización
+        total_reportes = db.query(ReporteCiudadano).count()
+        total_usuarios = db.query(Usuario).count()
+        total_personas = db.query(Persona).count()
+        
+        return {
+            "mensaje": "Base de datos optimizada correctamente",
+            "fecha_optimizacion": datetime.now().isoformat(),
+            "estadisticas_post_optimizacion": {
+                "reportes": total_reportes,
+                "usuarios": total_usuarios,
+                "personas": total_personas
+            }
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error optimizando base de datos: {str(e)}"
+        )
+
+@admin_router.post("/database/maintenance")
+async def mantenimiento_automatico(
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(verify_admin)
+):
+    """Ejecutar mantenimiento automático de la base de datos"""
+    try:
+        # Simular proceso de mantenimiento
+        # En producción, aquí irían tareas reales de mantenimiento
+        
+        # Limpiar reportes muy antiguos (más de 1 año)
+        fecha_limite = datetime.now() - timedelta(days=365)
+        reportes_antiguos = db.query(ReporteCiudadano).filter(
+            ReporteCiudadano.fecha_creacion < fecha_limite,
+            ReporteCiudadano.estado.in_(["completado", "cancelado"])
+        ).count()
+        
+        # Ejecutar mantenimiento
+        db.execute("VACUUM")
+        db.execute("ANALYZE")
+        
+        return {
+            "mensaje": "Mantenimiento automático completado",
+            "fecha_mantenimiento": datetime.now().isoformat(),
+            "acciones_realizadas": [
+                "VACUUM ejecutado",
+                "ANALYZE ejecutado",
+                f"Reportes antiguos identificados: {reportes_antiguos}"
+            ]
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error en mantenimiento automático: {str(e)}"
+        )
+
 # Función para registrar las rutas en la aplicación principal
 def register_admin_routes(app):
     """Registrar todas las rutas de administración en la aplicación principal"""
