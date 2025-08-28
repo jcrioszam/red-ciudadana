@@ -1,0 +1,5 @@
+[33m0a38f2ab9[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m feat: Agregar componente AdminDatabase para administración de BD
+[33m7117cd4a5[m feat: Integrar sistema de administración de base de datos
+[33mf8f3011e7[m feat: Integrar sistema de administración en main.py
+[33m3a2213059[m feat: Sistema completo de administración de base de datos
+[33mda9d8aeea[m feat: Script para limpiar base de datos en Railway

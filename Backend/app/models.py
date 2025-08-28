@@ -310,4 +310,5 @@ PERMISOS_POR_DEFECTO = [
     {"codigo": "admin-perfiles", "nombre": "Administración de Perfiles", "categoria": "admin", "descripcion": "Configurar permisos y roles de usuarios"},
     {"codigo": "admin-dashboard", "nombre": "Administración del Dashboard", "categoria": "admin", "descripcion": "Configurar widgets y layout del dashboard"},
     {"codigo": "admin-database", "nombre": "Administración de Base de Datos", "categoria": "admin", "descripcion": "Acceso completo a la administración de la base de datos"}
-] 
+] "" 
+"# Sistema de permisos actualizado: $(date)" 
