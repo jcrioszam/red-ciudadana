@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useQuery } from 'react-query';
 import {
-  FiHome, FiUsers, FiUserCheck, FiCalendar, FiBarChart, FiGitBranch, FiCheckSquare, FiClock, FiShield, FiMapPin, FiFileText, FiAlertTriangle, FiMap, FiSettings, FiMenu, FiX, FiDatabase, FiChevronDown, FiChevronRight, FiGear, FiDownload, FiTrash2, FiActivity, FiServer
+  FiHome, FiUsers, FiUserCheck, FiCalendar, FiBarChart, FiGitBranch, FiCheckSquare, FiClock, FiShield, FiMapPin, FiFileText, FiAlertTriangle, FiMap, FiSettings, FiMenu, FiX, FiDatabase, FiChevronDown, FiChevronRight, FiDownload, FiTrash2, FiActivity, FiServer
 } from 'react-icons/fi';
 import api from '../api';
 import { useAuth } from '../contexts/AuthContext';
@@ -33,7 +33,7 @@ const menu = [
     hasSubmenu: true,
     submenu: [
       { to: '/admin-database/stats', label: 'Estadísticas BD', icon: <FiBarChart /> },
-      { to: '/admin-database/optimize', label: 'Optimizar BD', icon: <FiGear /> },
+      { to: '/admin-database/optimize', label: 'Optimizar BD', icon: <FiSettings /> },
       { to: '/admin-database/maintenance', label: 'Mantenimiento', icon: <FiActivity /> },
       { to: '/admin-database/backup', label: 'Crear Backup', icon: <FiDownload /> },
       { to: '/admin-database/clean', label: 'Limpiar Reportes', icon: <FiTrash2 /> },
