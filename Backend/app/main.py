@@ -3719,6 +3719,9 @@ async def obtener_reportes_ciudadanos_publicos(
 # ============================================================================
 
 # Importar el sistema de administración
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from admin_database import register_admin_routes
 
 # Registrar las rutas de administración
