@@ -18,7 +18,7 @@ import {
     Activity,
     Shield,
     Clock,
-    HardDrive,
+    Hdd,
     Server,
     Cpu,
     Memory,
