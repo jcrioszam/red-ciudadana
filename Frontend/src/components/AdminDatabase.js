@@ -290,7 +290,7 @@ const AdminDatabase = () => {
                         </Col>
                         <Col md={6}>
                             <div className="system-item">
-                                <HardDrive className="me-2" />
+                                <Hdd className="me-2" />
                                 <span>Disco: {stats?.sistema?.disco || 'N/A'}</span>
                             </div>
                             <div className="system-item">
