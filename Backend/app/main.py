@@ -2265,6 +2265,7 @@ async def obtener_opciones_menu():
             {"id": "checkin", "nombre": "Check-in", "descripcion": "Registro de asistencia", "ruta": "/checkin"},
             {"id": "perfil", "nombre": "Perfil", "descripcion": "Configuración de perfil", "ruta": "/perfil"},
             {"id": "admin-perfiles", "nombre": "Administrar Perfiles", "descripcion": "Gestión de perfiles y permisos", "ruta": "/admin-perfiles"},
+            {"id": "admin-database", "nombre": "Administración BD", "descripcion": "Administración de base de datos", "ruta": "/admin-database"},
             {"id": "seguimiento", "nombre": "Seguimiento", "descripcion": "Seguimiento en tiempo real de vehículos", "ruta": "/seguimiento"},
             {"id": "noticias", "nombre": "Noticias", "descripcion": "Noticias y avisos", "ruta": "/noticias"},
             {"id": "reportes_ciudadanos", "nombre": "Reportes Ciudadanos", "descripcion": "Sistema de reportes comunitarios", "ruta": "/reportes-ciudadanos"}
@@ -2312,7 +2313,7 @@ async def obtener_configuracion_perfil(
     # Configuraciones por defecto si no existe en BD
     configuraciones_por_defecto = {
         "admin": {
-            "opciones_web": ["dashboard", "usuarios", "personas", "eventos", "eventos-historicos", "movilizacion", "reportes", "estructura-red", "checkin", "perfil", "admin-perfiles", "seguimiento", "noticias", "reportes_ciudadanos", "seguimiento_reportes"],
+            "opciones_web": ["dashboard", "usuarios", "personas", "eventos", "eventos-historicos", "movilizacion", "reportes", "estructura-red", "checkin", "perfil", "admin-perfiles", "admin-database", "seguimiento", "noticias", "reportes_ciudadanos", "seguimiento_reportes"],
             "opciones_app": ["register", "perfil", "eventos-historicos", "dashboard", "seguimiento", "movilizador-seguimiento", "noticias", "reportes_ciudadanos"]
         },
         "presidente": {
@@ -2375,7 +2376,7 @@ async def obtener_mi_configuracion(
     # Configuraciones por defecto si no existe en BD
     configuraciones_por_defecto = {
         "admin": {
-            "opciones_web": ["dashboard", "usuarios", "personas", "eventos", "eventos-historicos", "movilizacion", "reportes", "estructura-red", "checkin", "perfil", "admin-perfiles", "seguimiento", "noticias", "reportes_ciudadanos", "seguimiento_reportes"],
+            "opciones_web": ["dashboard", "usuarios", "personas", "eventos", "eventos-historicos", "movilizacion", "reportes", "estructura-red", "checkin", "perfil", "admin-perfiles", "admin-database", "seguimiento", "noticias", "reportes_ciudadanos", "seguimiento_reportes"],
             "opciones_app": ["register", "perfil", "eventos-historicos", "dashboard", "seguimiento", "movilizador-seguimiento", "noticias", "reportes_ciudadanos"]
         },
         "presidente": {
