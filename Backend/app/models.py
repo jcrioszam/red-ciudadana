@@ -261,4 +261,53 @@ class FotoReporte(Base):
     activo = Column(Boolean, default=True)
     
     # Relaciones
-    reporte = relationship("ReporteCiudadano", back_populates="fotos") 
+    reporte = relationship("ReporteCiudadano", back_populates="fotos")
+
+# 🆕 NUEVOS MODELOS: Sistema de Permisos Individuales
+class Permiso(Base):
+    __tablename__ = "permisos"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    codigo = Column(String(100), unique=True, nullable=False, index=True)  # "admin-database"
+    nombre = Column(String(200), nullable=False)  # "Administración de Base de Datos"
+    descripcion = Column(Text, nullable=True)
+    categoria = Column(String(100), nullable=True)  # "admin", "usuarios", "reportes"
+    activo = Column(Boolean, default=True)
+    fecha_creacion = Column(DateTime, default=func.now())
+    
+    # Relaciones
+    perfiles_permisos = relationship("PerfilPermiso", back_populates="permiso")
+
+class PerfilPermiso(Base):
+    __tablename__ = "perfiles_permisos"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    id_perfil = Column(Integer, ForeignKey("configuraciones_perfiles.id"), nullable=False)
+    id_permiso = Column(Integer, ForeignKey("permisos.id"), nullable=False)
+    habilitado = Column(Boolean, default=False)
+    fecha_asignacion = Column(DateTime, default=func.now())
+    
+    # Relaciones
+    perfil = relationship("ConfiguracionPerfil")
+    permiso = relationship("Permiso", back_populates="perfiles_permisos")
+
+# 🆕 PERMISOS POR DEFECTO DEL SISTEMA
+PERMISOS_POR_DEFECTO = [
+    {"codigo": "usuarios", "nombre": "Gestión de Usuarios", "categoria": "admin", "descripcion": "Crear, editar y eliminar usuarios del sistema"},
+    {"codigo": "personas", "nombre": "Gestión de Personas", "categoria": "usuarios", "descripcion": "Registrar y gestionar personas en la base de datos"},
+    {"codigo": "eventos", "nombre": "Gestión de Eventos", "categoria": "eventos", "descripcion": "Crear y organizar eventos"},
+    {"codigo": "eventos-historicos", "nombre": "Eventos Históricos", "categoria": "eventos", "descripcion": "Ver y gestionar eventos pasados"},
+    {"codigo": "movilizacion", "nombre": "Gestión de Movilización", "categoria": "movilizacion", "descripcion": "Gestionar vehículos y movilización"},
+    {"codigo": "reportes", "nombre": "Generación de Reportes", "categoria": "reportes", "descripcion": "Crear y exportar reportes del sistema"},
+    {"codigo": "estructura-red", "nombre": "Estructura de Red", "categoria": "estructura", "descripcion": "Gestionar la estructura jerárquica de la red"},
+    {"codigo": "checkin", "nombre": "Sistema de Check-in", "categoria": "eventos", "descripcion": "Gestionar asistencia a eventos"},
+    {"codigo": "seguimiento", "nombre": "Seguimiento en Tiempo Real", "categoria": "seguimiento", "descripcion": "Monitorear ubicaciones y movimientos"},
+    {"codigo": "noticias", "nombre": "Gestión de Noticias", "categoria": "contenido", "descripcion": "Publicar y gestionar noticias"},
+    {"codigo": "reportes-ciudadanos", "nombre": "Reportes Ciudadanos", "categoria": "reportes", "descripcion": "Gestionar reportes de ciudadanos"},
+    {"codigo": "mapa-reportes", "nombre": "Mapa de Reportes", "categoria": "reportes", "descripcion": "Visualizar reportes en mapa"},
+    {"codigo": "seguimiento-reportes", "nombre": "Seguimiento de Reportes", "categoria": "reportes", "descripcion": "Dar seguimiento a reportes ciudadanos"},
+    {"codigo": "perfil", "nombre": "Gestión de Perfil", "categoria": "usuarios", "descripcion": "Editar perfil personal"},
+    {"codigo": "admin-perfiles", "nombre": "Administración de Perfiles", "categoria": "admin", "descripcion": "Configurar permisos y roles de usuarios"},
+    {"codigo": "admin-dashboard", "nombre": "Administración del Dashboard", "categoria": "admin", "descripcion": "Configurar widgets y layout del dashboard"},
+    {"codigo": "admin-database", "nombre": "Administración de Base de Datos", "categoria": "admin", "descripcion": "Acceso completo a la administración de la base de datos"}
+] 
