@@ -17,7 +17,7 @@ import {
     BarChart, 
     Trash2, 
     Download, 
-    Settings, 
+    Gear, 
     Activity,
     Shield,
     Clock,
@@ -186,7 +186,7 @@ const AdminDatabase = () => {
                 <Col md={6}>
                     <Card className="actions-card">
                         <Card.Header>
-                            <h5><Settings className="me-2" />Acciones de Administración</h5>
+                            <h5><Gear className="me-2" />Acciones de Administración</h5>
                         </Card.Header>
                         <Card.Body>
                             <div className="action-buttons">
@@ -204,7 +204,7 @@ const AdminDatabase = () => {
                                     className="action-btn"
                                     onClick={() => alert('Funcionalidad en desarrollo')}
                                 >
-                                    <Settings />
+                                    <Gear />
                                     Mantenimiento
                                 </Button>
                                 
@@ -232,4 +232,4 @@ const AdminDatabase = () => {
     );
 };
 
-export default AdminDatabase; 
+export default AdminDatabase;
