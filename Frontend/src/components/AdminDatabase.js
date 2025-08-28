@@ -14,7 +14,7 @@ import {
 } from 'react-bootstrap';
 import { 
     Database, 
-    BarChart3, 
+    BarChart, 
     Trash2, 
     Download, 
     Settings, 
@@ -97,7 +97,7 @@ const AdminDatabase = () => {
                     <Card className="stat-card primary">
                         <Card.Body>
                             <div className="stat-icon">
-                                <BarChart3 />
+                                <BarChart />
                             </div>
                             <div className="stat-content">
                                 <h3>{stats?.estadisticas?.total_reportes || 0}</h3>
@@ -232,4 +232,4 @@ const AdminDatabase = () => {
     );
 };
 
-export default AdminDatabase;
+export default AdminDatabase; 
