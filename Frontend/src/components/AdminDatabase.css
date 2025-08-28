@@ -30,6 +30,67 @@
     margin: 0;
 }
 
+/* Tarjeta Principal de Contenido */
+.main-content-card {
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    border: none;
+    border-radius: 15px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    overflow: hidden;
+}
+
+/* Sidebar de Pestañas */
+.sidebar-tabs {
+    background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
+    border-right: 1px solid #dee2e6;
+    padding: 0;
+}
+
+.tab-link {
+    border: none !important;
+    border-radius: 0 !important;
+    padding: 1rem 1.5rem !important;
+    color: #6c757d !important;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+}
+
+.tab-link:hover {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    color: white !important;
+    transform: translateX(5px);
+}
+
+.tab-link.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    color: white !important;
+    box-shadow: 0 2px 10px rgba(102, 126, 234, 0.3);
+}
+
+/* Área de Contenido de Pestañas */
+.tab-content-area {
+    padding: 0;
+    background: white;
+}
+
+.tab-pane-content {
+    padding: 2rem;
+    min-height: 500px;
+}
+
+.tab-title {
+    color: #2c3e50;
+    font-weight: 700;
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 3px solid #667eea;
+    display: flex;
+    align-items: center;
+}
+
 /* Tarjetas de Estadísticas */
 .stat-card {
     background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
@@ -83,15 +144,6 @@
     box-shadow: 0 8px 25px rgba(0,0,0,0.1);
 }
 
-.system-info-card .card-header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border-radius: 15px 15px 0 0;
-    border: none;
-    font-weight: 600;
-    font-size: 1.1rem;
-}
-
 .system-item {
     display: flex;
     align-items: center;
@@ -108,6 +160,30 @@
     color: #667eea;
     font-size: 1.2rem;
     min-width: 20px;
+}
+
+/* Tarjetas de Mantenimiento */
+.maintenance-card {
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    border: none;
+    border-radius: 15px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+    height: 100%;
+}
+
+.maintenance-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 30px rgba(0,0,0,0.15);
+}
+
+.maintenance-card .card-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 15px 15px 0 0;
+    border: none;
+    font-weight: 600;
+    font-size: 1.1rem;
 }
 
 /* Botones de Acción */
@@ -200,6 +276,20 @@
         gap: 0.5rem;
     }
     
+    .sidebar-tabs {
+        border-right: none;
+        border-bottom: 1px solid #dee2e6;
+    }
+    
+    .tab-link {
+        padding: 0.75rem 1rem !important;
+        font-size: 0.9rem;
+    }
+    
+    .tab-pane-content {
+        padding: 1.5rem;
+    }
+    
     .stat-card {
         margin-bottom: 1rem;
     }
@@ -225,7 +315,7 @@
     }
 }
 
-.stat-card, .system-info-card, .card {
+.stat-card, .system-info-card, .maintenance-card, .card {
     animation: fadeInUp 0.6s ease-out;
 }
 
@@ -277,3 +367,17 @@
     background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
     border: none;
 }
+
+/* Transiciones suaves para pestañas */
+.tab-pane {
+    transition: opacity 0.3s ease-in-out;
+}
+
+.tab-pane.active {
+    opacity: 1;
+}
+
+.tab-pane:not(.active) {
+    opacity: 0;
+    pointer-events: none;
+} 
