@@ -94,6 +94,13 @@ function App() {
               <Route path="/mapa-reportes-admin" element={<MapaReportes />} />
               <Route path="/seguimiento-reportes" element={<SeguimientoReportes />} />
               <Route path="/admin-database" element={<AdminDatabase />} />
+              {/* Rutas del submenú de Administración BD */}
+              <Route path="/admin-database/stats" element={<AdminDatabase />} />
+              <Route path="/admin-database/optimize" element={<AdminDatabase />} />
+              <Route path="/admin-database/maintenance" element={<AdminDatabase />} />
+              <Route path="/admin-database/backup" element={<AdminDatabase />} />
+              <Route path="/admin-database/clean" element={<AdminDatabase />} />
+              <Route path="/admin-database/status" element={<AdminDatabase />} />
             </Route>
           </Routes>
         </Router>

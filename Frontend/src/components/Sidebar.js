@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useQuery } from 'react-query';
 import {
-  FiHome, FiUsers, FiUserCheck, FiCalendar, FiBarChart, FiGitBranch, FiCheckSquare, FiClock, FiShield, FiMapPin, FiFileText, FiAlertTriangle, FiMap, FiSettings, FiMenu, FiX, FiDatabase
+  FiHome, FiUsers, FiUserCheck, FiCalendar, FiBarChart, FiGitBranch, FiCheckSquare, FiClock, FiShield, FiMapPin, FiFileText, FiAlertTriangle, FiMap, FiSettings, FiMenu, FiX, FiDatabase, FiChevronDown, FiChevronRight, FiGear, FiDownload, FiTrash2, FiActivity, FiServer
 } from 'react-icons/fi';
 import api from '../api';
 import { useAuth } from '../contexts/AuthContext';
@@ -25,8 +25,21 @@ const menu = [
   { to: '/perfil', label: 'Perfil', icon: <FiUserCheck /> },
   { to: '/admin-perfiles', label: 'Administrar Perfiles', icon: <FiShield /> },
   { to: '/admin-dashboard', label: 'Administrar Dashboard', icon: <FiSettings /> },
-  // �� NUEVA OPCIÓN AGREGADA:
-  { to: '/admin-database', label: 'Administración BD', icon: <FiDatabase /> }
+  // NUEVA OPCIÓN CON SUBMENÚ:
+  { 
+    to: '/admin-database', 
+    label: 'Administración BD', 
+    icon: <FiDatabase />,
+    hasSubmenu: true,
+    submenu: [
+      { to: '/admin-database/stats', label: 'Estadísticas BD', icon: <FiBarChart /> },
+      { to: '/admin-database/optimize', label: 'Optimizar BD', icon: <FiGear /> },
+      { to: '/admin-database/maintenance', label: 'Mantenimiento', icon: <FiActivity /> },
+      { to: '/admin-database/backup', label: 'Crear Backup', icon: <FiDownload /> },
+      { to: '/admin-database/clean', label: 'Limpiar Reportes', icon: <FiTrash2 /> },
+      { to: '/admin-database/status', label: 'Estado BD', icon: <FiServer /> }
+    ]
+  }
 ];
 
 export default function Sidebar() {
@@ -35,6 +48,7 @@ export default function Sidebar() {
   const [logoUrl, setLogoUrl] = React.useState(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [expandedSubmenu, setExpandedSubmenu] = useState(null);
 
   // Detectar si es móvil
   useEffect(() => {
@@ -163,6 +177,136 @@ export default function Sidebar() {
     ) : null
   );
 
+  // Función para renderizar elementos del menú
+  const renderMenuItem = (item, level = 0) => {
+    // Verificar si el usuario tiene permiso para ver esta opción
+    const opcionesPermitidas = configuracionPerfil?.configuracion?.opciones_web || [];
+    
+    // Convertir la ruta del menú al formato de permisos del backend
+    let permisoRequerido = item.to.replace('/', '');
+    if (permisoRequerido === '') permisoRequerido = 'dashboard';
+    
+    // Mapeo específico para coincidir con el backend
+    const mapeoPermisos = {
+      'eventos-historicos': 'eventos-historicos',
+      'estructura-red': 'estructura-red',
+      'reportes-ciudadanos': 'reportes_ciudadanos',
+      'mapa-reportes': 'reportes_ciudadanos', // Usar los mismos permisos que reportes ciudadanos
+      'seguimiento-reportes': 'seguimiento_reportes',
+      'admin-perfiles': 'admin-perfiles',
+      'admin-dashboard': 'admin-perfiles' // Usar los mismos permisos que admin-perfiles
+    };
+    
+    // Aplicar mapeo si existe, sino usar el valor original
+    permisoRequerido = mapeoPermisos[permisoRequerido] || permisoRequerido;
+    
+    const tienePermiso = opcionesPermitidas.includes(permisoRequerido);
+    
+    // VALIDACIÓN DE PERMISOS HABILITADA: Si no tiene permiso, no mostrar la opción
+    if (!tienePermiso) return null;
+
+    const isActive = location.pathname === item.to || 
+                     (item.submenu && item.submenu.some(subItem => location.pathname === subItem.to));
+    const isExpanded = expandedSubmenu === item.to;
+
+    if (item.hasSubmenu) {
+      return (
+        <li key={item.to}>
+          <div
+            onClick={() => setExpandedSubmenu(expandedSubmenu === item.to ? null : item.to)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: isMobile ? 8 : 12,
+              padding: isMobile ? '16px 20px' : '14px 32px',
+              color: isActive ? '#fff' : '#c5cae9',
+              background: isActive ? 'rgba(255,255,255,0.10)' : 'none',
+              fontWeight: isActive ? 'bold' : 'normal',
+              textDecoration: 'none',
+              borderLeft: isActive ? '4px solid #ffb300' : '4px solid transparent',
+              transition: 'background 0.2s, color 0.2s',
+              fontSize: isMobile ? '14px' : '16px',
+              cursor: 'pointer'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 12 }}>
+              <span style={{ fontSize: isMobile ? 18 : 20 }}>{item.icon}</span>
+              {item.label}
+            </div>
+            <span style={{ fontSize: isMobile ? 16 : 18 }}>
+              {isExpanded ? <FiChevronDown /> : <FiChevronRight />}
+            </span>
+          </div>
+          
+          {/* Submenú */}
+          {isExpanded && (
+            <ul style={{
+              listStyle: 'none',
+              padding: 0,
+              margin: 0,
+              background: 'rgba(255,255,255,0.05)',
+              borderLeft: '2px solid #ffb300'
+            }}>
+              {item.submenu.map(subItem => {
+                const isSubActive = location.pathname === subItem.to;
+                return (
+                  <li key={subItem.to}>
+                    <Link
+                      to={subItem.to}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: isMobile ? 8 : 12,
+                        padding: isMobile ? '12px 20px 12px 40px' : '10px 32px 10px 50px',
+                        color: isSubActive ? '#fff' : '#c5cae9',
+                        background: isSubActive ? 'rgba(255,255,255,0.15)' : 'none',
+                        fontWeight: isSubActive ? 'bold' : 'normal',
+                        textDecoration: 'none',
+                        borderLeft: isSubActive ? '4px solid #ffb300' : '4px solid transparent',
+                        transition: 'background 0.2s, color 0.2s',
+                        fontSize: isMobile ? '13px' : '15px',
+                        marginLeft: '10px'
+                      }}
+                    >
+                      <span style={{ fontSize: isMobile ? 16 : 18 }}>{subItem.icon}</span>
+                      {subItem.label}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </li>
+      );
+    }
+
+    // Elemento normal del menú
+    return (
+      <li key={item.to}>
+        <Link
+          to={item.to}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: isMobile ? 8 : 12,
+            padding: isMobile ? '16px 20px' : '14px 32px',
+            color: isActive ? '#fff' : '#c5cae9',
+            background: isActive ? 'rgba(255,255,255,0.10)' : 'none',
+            fontWeight: isActive ? 'bold' : 'normal',
+            textDecoration: 'none',
+            borderLeft: isActive ? '4px solid #ffb300' : '4px solid transparent',
+            transition: 'background 0.2s, color 0.2s',
+            fontSize: isMobile ? '14px' : '16px'
+          }}
+        >
+          <span style={{ fontSize: isMobile ? 18 : 20 }}>{item.icon}</span>
+          {item.label}
+        </Link>
+      </li>
+    );
+  };
+
   return (
     <>
       <MobileMenuButton />
@@ -205,66 +349,7 @@ export default function Sidebar() {
             margin: 0,
             paddingBottom: isMobile ? 20 : 0
           }}>
-            {menu.map(item => {
-              // Verificar si el usuario tiene permiso para ver esta opción
-              const opcionesPermitidas = configuracionPerfil?.configuracion?.opciones_web || [];
-              
-              // Convertir la ruta del menú al formato de permisos del backend
-              let permisoRequerido = item.to.replace('/', '');
-              if (permisoRequerido === '') permisoRequerido = 'dashboard';
-              
-              // Mapeo específico para coincidir con el backend
-              const mapeoPermisos = {
-                'eventos-historicos': 'eventos-historicos',
-                'estructura-red': 'estructura-red',
-                'reportes-ciudadanos': 'reportes_ciudadanos',
-                'mapa-reportes': 'reportes_ciudadanos', // Usar los mismos permisos que reportes ciudadanos
-                'seguimiento-reportes': 'seguimiento_reportes',
-                'admin-perfiles': 'admin-perfiles',
-                'admin-dashboard': 'admin-perfiles' // Usar los mismos permisos que admin-perfiles
-              };
-              
-              // Aplicar mapeo si existe, sino usar el valor original
-              permisoRequerido = mapeoPermisos[permisoRequerido] || permisoRequerido;
-              
-              const tienePermiso = opcionesPermitidas.includes(permisoRequerido);
-              
-              // Debug logs para desarrollo
-              if (process.env.NODE_ENV === 'development') {
-                console.log(`Sidebar - Checking ${item.to} permission:`);
-                console.log(`  - User role: ${user?.rol}`);
-                console.log(`  - Permiso requerido: ${permisoRequerido}`);
-                console.log(`  - Opciones permitidas:`, opcionesPermitidas);
-                console.log(`  - Tiene permiso: ${tienePermiso}`);
-              }
-              
-              // VALIDACIÓN DE PERMISOS HABILITADA: Si no tiene permiso, no mostrar la opción
-              if (!tienePermiso) return null;
-              
-              return (
-                <li key={item.to}>
-                  <Link
-                    to={item.to}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: isMobile ? 8 : 12,
-                      padding: isMobile ? '16px 20px' : '14px 32px',
-                      color: location.pathname === item.to ? '#fff' : '#c5cae9',
-                      background: location.pathname === item.to ? 'rgba(255,255,255,0.10)' : 'none',
-                      fontWeight: location.pathname === item.to ? 'bold' : 'normal',
-                      textDecoration: 'none',
-                      borderLeft: location.pathname === item.to ? '4px solid #ffb300' : '4px solid transparent',
-                      transition: 'background 0.2s, color 0.2s',
-                      fontSize: isMobile ? '14px' : '16px'
-                    }}
-                  >
-                    <span style={{ fontSize: isMobile ? 18 : 20 }}>{item.icon}</span>
-                    {item.label}
-                  </Link>
-                </li>
-              );
-            })}
+            {menu.map(item => renderMenuItem(item))}
           </ul>
         </div>
         <div style={{ 
