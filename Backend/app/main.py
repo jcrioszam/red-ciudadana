@@ -3484,6 +3484,41 @@ async def obtener_mi_configuracion_dashboard(
         print(f"❌ Error al obtener configuración del dashboard para {current_user.rol}: {e}")
         raise HTTPException(status_code=500, detail="Error interno del servidor")
 
+@app.get("/reportes-ciudadanos/publicos/", response_model=List[ReporteCiudadano])
+async def obtener_reportes_ciudadanos_publicos(
+    skip: int = 0,
+    limit: int = 100,
+    estado: str = None,
+    tipo: str = None,
+    db: Session = Depends(get_db)
+):
+    """Obtener reportes ciudadanos públicos (sin autenticación)"""
+    print(f"🚀🚀🚀 ENDPOINT PÚBLICO PARA OBTENER REPORTES 🚀🚀🚀")
+    
+    try:
+        # Obtener solo reportes públicos activos
+        query = db.query(ReporteCiudadanoModel).filter(
+            ReporteCiudadanoModel.activo == True,
+            ReporteCiudadanoModel.es_publico == True
+        )
+        
+        # Filtrar por estado si se especifica
+        if estado:
+            query = query.filter(ReporteCiudadanoModel.estado == estado)
+        
+        # Filtrar por tipo si se especifica
+        if tipo:
+            query = query.filter(ReporteCiudadanoModel.tipo == tipo)
+        
+        reportes = query.order_by(ReporteCiudadanoModel.fecha_creacion.desc()).offset(skip).limit(limit).all()
+        
+        print(f"✅✅✅ REPORTES PÚBLICOS OBTENIDOS: {len(reportes)} ✅✅✅")
+        return reportes
+        
+    except Exception as e:
+        print(f"❌❌❌ ERROR AL OBTENER REPORTES PÚBLICOS: {e} ❌❌❌")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
 @app.post("/reportes-ciudadanos/publico", response_model=dict)
 async def crear_reporte_ciudadano_publico(
     titulo: str = Form(...),
