@@ -30,18 +30,8 @@ import api from '../utils/api';
 
 const AdminDatabase = () => {
     const [stats, setStats] = useState(null);
-    const [tables, setTables] = useState([]);
-    const [performance, setPerformance] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [showCleanModal, setShowCleanModal] = useState(false);
-    const [cleanForm, setCleanForm] = useState({
-        daysOld: 30,
-        status: 'completado',
-        confirmDelete: false
-    });
-    const [actionLoading, setActionLoading] = useState(false);
-    const [actionMessage, setActionMessage] = useState(null);
 
     useEffect(() => {
         loadDatabaseInfo();
@@ -52,21 +42,9 @@ const AdminDatabase = () => {
             setLoading(true);
             setError(null);
 
-            // Cargar estadísticas
+            // Cargar estadísticas básicas
             const statsResponse = await api.get('/admin/database/stats');
             setStats(statsResponse.data);
-
-            // Cargar información de tablas
-            const tablesResponse = await api.get('/admin/database/tables');
-            setTables(tablesResponse.data);
-
-            // Cargar métricas de rendimiento
-            try {
-                const perfResponse = await api.get('/admin/database/performance');
-                setPerformance(perfResponse.data);
-            } catch (perfError) {
-                console.log('Métricas de rendimiento no disponibles:', perfError.message);
-            }
 
         } catch (err) {
             console.error('Error cargando información de BD:', err);
@@ -74,116 +52,6 @@ const AdminDatabase = () => {
         } finally {
             setLoading(false);
         }
-    };
-
-    const handleOptimize = async () => {
-        try {
-            setActionLoading(true);
-            setActionMessage(null);
-            
-            await api.post('/admin/database/optimizar');
-            setActionMessage({
-                type: 'success',
-                text: 'Optimización iniciada. Esto puede tomar varios minutos.'
-            });
-            
-            // Recargar información después de un tiempo
-            setTimeout(() => {
-                loadDatabaseInfo();
-            }, 10000);
-            
-        } catch (err) {
-            setActionMessage({
-                type: 'danger',
-                text: 'Error al iniciar optimización: ' + err.message
-            });
-        } finally {
-            setActionLoading(false);
-        }
-    };
-
-    const handleMaintenance = async () => {
-        try {
-            setActionLoading(true);
-            setActionMessage(null);
-            
-            await api.post('/admin/database/maintenance');
-            setActionMessage({
-                type: 'success',
-                text: 'Mantenimiento automático iniciado.'
-            });
-            
-        } catch (err) {
-            setActionMessage({
-                type: 'danger',
-                text: 'Error al iniciar mantenimiento: ' + err.message
-            });
-        } finally {
-            setActionLoading(false);
-        }
-    };
-
-    const handleBackup = async () => {
-        try {
-            setActionLoading(true);
-            setActionMessage(null);
-            
-            await api.post('/admin/database/backup');
-            setActionMessage({
-                type: 'success',
-                text: 'Backup iniciado. Se notificará cuando esté completo.'
-            });
-            
-        } catch (err) {
-            setActionMessage({
-                type: 'danger',
-                text: 'Error al iniciar backup: ' + err.message
-            });
-        } finally {
-            setActionLoading(false);
-        }
-    };
-
-    const handleCleanReports = async () => {
-        try {
-            setActionLoading(true);
-            setActionMessage(null);
-            
-            await api.post('/admin/database/limpiar-reportes', cleanForm);
-            setActionMessage({
-                type: 'success',
-                text: `Limpieza completada. Reportes de más de ${cleanForm.daysOld} días han sido eliminados.`
-            });
-            
-            setShowCleanModal(false);
-            setCleanForm({ daysOld: 30, status: 'completado', confirmDelete: false });
-            
-            // Recargar estadísticas
-            setTimeout(() => {
-                loadDatabaseInfo();
-            }, 2000);
-            
-        } catch (err) {
-            setActionMessage({
-                type: 'danger',
-                text: 'Error al limpiar reportes: ' + err.message
-            });
-        } finally {
-            setActionLoading(false);
-        }
-    };
-
-    const formatBytes = (bytes) => {
-        if (bytes === 0) return '0 Bytes';
-        const k = 1024;
-        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-    };
-
-    const formatPercentage = (value, total) => {
-        if (total === 0) return '0%';
-        return Math.round((value / total) * 100) + '%';
     };
 
     if (loading) {
@@ -222,17 +90,6 @@ const AdminDatabase = () => {
                     Monitoreo, optimización y mantenimiento del sistema de datos
                 </p>
             </div>
-
-            {actionMessage && (
-                <Alert 
-                    variant={actionMessage.type} 
-                    dismissible 
-                    onClose={() => setActionMessage(null)}
-                    className="action-alert"
-                >
-                    {actionMessage.text}
-                </Alert>
-            )}
 
             {/* Estadísticas Generales */}
             <Row className="mb-4">
@@ -313,14 +170,6 @@ const AdminDatabase = () => {
                                         <Badge bg="success">{stats.sistema.cpu_count}</Badge>
                                     </div>
                                     <div className="info-row">
-                                        <span>Memoria Total:</span>
-                                        <Badge bg="primary">{formatBytes(stats.sistema.memory_total)}</Badge>
-                                    </div>
-                                    <div className="info-row">
-                                        <span>Memoria Disponible:</span>
-                                        <Badge bg="warning">{formatBytes(stats.sistema.memory_available)}</Badge>
-                                    </div>
-                                    <div className="info-row">
                                         <span>Uso de Disco:</span>
                                         <ProgressBar 
                                             now={stats.sistema.disk_usage} 
@@ -343,174 +192,35 @@ const AdminDatabase = () => {
                             <div className="action-buttons">
                                 <Button 
                                     variant="primary" 
-                                    onClick={handleOptimize}
-                                    disabled={actionLoading}
                                     className="action-btn"
+                                    onClick={() => alert('Funcionalidad en desarrollo')}
                                 >
-                                    {actionLoading ? <Spinner size="sm" /> : <Database />}
+                                    <Database />
                                     Optimizar BD
                                 </Button>
                                 
                                 <Button 
                                     variant="success" 
-                                    onClick={handleMaintenance}
-                                    disabled={actionLoading}
                                     className="action-btn"
+                                    onClick={() => alert('Funcionalidad en desarrollo')}
                                 >
-                                    {actionLoading ? <Spinner size="sm" /> : <Settings />}
+                                    <Settings />
                                     Mantenimiento
                                 </Button>
                                 
                                 <Button 
                                     variant="info" 
-                                    onClick={handleBackup}
-                                    disabled={actionLoading}
                                     className="action-btn"
+                                    onClick={() => alert('Funcionalidad en desarrollo')}
                                 >
-                                    {actionLoading ? <Spinner size="sm" /> : <Download />}
+                                    <Download />
                                     Crear Backup
-                                </Button>
-                                
-                                <Button 
-                                    variant="warning" 
-                                    onClick={() => setShowCleanModal(true)}
-                                    disabled={actionLoading}
-                                    className="action-btn"
-                                >
-                                    <Trash2 />
-                                    Limpiar Reportes
                                 </Button>
                             </div>
                         </Card.Body>
                     </Card>
                 </Col>
             </Row>
-
-            {/* Tablas de la Base de Datos */}
-            <Row className="mb-4">
-                <Col>
-                    <Card>
-                        <Card.Header>
-                            <h5><HardDrive className="me-2" />Estructura de la Base de Datos</h5>
-                        </Card.Header>
-                        <Card.Body>
-                            <Table responsive striped hover>
-                                <thead>
-                                    <tr>
-                                        <th>Tabla</th>
-                                        <th>Columnas</th>
-                                        <th>Tamaño Aproximado</th>
-                                        <th>Estado</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {tables.map((table, index) => (
-                                        <tr key={index}>
-                                            <td>
-                                                <Badge bg="primary">{table.nombre}</Badge>
-                                            </td>
-                                            <td>{table.columnas}</td>
-                                            <td>{table.tamaño_aproximado}</td>
-                                            <td>
-                                                <Badge bg="success">Activa</Badge>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </Table>
-                        </Card.Body>
-                    </Card>
-                </Col>
-            </Row>
-
-            {/* Métricas de Rendimiento */}
-            {performance && (
-                <Row className="mb-4">
-                    <Col>
-                        <Card>
-                            <Card.Header>
-                                <h5><Activity className="me-2" />Métricas de Rendimiento</h5>
-                            </Card.Header>
-                            <Card.Body>
-                                <Row>
-                                    <Col md={6}>
-                                        <div className="performance-metric">
-                                            <h6>Consultas Lentas</h6>
-                                            <p className="metric-value">{performance.consultas_lentas || 'N/A'}</p>
-                                        </div>
-                                    </Col>
-                                    <Col md={6}>
-                                        <div className="performance-metric">
-                                            <h6>Conexiones Activas</h6>
-                                            <p className="metric-value">{performance.conexiones_activas || 'N/A'}</p>
-                                        </div>
-                                    </Col>
-                                </Row>
-                            </Card.Body>
-                        </Card>
-                    </Col>
-                </Row>
-            )}
-
-            {/* Modal para Limpiar Reportes */}
-            <Modal show={showCleanModal} onHide={() => setShowCleanModal(false)}>
-                <Modal.Header closeButton>
-                    <Modal.Title>
-                        <Trash2 className="me-2" />
-                        Limpiar Reportes Antiguos
-                    </Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    <Form>
-                        <Form.Group className="mb-3">
-                            <Form.Label>Eliminar reportes de más de:</Form.Label>
-                            <Form.Select 
-                                value={cleanForm.daysOld} 
-                                onChange={(e) => setCleanForm({...cleanForm, daysOld: parseInt(e.target.value)})}
-                            >
-                                <option value={7}>7 días</option>
-                                <option value={30}>30 días</option>
-                                <option value={90}>90 días</option>
-                                <option value={180}>180 días</option>
-                                <option value={365}>1 año</option>
-                            </Form.Select>
-                        </Form.Group>
-                        
-                        <Form.Group className="mb-3">
-                            <Form.Label>Estado de los reportes:</Form.Label>
-                            <Form.Select 
-                                value={cleanForm.status} 
-                                onChange={(e) => setCleanForm({...cleanForm, status: e.target.value})}
-                            >
-                                <option value="completado">Completados</option>
-                                <option value="cancelado">Cancelados</option>
-                                <option value="todos">Todos</option>
-                            </Form.Select>
-                        </Form.Group>
-                        
-                        <Form.Group className="mb-3">
-                            <Form.Check 
-                                type="checkbox"
-                                label="Confirmo que entiendo que esta acción no se puede deshacer"
-                                checked={cleanForm.confirmDelete}
-                                onChange={(e) => setCleanForm({...cleanForm, confirmDelete: e.target.checked})}
-                            />
-                        </Form.Group>
-                    </Form>
-                </Modal.Body>
-                <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowCleanModal(false)}>
-                        Cancelar
-                    </Button>
-                    <Button 
-                        variant="danger" 
-                        onClick={handleCleanReports}
-                        disabled={!cleanForm.confirmDelete || actionLoading}
-                    >
-                        {actionLoading ? <Spinner size="sm" /> : 'Limpiar Reportes'}
-                    </Button>
-                </Modal.Footer>
-            </Modal>
 
             {/* Información de Última Actualización */}
             <div className="update-info">
