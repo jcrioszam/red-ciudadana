@@ -26,7 +26,7 @@ import {
     Cpu,
     Memory
 } from 'react-bootstrap-icons';
-import api from '../utils/api';
+import api from '../api';
 
 const AdminDatabase = () => {
     const [stats, setStats] = useState(null);
