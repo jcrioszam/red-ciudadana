@@ -1,30 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { 
-    Card, 
-    Row, 
-    Col, 
-    Button, 
-    ProgressBar, 
-    Alert, 
-    Badge, 
+import {
+    Card,
+    Row,
+    Col,
+    Button,
+    Alert,
     Modal,
     Form,
-    Spinner,
-    Table
+    Spinner
 } from 'react-bootstrap';
-import { 
-    Database, 
-    BarChart, 
-    Trash2, 
-    Download, 
-    Gear, 
+import {
+    Database,
+    BarChart,
+    Trash2,
+    Download,
+    Gear,
     Activity,
     Shield,
     Clock,
     HardDrive,
     Server,
     Cpu,
-    Memory
+    Memory,
+    Refresh
 } from 'react-bootstrap-icons';
 import api from '../api';
 
@@ -159,6 +157,27 @@ const AdminDatabase = () => {
         }
     };
 
+    const handleStatus = async () => {
+        try {
+            setActionLoading(true);
+            setActionMessage(null);
+            
+            const response = await api.get('/admin/database/status');
+            setActionMessage({
+                type: 'success',
+                text: `Estado de BD: ${response.data.estado}`
+            });
+            
+        } catch (err) {
+            setActionMessage({
+                type: 'danger',
+                text: 'Error al verificar estado: ' + err.message
+            });
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
     if (loading) {
         return (
             <div className="admin-database">
@@ -186,20 +205,22 @@ const AdminDatabase = () => {
 
     return (
         <div className="admin-database">
-            <div className="header-section">
-                <h1 className="main-title">
-                    <Database className="title-icon" />
+            {/* Header */}
+            <div className="admin-header">
+                <h1>
+                    <Database className="me-3" />
                     Administración de Base de Datos
                 </h1>
-                <p className="subtitle">
-                    Monitoreo, optimización y mantenimiento del sistema de datos
+                <p className="text-muted">
+                    Gestiona y optimiza el rendimiento de tu base de datos
                 </p>
             </div>
 
+            {/* Alertas de acción */}
             {actionMessage && (
-                <Alert 
-                    variant={actionMessage.type} 
-                    dismissible 
+                <Alert
+                    variant={actionMessage.type}
+                    dismissible
                     onClose={() => setActionMessage(null)}
                     className="action-alert"
                 >
@@ -207,149 +228,159 @@ const AdminDatabase = () => {
                 </Alert>
             )}
 
-            {/* Estadísticas Generales */}
-            <Row className="mb-4">
-                <Col md={3}>
-                    <Card className="stat-card primary">
-                        <Card.Body>
-                            <div className="stat-icon">
-                                <BarChart />
-                            </div>
-                            <div className="stat-content">
-                                <h3>{stats?.estadisticas?.total_reportes || 0}</h3>
-                                <p>Total Reportes</p>
-                            </div>
-                        </Card.Body>
-                    </Card>
-                </Col>
-                <Col md={3}>
-                    <Card className="stat-card success">
-                        <Card.Body>
-                            <div className="stat-icon">
-                                <Shield />
-                            </div>
-                            <div className="stat-content">
-                                <h3>{stats?.estadisticas?.total_usuarios || 0}</h3>
-                                <p>Usuarios Activos</p>
-                            </div>
-                        </Card.Body>
-                    </Card>
-                </Col>
-                <Col md={3}>
-                    <Card className="stat-card warning">
-                        <Card.Body>
-                            <div className="stat-icon">
-                                <Activity />
-                            </div>
-                            <div className="stat-content">
-                                <h3>{stats?.estadisticas?.total_personas || 0}</h3>
-                                <p>Personas Registradas</p>
-                            </div>
-                        </Card.Body>
-                    </Card>
-                </Col>
-                <Col md={3}>
-                    <Card className="stat-card info">
-                        <Card.Body>
-                            <div className="stat-icon">
-                                <Clock />
-                            </div>
-                            <div className="stat-content">
-                                <h3>{stats?.estadisticas?.reportes_ultimo_mes || 0}</h3>
-                                <p>Reportes este Mes</p>
-                            </div>
-                        </Card.Body>
-                    </Card>
-                </Col>
-            </Row>
+            {/* Estadísticas en una sola fila */}
+            {stats && (
+                <Row className="mb-4">
+                    <Col md={3}>
+                        <Card className="stat-card">
+                            <Card.Body className="text-center">
+                                <BarChart className="stat-icon" />
+                                <h3 className="stat-value">{stats.estadisticas.reportes.total}</h3>
+                                <p className="stat-label">Total Reportes</p>
+                            </Card.Body>
+                        </Card>
+                    </Col>
+                    <Col md={3}>
+                        <Card className="stat-card">
+                            <Card.Body className="text-center">
+                                <Shield className="stat-icon" />
+                                <h3 className="stat-value">{stats.estadisticas.usuarios}</h3>
+                                <p className="stat-label">Usuarios Activos</p>
+                            </Card.Body>
+                        </Card>
+                    </Col>
+                    <Col md={3}>
+                        <Card className="stat-card">
+                            <Card.Body className="text-center">
+                                <Activity className="stat-icon" />
+                                <h3 className="stat-value">{stats.estadisticas.personas}</h3>
+                                <p className="stat-label">Personas Registradas</p>
+                            </Card.Body>
+                        </Card>
+                    </Col>
+                    <Col md={3}>
+                        <Card className="stat-card">
+                            <Card.Body className="text-center">
+                                <Clock className="stat-icon" />
+                                <h3 className="stat-value">{stats.estadisticas.reportes.con_fotos}</h3>
+                                <p className="stat-label">Con Fotos</p>
+                            </Card.Body>
+                        </Card>
+                    </Col>
+                </Row>
+            )}
 
             {/* Información del Sistema */}
-            <Row className="mb-4">
-                <Col md={6}>
-                    <Card className="system-card">
-                        <Card.Header>
-                            <h5><Server className="me-2" />Información del Sistema</h5>
-                        </Card.Header>
-                        <Card.Body>
-                            {stats?.sistema && (
-                                <div className="system-info">
-                                    <div className="info-row">
-                                        <span>Plataforma:</span>
-                                        <Badge bg="secondary">{stats.sistema.platform}</Badge>
-                                    </div>
-                                    <div className="info-row">
-                                        <span>Python:</span>
-                                        <Badge bg="info">{stats.sistema.python_version}</Badge>
-                                    </div>
-                                    <div className="info-row">
-                                        <span>CPU Cores:</span>
-                                        <Badge bg="success">{stats.sistema.cpu_count}</Badge>
-                                    </div>
-                                    <div className="info-row">
-                                        <span>Uso de Disco:</span>
-                                        <ProgressBar 
-                                            now={stats.sistema.disk_usage} 
-                                            variant={stats.sistema.disk_usage > 80 ? 'danger' : 'success'}
-                                            className="disk-progress"
-                                        />
-                                        <span className="ms-2">{stats.sistema.disk_usage}%</span>
-                                    </div>
-                                </div>
-                            )}
-                        </Card.Body>
-                    </Card>
-                </Col>
-                <Col md={6}>
-                    <Card className="actions-card">
-                        <Card.Header>
-                            <h5><Gear className="me-2" />Acciones de Administración</h5>
-                        </Card.Header>
-                        <Card.Body>
-                            <div className="action-buttons">
-                                <Button 
-                                    variant="primary" 
-                                    className="action-btn"
-                                    onClick={handleOptimize}
-                                    disabled={actionLoading}
-                                >
-                                    {actionLoading ? <Spinner size="sm" /> : <Database />}
-                                    Optimizar BD
-                                </Button>
-                                
-                                <Button 
-                                    variant="success" 
-                                    className="action-btn"
-                                    onClick={handleMaintenance}
-                                    disabled={actionLoading}
-                                >
-                                    {actionLoading ? <Spinner size="sm" /> : <Gear />}
-                                    Mantenimiento
-                                </Button>
-                                
-                                <Button 
-                                    variant="info" 
-                                    className="action-btn"
-                                    onClick={handleBackup}
-                                    disabled={actionLoading}
-                                >
-                                    {actionLoading ? <Spinner size="sm" /> : <Download />}
-                                    Crear Backup
-                                </Button>
-
-                                <Button 
-                                    variant="warning" 
-                                    className="action-btn"
-                                    onClick={() => setShowCleanModal(true)}
-                                    disabled={actionLoading}
-                                >
-                                    <Trash2 />
-                                    Limpiar Reportes
-                                </Button>
+            <Card className="mb-4 system-info-card">
+                <Card.Header>
+                    <Server className="me-2" />
+                    Información del Sistema
+                </Card.Header>
+                <Card.Body>
+                    <Row>
+                        <Col md={6}>
+                            <div className="system-item">
+                                <Cpu className="me-2" />
+                                <span>CPU: {stats?.sistema?.cpu || 'N/A'}</span>
                             </div>
-                        </Card.Body>
-                    </Card>
-                </Col>
-            </Row>
+                            <div className="system-item">
+                                <Memory className="me-2" />
+                                <span>Memoria: {stats?.sistema?.memoria || 'N/A'}</span>
+                            </div>
+                        </Col>
+                        <Col md={6}>
+                            <div className="system-item">
+                                <HardDrive className="me-2" />
+                                <span>Disco: {stats?.sistema?.disco || 'N/A'}</span>
+                            </div>
+                            <div className="system-item">
+                                <Clock className="me-2" />
+                                <span>Última actualización: {stats?.fecha_consulta || 'N/A'}</span>
+                            </div>
+                        </Col>
+                    </Row>
+                </Card.Body>
+            </Card>
+
+            {/* Botones de Acción */}
+            <Card className="mb-4">
+                <Card.Header>
+                    <Gear className="me-2" />
+                    Acciones de Administración
+                </Card.Header>
+                <Card.Body>
+                    <Row>
+                        <Col md={4} className="mb-3">
+                            <Button
+                                variant="primary"
+                                className="action-btn w-100"
+                                onClick={handleOptimize}
+                                disabled={actionLoading}
+                            >
+                                {actionLoading ? <Spinner size="sm" /> : <Gear />}
+                                Optimizar BD
+                            </Button>
+                        </Col>
+                        <Col md={4} className="mb-3">
+                            <Button
+                                variant="info"
+                                className="action-btn w-100"
+                                onClick={handleMaintenance}
+                                disabled={actionLoading}
+                            >
+                                {actionLoading ? <Spinner size="sm" /> : <Activity />}
+                                Mantenimiento
+                            </Button>
+                        </Col>
+                        <Col md={4} className="mb-3">
+                            <Button
+                                variant="success"
+                                className="action-btn w-100"
+                                onClick={handleBackup}
+                                disabled={actionLoading}
+                            >
+                                {actionLoading ? <Spinner size="sm" /> : <Download />}
+                                Crear Backup
+                            </Button>
+                        </Col>
+                    </Row>
+                    <Row>
+                        <Col md={4} className="mb-3">
+                            <Button
+                                variant="warning"
+                                className="action-btn w-100"
+                                onClick={() => setShowCleanModal(true)}
+                                disabled={actionLoading}
+                            >
+                                <Trash2 />
+                                Limpiar Reportes
+                            </Button>
+                        </Col>
+                        <Col md={4} className="mb-3">
+                            <Button
+                                variant="secondary"
+                                className="action-btn w-100"
+                                onClick={handleStatus}
+                                disabled={actionLoading}
+                            >
+                                {actionLoading ? <Spinner size="sm" /> : <Shield />}
+                                Estado BD
+                            </Button>
+                        </Col>
+                        <Col md={4} className="mb-3">
+                            <Button
+                                variant="dark"
+                                className="action-btn w-100"
+                                onClick={loadDatabaseInfo}
+                                disabled={loading}
+                            >
+                                {loading ? <Spinner size="sm" /> : <Refresh />}
+                                Actualizar
+                            </Button>
+                        </Col>
+                    </Row>
+                </Card.Body>
+            </Card>
 
             {/* Modal para Limpiar Reportes */}
             <Modal show={showCleanModal} onHide={() => setShowCleanModal(false)}>
@@ -363,8 +394,8 @@ const AdminDatabase = () => {
                     <Form>
                         <Form.Group className="mb-3">
                             <Form.Label>Eliminar reportes de más de:</Form.Label>
-                            <Form.Select 
-                                value={cleanForm.daysOld} 
+                            <Form.Select
+                                value={cleanForm.daysOld}
                                 onChange={(e) => setCleanForm({...cleanForm, daysOld: parseInt(e.target.value)})}
                             >
                                 <option value={7}>7 días</option>
@@ -374,11 +405,11 @@ const AdminDatabase = () => {
                                 <option value={365}>1 año</option>
                             </Form.Select>
                         </Form.Group>
-                        
+
                         <Form.Group className="mb-3">
                             <Form.Label>Estado de los reportes:</Form.Label>
-                            <Form.Select 
-                                value={cleanForm.status} 
+                            <Form.Select
+                                value={cleanForm.status}
                                 onChange={(e) => setCleanForm({...cleanForm, status: e.target.value})}
                             >
                                 <option value="completado">Completados</option>
@@ -386,9 +417,9 @@ const AdminDatabase = () => {
                                 <option value="todos">Todos</option>
                             </Form.Select>
                         </Form.Group>
-                        
+
                         <Form.Group className="mb-3">
-                            <Form.Check 
+                            <Form.Check
                                 type="checkbox"
                                 label="Confirmo que entiendo que esta acción no se puede deshacer"
                                 checked={cleanForm.confirmDelete}
@@ -401,8 +432,8 @@ const AdminDatabase = () => {
                     <Button variant="secondary" onClick={() => setShowCleanModal(false)}>
                         Cancelar
                     </Button>
-                    <Button 
-                        variant="danger" 
+                    <Button
+                        variant="danger"
                         onClick={handleCleanReports}
                         disabled={!cleanForm.confirmDelete || actionLoading}
                     >
@@ -411,10 +442,10 @@ const AdminDatabase = () => {
                 </Modal.Footer>
             </Modal>
 
-            {/* Información de Última Actualización */}
-            <div className="update-info">
-                <small className="text-muted">
-                    Última actualización: {stats?.fecha_consulta ? new Date(stats.fecha_consulta).toLocaleString() : 'N/A'}
+            {/* Información de actualización */}
+            <div className="text-center text-muted mt-4">
+                <small>
+                    Última actualización: {stats?.fecha_consulta || 'Nunca'}
                 </small>
             </div>
         </div>
