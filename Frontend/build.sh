@@ -56,3 +56,4 @@ fi
 
 echo "🎉 Build completado exitosamente!"
 echo "🚀 Listo para desplegar en Vercel"
+

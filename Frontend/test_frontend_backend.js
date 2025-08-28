@@ -97,3 +97,4 @@ async function testFrontendBackendConnection() {
 
 // Ejecutar las pruebas
 testFrontendBackendConnection();
+

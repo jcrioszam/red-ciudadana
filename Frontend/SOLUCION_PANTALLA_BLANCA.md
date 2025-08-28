@@ -147,3 +147,4 @@ Si el problema persiste después de aplicar estas soluciones, revisar:
 1. Logs del backend en Railway
 2. Logs del frontend en Vercel
 3. Consola del navegador para errores específicos
+
