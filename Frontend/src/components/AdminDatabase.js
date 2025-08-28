@@ -22,7 +22,7 @@ import {
     Server,
     Cpu,
     Memory,
-    Refresh
+    ArrowClockwise
 } from 'react-bootstrap-icons';
 import api from '../api';
 
@@ -374,7 +374,7 @@ const AdminDatabase = () => {
                                 onClick={loadDatabaseInfo}
                                 disabled={loading}
                             >
-                                {loading ? <Spinner size="sm" /> : <Refresh />}
+                                {loading ? <Spinner size="sm" /> : <ArrowClockwise />}
                                 Actualizar
                             </Button>
                         </Col>
