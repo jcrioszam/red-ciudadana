@@ -8,15 +8,24 @@ import sys
 import os
 from datetime import datetime, timedelta
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Body
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
+from pydantic import BaseModel
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from app.database import SessionLocal
 from app.models import ReporteCiudadano, Usuario, Persona
 from app.auth import get_current_user
+
+# Schema Pydantic para la limpieza de reportes
+class LimpiarReportesRequest(BaseModel):
+    daysOld: int = 30
+    status: str = "todos"
+    confirmDelete: bool = False
+    reportes_ids: Optional[List[int]] = None
+    total_seleccionados: Optional[int] = 0
 
 # Router para endpoints de administración
 admin_router = APIRouter(prefix="/admin", tags=["Administración"])
@@ -235,29 +244,25 @@ async def preview_limpiar_reportes(
 
 @admin_router.post("/database/limpiar")
 async def limpiar_reportes_post(
-    daysOld: int = 30,
-    status: str = "todos",
-    confirmDelete: bool = False,
-    reportes_ids: Optional[List[int]] = None,
-    total_seleccionados: Optional[int] = 0,
+    request: LimpiarReportesRequest = Body(...),
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(verify_admin)
 ):
     """Limpiar reportes según criterios especificados (POST)"""
     try:
-        if not confirmDelete:
+        if not request.confirmDelete:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Debe confirmar la eliminación para proceder"
             )
         
         # Si se proporcionan IDs específicos, eliminar solo esos
-        if reportes_ids and len(reportes_ids) > 0:
-            print(f"🗑️ Eliminando {len(reportes_ids)} reportes específicos: {reportes_ids}")
+        if request.reportes_ids and len(request.reportes_ids) > 0:
+            print(f"🗑️ Eliminando {len(request.reportes_ids)} reportes específicos: {request.reportes_ids}")
             
             # Verificar que los reportes existan
             reportes_existentes = db.query(ReporteCiudadano).filter(
-                ReporteCiudadano.id.in_(reportes_ids)
+                ReporteCiudadano.id.in_(request.reportes_ids)
             ).all()
             
             if not reportes_existentes:
@@ -271,7 +276,7 @@ async def limpiar_reportes_post(
             
             # Eliminar reportes específicos
             total_eliminados = db.query(ReporteCiudadano).filter(
-                ReporteCiudadano.id.in_(reportes_ids)
+                ReporteCiudadano.id.in_(request.reportes_ids)
             ).delete(synchronize_session=False)
             
             # Commit de los cambios
@@ -283,16 +288,16 @@ async def limpiar_reportes_post(
                 "backup_info": backup_info,
                 "criterios": {
                     "tipo": "eliminacion_especifica",
-                    "ids_proporcionados": len(reportes_ids),
+                    "ids_proporcionados": len(request.reportes_ids),
                     "ids_eliminados": total_eliminados
                 }
             }
         
         # Si no hay IDs específicos, usar criterios generales
-        print(f"🗑️ Eliminando reportes por criterios: daysOld={daysOld}, status={status}")
+        print(f"🗑️ Eliminando reportes por criterios: daysOld={request.daysOld}, status={request.status}")
         
         # Calcular fecha límite
-        fecha_limite = datetime.now() - timedelta(days=daysOld)
+        fecha_limite = datetime.now() - timedelta(days=request.daysOld)
         
         # Construir query base
         query = db.query(ReporteCiudadano).filter(
@@ -300,8 +305,8 @@ async def limpiar_reportes_post(
         )
         
         # Aplicar filtro de estado si se especifica
-        if status and status != 'todos':
-            query = query.filter(ReporteCiudadano.estado == status)
+        if request.status and request.status != 'todos':
+            query = query.filter(ReporteCiudadano.estado == request.status)
         
         # Contar antes de eliminar
         total_a_eliminar = query.count()
@@ -326,8 +331,8 @@ async def limpiar_reportes_post(
             "total_eliminados": total_eliminados,
             "backup_info": backup_info,
             "criterios": {
-                "days_old": daysOld,
-                "status": status,
+                "days_old": request.daysOld,
+                "status": request.status,
                 "fecha_limite": fecha_limite.isoformat()
             }
         }
