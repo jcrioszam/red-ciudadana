@@ -37,7 +37,7 @@ const AdminDatabase = () => {
     const [error, setError] = useState(null);
     const [showCleanModal, setShowCleanModal] = useState(false);
     const [cleanForm, setCleanForm] = useState({
-        daysOld: 30,
+        daysOld: 0,
         status: 'todos',
         confirmDelete: false
     });
@@ -86,7 +86,9 @@ const AdminDatabase = () => {
             console.log('📊 DEBUG: Reportes extraídos:', reportes);
             console.log('📊 DEBUG: Cantidad de reportes:', reportes.length);
             
-            setPreviewReports(reportes);
+            // Agregar propiedad selected a cada reporte
+            const reportesConSeleccion = reportes.map(r => ({ ...r, selected: true }));
+            setPreviewReports(reportesConSeleccion);
             
             // Mostrar información adicional si está disponible
             if (response.data.debug_info) {
@@ -104,12 +106,43 @@ const AdminDatabase = () => {
 
     const handleCleanReports = async () => {
         try {
-            const response = await api.post('/admin/database/limpiar', cleanForm);
-            alert('Reportes limpiados exitosamente: ' + response.data.mensaje);
+            // Obtener solo los reportes seleccionados
+            const reportesSeleccionados = previewReports.filter(r => r.selected);
+            
+            if (reportesSeleccionados.length === 0) {
+                alert('⚠️ No hay reportes seleccionados para eliminar');
+                return;
+            }
+            
+            // Confirmar antes de eliminar
+            const confirmacion = window.confirm(
+                `¿Estás seguro de que quieres eliminar ${reportesSeleccionados.length} reportes seleccionados?\n\n` +
+                `Esta acción no se puede deshacer.`
+            );
+            
+            if (!confirmacion) {
+                return;
+            }
+            
+            // Preparar datos para el backend
+            const datosLimpieza = {
+                ...cleanForm,
+                reportes_ids: reportesSeleccionados.map(r => r.id),
+                total_seleccionados: reportesSeleccionados.length
+            };
+            
+            console.log('🗑️ Enviando datos de limpieza:', datosLimpieza);
+            
+            const response = await api.post('/admin/database/limpiar', datosLimpieza);
+            
+            alert(`✅ Reportes eliminados exitosamente: ${response.data.mensaje}`);
             setShowCleanModal(false);
+            setPreviewReports([]);
             loadDatabaseInfo();
+            
         } catch (err) {
-            alert('Error al limpiar reportes: ' + (err.response?.data?.detail || err.message));
+            console.error('❌ Error al limpiar reportes:', err);
+            alert('❌ Error al limpiar reportes: ' + (err.response?.data?.detail || err.message));
         }
     };
 
@@ -214,51 +247,67 @@ const AdminDatabase = () => {
 
             {renderContent()}
 
-            {/* Modal de Limpieza Simplificado */}
+            {/* Modal de Limpieza Mejorado */}
             <Modal 
                 show={showCleanModal} 
                 onHide={() => setShowCleanModal(false)}
                 centered
-                size="lg"
+                size="xl"
+                backdrop="static"
+                keyboard={false}
+                className="admin-database-modal"
+                style={{ zIndex: 9999 }}
             >
-                <Modal.Header closeButton>
-                    <Modal.Title>🧹 Configurar Limpieza de Reportes</Modal.Title>
+                <Modal.Header closeButton className="bg-primary text-white">
+                    <Modal.Title className="d-flex align-items-center gap-2">
+                        🧹 Configurar Limpieza de Reportes
+                    </Modal.Title>
                 </Modal.Header>
-                <Modal.Body>
+                <Modal.Body className="p-4">
                     <Form>
-                        <Form.Group className="mb-3">
-                            <Form.Label>📅 Días de antigüedad</Form.Label>
-                            <Form.Control
-                                type="number"
-                                value={cleanForm.daysOld}
-                                onChange={(e) => setCleanForm({...cleanForm, daysOld: parseInt(e.target.value)})}
-                                min="1"
-                                max="365"
-                            />
-                            <Form.Text className="text-muted">
-                                Eliminar reportes más antiguos que este número de días
-                            </Form.Text>
-                        </Form.Group>
+                        <Row>
+                            <Col md={6}>
+                                <Form.Group className="mb-3">
+                                    <Form.Label className="fw-bold">📅 Días de antigüedad</Form.Label>
+                                    <Form.Control
+                                        type="number"
+                                        value={cleanForm.daysOld}
+                                        onChange={(e) => setCleanForm({...cleanForm, daysOld: parseInt(e.target.value)})}
+                                        min="0"
+                                        max="365"
+                                        className="form-control-lg"
+                                    />
+                                    <Form.Text className="text-muted">
+                                        Eliminar reportes más antiguos que este número de días (0 = todos)
+                                    </Form.Text>
+                                </Form.Group>
+                            </Col>
+                            <Col md={6}>
+                                <Form.Group className="mb-3">
+                                    <Form.Label className="fw-bold">📋 Estado de reportes</Form.Label>
+                                    <Form.Select
+                                        value={cleanForm.status}
+                                        onChange={(e) => setCleanForm({...cleanForm, status: e.target.value})}
+                                        className="form-select-lg"
+                                    >
+                                        <option value="todos">🔄 Todos los estados</option>
+                                        <option value="completado">✅ Completados</option>
+                                        <option value="resuelto">🔒 Resueltos</option>
+                                        <option value="cancelado">❌ Cancelados</option>
+                                        <option value="pendiente">⏳ Pendientes</option>
+                                        <option value="en_proceso">🔄 En Proceso</option>
+                                    </Form.Select>
+                                </Form.Group>
+                            </Col>
+                        </Row>
                         
-                        <Form.Group className="mb-3">
-                            <Form.Label>📋 Estado de reportes</Form.Label>
-                            <Form.Select
-                                value={cleanForm.status}
-                                onChange={(e) => setCleanForm({...cleanForm, status: e.target.value})}
-                            >
-                                <option value="todos">🔄 Todos los estados</option>
-                                <option value="completado">✅ Completados</option>
-                                <option value="resuelto">🔒 Resueltos</option>
-                                <option value="cancelado">❌ Cancelados</option>
-                            </Form.Select>
-                        </Form.Group>
-                        
-                        <div className="text-center mb-3">
+                        <div className="text-center mb-4">
                             <Button 
                                 variant="info" 
                                 onClick={getPreviewReports}
                                 disabled={previewLoading}
-                                className="d-flex align-items-center gap-2 mx-auto"
+                                size="lg"
+                                className="d-flex align-items-center gap-2 mx-auto px-4"
                             >
                                 {previewLoading ? (
                                     <>
@@ -275,41 +324,134 @@ const AdminDatabase = () => {
                         
                         {previewReports.length > 0 && (
                             <div className="mt-4">
-                                <h6 className="text-danger mb-3">
-                                    ⚠️ Se eliminarán {previewReports.length} reportes:
-                                </h6>
-                                <div className="table-responsive" style={{ maxHeight: '200px', overflowY: 'auto' }}>
-                                    <Table striped bordered hover size="sm">
-                                        <thead className="table-dark">
+                                <div className="alert alert-warning d-flex align-items-center gap-2 mb-3">
+                                    <span className="fs-5">⚠️</span>
+                                    <div>
+                                        <strong>Se eliminarán {previewReports.length} reportes</strong>
+                                        <br />
+                                        <small className="text-muted">
+                                            Criterios: {cleanForm.daysOld === 0 ? 'Todos los días' : `${cleanForm.daysOld} días`} | 
+                                            Estado: {cleanForm.status === 'todos' ? 'Todos los estados' : cleanForm.status}
+                                        </small>
+                                    </div>
+                                </div>
+                                
+                                {/* Opciones de selección */}
+                                <div className="mb-3 p-3 bg-light rounded">
+                                    <div className="d-flex justify-content-between align-items-center mb-2">
+                                        <h6 className="mb-0">🎯 Selección de Reportes:</h6>
+                                        <div className="d-flex gap-2">
+                                            <Button 
+                                                variant="outline-primary" 
+                                                size="sm"
+                                                onClick={() => {
+                                                    const allSelected = previewReports.map(r => ({...r, selected: true}));
+                                                    setPreviewReports(allSelected);
+                                                }}
+                                            >
+                                                ✅ Seleccionar Todos
+                                            </Button>
+                                            <Button 
+                                                variant="outline-secondary" 
+                                                size="sm"
+                                                onClick={() => {
+                                                    const noneSelected = previewReports.map(r => ({...r, selected: false}));
+                                                    setPreviewReports(noneSelected);
+                                                }}
+                                            >
+                                                ❌ Deseleccionar Todos
+                                            </Button>
+                                        </div>
+                                    </div>
+                                    <small className="text-muted">
+                                        Selecciona individualmente los reportes que deseas eliminar, o usa los botones para seleccionar/deseleccionar todos
+                                    </small>
+                                </div>
+                                
+                                {/* Tabla mejorada */}
+                                <div className="table-responsive" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                                    <Table striped bordered hover size="sm" className="table-hover">
+                                        <thead className="table-dark sticky-top">
                                             <tr>
-                                                <th>ID</th>
+                                                <th style={{width: '50px'}}>
+                                                    <Form.Check
+                                                        type="checkbox"
+                                                        checked={previewReports.length > 0 && previewReports.every(r => r.selected)}
+                                                        onChange={(e) => {
+                                                            const updated = previewReports.map(r => ({...r, selected: e.target.checked}));
+                                                            setPreviewReports(updated);
+                                                        }}
+                                                    />
+                                                </th>
+                                                <th style={{width: '60px'}}>ID</th>
                                                 <th>Título</th>
-                                                <th>Estado</th>
-                                                <th>Fecha</th>
+                                                <th style={{width: '120px'}}>Estado</th>
+                                                <th style={{width: '100px'}}>Fecha</th>
+                                                <th style={{width: '100px'}}>Tipo</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {previewReports.map((reporte) => (
-                                                <tr key={reporte.id}>
-                                                    <td>{reporte.id}</td>
+                                                <tr key={reporte.id} className={reporte.selected ? 'table-warning' : ''}>
+                                                    <td>
+                                                        <Form.Check
+                                                            type="checkbox"
+                                                            checked={reporte.selected || false}
+                                                            onChange={(e) => {
+                                                                const updated = previewReports.map(r => 
+                                                                    r.id === reporte.id ? {...r, selected: e.target.checked} : r
+                                                                );
+                                                                setPreviewReports(updated);
+                                                            }}
+                                                        />
+                                                    </td>
+                                                    <td className="fw-bold">{reporte.id}</td>
                                                     <td>{reporte.titulo}</td>
                                                     <td>
                                                         <Badge 
                                                             bg={
                                                                 reporte.estado === 'completado' ? 'success' :
                                                                 reporte.estado === 'resuelto' ? 'primary' :
-                                                                reporte.estado === 'cancelado' ? 'danger' : 'secondary'
+                                                                reporte.estado === 'cancelado' ? 'danger' :
+                                                                reporte.estado === 'pendiente' ? 'warning' :
+                                                                reporte.estado === 'en_proceso' ? 'info' : 'secondary'
                                                             }
                                                         >
                                                             {reporte.estado}
                                                         </Badge>
                                                     </td>
                                                     <td>{new Date(reporte.fecha_creacion).toLocaleDateString()}</td>
+                                                    <td>
+                                                        <Badge bg="secondary" className="text-uppercase">
+                                                            {reporte.tipo}
+                                                        </Badge>
+                                                    </td>
                                                 </tr>
                                             ))}
                                         </tbody>
                                     </Table>
                                 </div>
+                                
+                                {/* Resumen de selección */}
+                                <div className="mt-3 p-3 bg-info bg-opacity-10 rounded">
+                                    <div className="row text-center">
+                                        <div className="col-md-4">
+                                            <strong>Total Reportes:</strong> {previewReports.length}
+                                        </div>
+                                        <div className="col-md-4">
+                                            <strong>Seleccionados:</strong> {previewReports.filter(r => r.selected).length}
+                                        </div>
+                                        <div className="col-md-4">
+                                            <strong>Pendientes:</strong> {previewReports.filter(r => !r.selected).length}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                        
+                        {previewReports.length === 0 && !previewLoading && (
+                            <div className="alert alert-info text-center">
+                                ℹ️ No se encontraron reportes que cumplan con los criterios especificados
                             </div>
                         )}
                         
@@ -319,22 +461,23 @@ const AdminDatabase = () => {
                                 label="⚠️ Confirmar eliminación - Entiendo que esta acción no se puede deshacer"
                                 checked={cleanForm.confirmDelete}
                                 onChange={(e) => setCleanForm({...cleanForm, confirmDelete: e.target.checked})}
-                                className="text-danger"
+                                className="text-danger fw-bold"
                             />
                         </Form.Group>
                     </Form>
                 </Modal.Body>
-                <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowCleanModal(false)}>
+                <Modal.Footer className="bg-light">
+                    <Button variant="secondary" onClick={() => setShowCleanModal(false)} size="lg">
                         ❌ Cancelar
                     </Button>
                     <Button 
                         variant="danger" 
                         onClick={handleCleanReports}
-                        disabled={!cleanForm.confirmDelete}
+                        disabled={!cleanForm.confirmDelete || previewReports.filter(r => r.selected).length === 0}
+                        size="lg"
                         className="d-flex align-items-center gap-2"
                     >
-                        🗑️ Limpiar Reportes
+                        🗑️ Limpiar Reportes Seleccionados ({previewReports.filter(r => r.selected).length})
                     </Button>
                 </Modal.Footer>
             </Modal>
