@@ -32,12 +32,12 @@ const menu = [
     icon: <FiDatabase />,
     hasSubmenu: true,
     submenu: [
-      { to: '/admin-database/stats', label: 'Estadísticas BD', icon: <FiBarChart /> },
-      { to: '/admin-database/optimize', label: 'Optimizar BD', icon: <FiSettings /> },
-      { to: '/admin-database/maintenance', label: 'Mantenimiento', icon: <FiActivity /> },
-      { to: '/admin-database/backup', label: 'Crear Backup', icon: <FiDownload /> },
-      { to: '/admin-database/clean', label: 'Limpiar Reportes', icon: <FiTrash2 /> },
-      { to: '/admin-database/status', label: 'Estado BD', icon: <FiServer /> }
+      { to: '/admin/database/stats', label: 'Estadísticas BD', icon: <FiBarChart /> },
+      { to: '/admin/database/optimize', label: 'Optimizar BD', icon: <FiSettings /> },
+      { to: '/admin/database/maintenance', label: 'Mantenimiento', icon: <FiActivity /> },
+      { to: '/admin/database/backup', label: 'Crear Backup', icon: <FiDownload /> },
+      { to: '/admin/database/clean', label: 'Limpiar Reportes', icon: <FiTrash2 /> },
+      { to: '/admin/database/status', label: 'Estado BD', icon: <FiServer /> }
     ]
   }
 ];

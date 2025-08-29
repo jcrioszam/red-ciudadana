@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
     Card,
     Row,
@@ -32,8 +32,22 @@ import {
 import api from '../api';
 
 const AdminDatabase = () => {
-    const { action } = useParams();
+    const location = useLocation();
     const navigate = useNavigate();
+    
+    // Extraer la acción de la URL
+    const getActionFromPath = () => {
+        const path = location.pathname;
+        if (path.includes('/admin/database/stats')) return 'stats';
+        if (path.includes('/admin/database/optimize')) return 'optimize';
+        if (path.includes('/admin/database/maintenance')) return 'maintenance';
+        if (path.includes('/admin/database/backup')) return 'backup';
+        if (path.includes('/admin/database/clean')) return 'clean';
+        if (path.includes('/admin/database/status')) return 'status';
+        return 'stats'; // Default
+    };
+    
+    const action = getActionFromPath();
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -47,12 +61,9 @@ const AdminDatabase = () => {
     const [actionMessage, setActionMessage] = useState(null);
 
     useEffect(() => {
-        if (!action) {
-            navigate('/admin-database/stats');
-            return;
-        }
+        // Siempre cargar información cuando cambie la acción
         loadDatabaseInfo();
-    }, [action, navigate]);
+    }, [action]);
 
     const loadDatabaseInfo = async () => {
         try {
@@ -138,6 +149,7 @@ const AdminDatabase = () => {
                 type: 'success',
                 message: response.data.mensaje
             });
+            loadDatabaseInfo();
         } catch (err) {
             setActionMessage({
                 type: 'danger',
@@ -154,9 +166,10 @@ const AdminDatabase = () => {
             setActionMessage(null);
             const response = await api.get('/admin/database/status');
             setActionMessage({
-                type: 'info',
+                type: 'success',
                 message: response.data.mensaje
             });
+            loadDatabaseInfo();
         } catch (err) {
             setActionMessage({
                 type: 'danger',
@@ -168,6 +181,26 @@ const AdminDatabase = () => {
     };
 
     const renderContent = () => {
+        if (loading) {
+            return (
+                <div className="text-center py-5">
+                    <Spinner animation="border" role="status" className="mb-3">
+                        <span className="visually-hidden">Cargando...</span>
+                    </Spinner>
+                    <div>Cargando información de la base de datos...</div>
+                </div>
+            );
+        }
+
+        if (error) {
+            return (
+                <Alert variant="danger">
+                    <Alert.Heading>Error</Alert.Heading>
+                    <p>{error}</p>
+                </Alert>
+            );
+        }
+
         switch (action) {
             case 'stats':
                 return renderStats();
@@ -188,121 +221,60 @@ const AdminDatabase = () => {
 
     const renderStats = () => (
         <div>
-            <div className="admin-header">
-                <h1 className="main-title">
-                    <BarChart className="title-icon" />
-                    Estadísticas de Base de Datos
-                </h1>
-                <p className="subtitle">
-                    Información detallada del rendimiento y uso del sistema
-                </p>
-            </div>
-
+            <h2 className="mb-4">📊 Estadísticas de Base de Datos</h2>
             {stats && (
-                <Row className="mb-4">
-                    <Col md={3}>
-                        <Card className="stat-card">
-                            <Card.Body className="text-center">
-                                <BarChart className="stat-icon" />
-                                <h3 className="stat-value">{stats.estadisticas.reportes.total}</h3>
-                                <p className="stat-label">Total Reportes</p>
+                <Row>
+                    <Col md={4}>
+                        <Card className="mb-3">
+                            <Card.Body>
+                                <Card.Title>📋 Reportes</Card.Title>
+                                <h3>{stats.estadisticas?.reportes?.total || 0}</h3>
+                                <p className="text-muted">Total de reportes</p>
+                                <div className="d-flex justify-content-between">
+                                    <span>Con fotos: {stats.estadisticas?.reportes?.con_fotos || 0}</span>
+                                    <span>Sin fotos: {stats.estadisticas?.reportes?.sin_fotos || 0}</span>
+                                </div>
                             </Card.Body>
                         </Card>
                     </Col>
-                    <Col md={3}>
-                        <Card className="stat-card">
-                            <Card.Body className="text-center">
-                                <Shield className="stat-icon" />
-                                <h3 className="stat-value">{stats.estadisticas.usuarios}</h3>
-                                <p className="stat-label">Usuarios Activos</p>
+                    <Col md={4}>
+                        <Card className="mb-3">
+                            <Card.Body>
+                                <Card.Title>👥 Usuarios</Card.Title>
+                                <h3>{stats.estadisticas?.usuarios || 0}</h3>
+                                <p className="text-muted">Total de usuarios registrados</p>
                             </Card.Body>
                         </Card>
                     </Col>
-                    <Col md={3}>
-                        <Card className="stat-card">
-                            <Card.Body className="text-center">
-                                <Activity className="stat-icon" />
-                                <h3 className="stat-value">{stats.estadisticas.personas}</h3>
-                                <p className="stat-label">Personas Registradas</p>
-                            </Card.Body>
-                        </Card>
-                    </Col>
-                    <Col md={3}>
-                        <Card className="stat-card">
-                            <Card.Body className="text-center">
-                                <Clock className="stat-icon" />
-                                <h3 className="stat-value">{stats.estadisticas.reportes.con_fotos}</h3>
-                                <p className="stat-label">Con Fotos</p>
+                    <Col md={4}>
+                        <Card className="mb-3">
+                            <Card.Body>
+                                <Card.Title>👤 Personas</Card.Title>
+                                <h3>{stats.estadisticas?.personas || 0}</h3>
+                                <p className="text-muted">Total de personas registradas</p>
                             </Card.Body>
                         </Card>
                     </Col>
                 </Row>
             )}
-
-            <Card className="mb-4 system-info-card">
-                <Card.Header>
-                    <Server className="me-2" />
-                    Información del Sistema
-                </Card.Header>
-                <Card.Body>
-                    <Row>
-                        <Col md={6}>
-                            <div className="system-item">
-                                <Cpu className="me-2" />
-                                <span>CPU: {stats?.sistema?.cpu || 'N/A'}</span>
-                            </div>
-                            <div className="system-item">
-                                <Memory className="me-2" />
-                                <span>Memoria: {stats?.sistema?.memoria || 'N/A'}</span>
-                            </div>
-                        </Col>
-                        <Col md={6}>
-                            <div className="system-item">
-                                <Hdd className="me-2" />
-                                <span>Disco: {stats?.sistema?.disco || 'N/A'}</span>
-                            </div>
-                            <div className="system-item">
-                                <Clock className="me-2" />
-                                <span>Última actualización: {stats?.fecha_consulta || 'N/A'}</span>
-                            </div>
-                        </Col>
-                    </Row>
-                </Card.Body>
-            </Card>
         </div>
     );
 
     const renderOptimize = () => (
         <div>
-            <div className="admin-header">
-                <h1 className="main-title">
-                    <Gear className="title-icon" />
-                    Optimización de Base de Datos
-                </h1>
-                <p className="subtitle">
-                    Mejora el rendimiento y eficiencia de tu base de datos
-                </p>
-            </div>
-
-            <Card className="mb-4">
+            <h2 className="mb-4">⚙️ Optimización de Base de Datos</h2>
+            <Card>
                 <Card.Body>
-                    <h5>¿Qué hace la optimización?</h5>
-                    <ul>
-                        <li>Ejecuta VACUUM ANALYZE para limpiar y analizar tablas</li>
-                        <li>Actualiza estadísticas del optimizador de consultas</li>
-                        <li>Libera espacio no utilizado</li>
-                        <li>Mejora el rendimiento general del sistema</li>
-                    </ul>
-                    
-                    <Button
-                        variant="primary"
-                        size="lg"
+                    <Card.Title>Optimización Automática</Card.Title>
+                    <p>Esta función optimizará automáticamente las tablas de la base de datos para mejorar el rendimiento.</p>
+                    <Button 
+                        variant="primary" 
                         onClick={handleOptimize}
                         disabled={actionLoading}
-                        className="mt-3"
+                        className="d-flex align-items-center gap-2"
                     >
-                        {actionLoading ? <Spinner size="sm" /> : <Gear />}
-                        {actionLoading ? 'Optimizando...' : 'Optimizar Base de Datos'}
+                        {actionLoading ? <Spinner animation="border" size="sm" /> : <Gear />}
+                        {actionLoading ? 'Optimizando...' : 'Iniciar Optimización'}
                     </Button>
                 </Card.Body>
             </Card>
@@ -311,35 +283,19 @@ const AdminDatabase = () => {
 
     const renderMaintenance = () => (
         <div>
-            <div className="admin-header">
-                <h1 className="main-title">
-                    <Activity className="title-icon" />
-                    Mantenimiento Automático
-                </h1>
-                <p className="subtitle">
-                    Tareas de mantenimiento programadas para el sistema
-                </p>
-            </div>
-
-            <Card className="mb-4">
+            <h2 className="mb-4">🔧 Mantenimiento de Base de Datos</h2>
+            <Card>
                 <Card.Body>
-                    <h5>Tareas de Mantenimiento</h5>
-                    <ul>
-                        <li>Ejecuta VACUUM para limpiar tablas</li>
-                        <li>Ejecuta ANALYZE para actualizar estadísticas</li>
-                        <li>Identifica reportes antiguos para limpieza</li>
-                        <li>Mantiene la integridad de la base de datos</li>
-                    </ul>
-                    
-                    <Button
-                        variant="info"
-                        size="lg"
+                    <Card.Title>Mantenimiento Preventivo</Card.Title>
+                    <p>Ejecutar tareas de mantenimiento preventivo para mantener la base de datos en óptimas condiciones.</p>
+                    <Button 
+                        variant="warning" 
                         onClick={handleMaintenance}
                         disabled={actionLoading}
-                        className="mt-3"
+                        className="d-flex align-items-center gap-2"
                     >
-                        {actionLoading ? <Spinner size="sm" /> : <Activity />}
-                        {actionLoading ? 'Ejecutando...' : 'Ejecutar Mantenimiento'}
+                        {actionLoading ? <Spinner animation="border" size="sm" /> : <Activity />}
+                        {actionLoading ? 'Ejecutando...' : 'Iniciar Mantenimiento'}
                     </Button>
                 </Card.Body>
             </Card>
@@ -348,35 +304,19 @@ const AdminDatabase = () => {
 
     const renderBackup = () => (
         <div>
-            <div className="admin-header">
-                <h1 className="main-title">
-                    <Download className="title-icon" />
-                    Crear Backup de Base de Datos
-                </h1>
-                <p className="subtitle">
-                    Genera una copia de seguridad completa del sistema
-                </p>
-            </div>
-
-            <Card className="mb-4">
+            <h2 className="mb-4">💾 Crear Backup</h2>
+            <Card>
                 <Card.Body>
-                    <h5>Información del Backup</h5>
-                    <ul>
-                        <li>Backup completo de todas las tablas</li>
-                        <li>Incluye estructura y datos</li>
-                        <li>Formato SQL estándar</li>
-                        <li>Descarga directa del archivo</li>
-                    </ul>
-                    
-                    <Button
-                        variant="success"
-                        size="lg"
+                    <Card.Title>Backup de Seguridad</Card.Title>
+                    <p>Crear una copia de seguridad completa de la base de datos.</p>
+                    <Button 
+                        variant="info" 
                         onClick={handleBackup}
                         disabled={actionLoading}
-                        className="mt-3"
+                        className="d-flex align-items-center gap-2"
                     >
-                        {actionLoading ? <Spinner size="sm" /> : <Download />}
-                        {actionLoading ? 'Creando...' : 'Crear Backup Completo'}
+                        {actionLoading ? <Spinner animation="border" size="sm" /> : <Download />}
+                        {actionLoading ? 'Creando...' : 'Crear Backup'}
                     </Button>
                 </Card.Body>
             </Card>
@@ -385,67 +325,18 @@ const AdminDatabase = () => {
 
     const renderClean = () => (
         <div>
-            <div className="admin-header">
-                <h1 className="main-title">
-                    <Trash2 className="title-icon" />
-                    Limpieza de Reportes
-                </h1>
-                <p className="subtitle">
-                    Elimina reportes antiguos y libera espacio en la base de datos
-                </p>
-            </div>
-
-            <Card className="mb-4">
+            <h2 className="mb-4">🧹 Limpiar Reportes</h2>
+            <Card>
                 <Card.Body>
-                    <h5>Configuración de Limpieza</h5>
-                    <Row>
-                        <Col md={6}>
-                            <Form.Group className="mb-3">
-                                <Form.Label>Eliminar reportes de más de:</Form.Label>
-                                <Form.Select
-                                    value={cleanForm.daysOld}
-                                    onChange={(e) => setCleanForm({...cleanForm, daysOld: parseInt(e.target.value)})}
-                                >
-                                    <option value={7}>7 días</option>
-                                    <option value={30}>30 días</option>
-                                    <option value={90}>90 días</option>
-                                    <option value={365}>1 año</option>
-                                </Form.Select>
-                            </Form.Group>
-                        </Col>
-                        <Col md={6}>
-                            <Form.Group className="mb-3">
-                                <Form.Label>Estado de los reportes:</Form.Label>
-                                <Form.Select
-                                    value={cleanForm.status}
-                                    onChange={(e) => setCleanForm({...cleanForm, status: e.target.value})}
-                                >
-                                    <option value="completado">Completados</option>
-                                    <option value="cancelado">Cancelados</option>
-                                    <option value="ambos">Ambos</option>
-                                </Form.Select>
-                            </Form.Group>
-                        </Col>
-                    </Row>
-                    
-                    <Form.Group className="mb-3">
-                        <Form.Check
-                            type="checkbox"
-                            label="Confirmo que entiendo que esta acción no se puede deshacer"
-                            checked={cleanForm.confirmDelete}
-                            onChange={(e) => setCleanForm({...cleanForm, confirmDelete: e.target.checked})}
-                        />
-                    </Form.Group>
-                    
-                    <Button
-                        variant="warning"
-                        size="lg"
+                    <Card.Title>Limpieza de Reportes</Card.Title>
+                    <p>Eliminar reportes antiguos o completados para liberar espacio en la base de datos.</p>
+                    <Button 
+                        variant="danger" 
                         onClick={() => setShowCleanModal(true)}
-                        disabled={!cleanForm.confirmDelete}
-                        className="mt-3"
+                        className="d-flex align-items-center gap-2"
                     >
                         <Trash2 />
-                        Limpiar Reportes
+                        Configurar Limpieza
                     </Button>
                 </Card.Body>
             </Card>
@@ -454,29 +345,18 @@ const AdminDatabase = () => {
 
     const renderStatus = () => (
         <div>
-            <div className="admin-header">
-                <h1 className="main-title">
-                    <Shield className="title-icon" />
-                    Estado de Base de Datos
-                </h1>
-                <p className="subtitle">
-                    Monitoreo en tiempo real del estado del sistema
-                </p>
-            </div>
-
-            <Card className="mb-4">
+            <h2 className="mb-4">📈 Estado de Base de Datos</h2>
+            <Card>
                 <Card.Body>
-                    <h5>Verificar Estado</h5>
-                    <p>Obtén información detallada sobre el estado actual de la base de datos.</p>
-                    
-                    <Button
-                        variant="secondary"
-                        size="lg"
+                    <Card.Title>Estado del Sistema</Card.Title>
+                    <p>Verificar el estado actual de la base de datos y sus conexiones.</p>
+                    <Button 
+                        variant="secondary" 
                         onClick={handleStatus}
                         disabled={actionLoading}
-                        className="mt-3"
+                        className="d-flex align-items-center gap-2"
                     >
-                        {actionLoading ? <Spinner size="sm" /> : <Shield />}
+                        {actionLoading ? <Spinner animation="border" size="sm" /> : <Server />}
                         {actionLoading ? 'Verificando...' : 'Verificar Estado'}
                     </Button>
                 </Card.Body>
@@ -484,40 +364,16 @@ const AdminDatabase = () => {
         </div>
     );
 
-    if (loading) {
-        return (
-            <div className="admin-database">
-                <div className="text-center p-5">
-                    <Spinner animation="border" role="status" size="lg">
-                        <span className="visually-hidden">Cargando...</span>
-                    </Spinner>
-                    <p className="mt-3">Cargando información de la base de datos...</p>
-                </div>
-            </div>
-        );
-    }
-
-    if (error) {
-        return (
-            <div className="admin-database">
-                <Alert variant="danger">
-                    <Alert.Heading>Error</Alert.Heading>
-                    <p>{error}</p>
-                    <Button onClick={loadDatabaseInfo} variant="outline-danger">
-                        Reintentar
-                    </Button>
-                </Alert>
-            </div>
-        );
-    }
-
     return (
-        <div className="admin-database">
-            {/* Botón de regreso */}
-            <div className="mb-3">
+        <div className="container-fluid">
+            <div className="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1 className="h3 mb-0">🗄️ Administración de Base de Datos</h1>
+                    <p className="text-muted">Gestionar y mantener la base de datos del sistema</p>
+                </div>
                 <Button 
                     variant="outline-secondary" 
-                    onClick={() => navigate('/admin-database/stats')}
+                    onClick={() => navigate('/admin/database/stats')}
                     className="d-flex align-items-center gap-2"
                 >
                     <ArrowLeft />
@@ -526,34 +382,64 @@ const AdminDatabase = () => {
             </div>
 
             {actionMessage && (
-                <Alert variant={actionMessage.type} className="action-alert">
+                <Alert variant={actionMessage.type} dismissible onClose={() => setActionMessage(null)}>
                     {actionMessage.message}
                 </Alert>
             )}
 
-            {/* Contenido Principal */}
-            <div className="main-content">
-                {renderContent()}
-            </div>
+            {renderContent()}
 
-            {/* Modal para Limpiar Reportes */}
+            {/* Modal de Limpieza */}
             <Modal show={showCleanModal} onHide={() => setShowCleanModal(false)}>
                 <Modal.Header closeButton>
-                    <Modal.Title>
-                        <Trash2 className="me-2" />
-                        Limpiar Reportes Antiguos
-                    </Modal.Title>
+                    <Modal.Title>Configurar Limpieza de Reportes</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
-                    <p>¿Estás seguro de que quieres eliminar los reportes antiguos?</p>
-                    <p><strong>Esta acción no se puede deshacer.</strong></p>
+                    <Form>
+                        <Form.Group className="mb-3">
+                            <Form.Label>Días de antigüedad</Form.Label>
+                            <Form.Control
+                                type="number"
+                                value={cleanForm.daysOld}
+                                onChange={(e) => setCleanForm({...cleanForm, daysOld: parseInt(e.target.value)})}
+                                min="1"
+                                max="365"
+                            />
+                            <Form.Text className="text-muted">
+                                Eliminar reportes más antiguos que este número de días
+                            </Form.Text>
+                        </Form.Group>
+                        <Form.Group className="mb-3">
+                            <Form.Label>Estado de reportes</Form.Label>
+                            <Form.Select
+                                value={cleanForm.status}
+                                onChange={(e) => setCleanForm({...cleanForm, status: e.target.value})}
+                            >
+                                <option value="completado">Completados</option>
+                                <option value="resuelto">Resueltos</option>
+                                <option value="cancelado">Cancelados</option>
+                            </Form.Select>
+                        </Form.Group>
+                        <Form.Group className="mb-3">
+                            <Form.Check
+                                type="checkbox"
+                                label="Confirmar eliminación"
+                                checked={cleanForm.confirmDelete}
+                                onChange={(e) => setCleanForm({...cleanForm, confirmDelete: e.target.checked})}
+                            />
+                        </Form.Group>
+                    </Form>
                 </Modal.Body>
                 <Modal.Footer>
                     <Button variant="secondary" onClick={() => setShowCleanModal(false)}>
                         Cancelar
                     </Button>
-                    <Button variant="danger" onClick={handleCleanReports}>
-                        {actionLoading ? <Spinner size="sm" /> : 'Limpiar Reportes'}
+                    <Button 
+                        variant="danger" 
+                        onClick={handleCleanReports}
+                        disabled={!cleanForm.confirmDelete || actionLoading}
+                    >
+                        {actionLoading ? <Spinner animation="border" size="sm" /> : 'Limpiar Reportes'}
                     </Button>
                 </Modal.Footer>
             </Modal>
