@@ -88,6 +88,17 @@ export default function Sidebar() {
           data: error.response?.data,
           message: error.message
         });
+        // 🔧 NUEVO: Fallback para admin - si hay error, crear configuración por defecto
+        if (user?.rol === 'admin') {
+          console.log('Sidebar: creando configuración por defecto para admin');
+          return {
+            rol: 'admin',
+            configuracion: {
+              opciones_web: ["dashboard", "usuarios", "personas", "eventos", "eventos-historicos", "movilizacion", "reportes", "estructura-red", "checkin", "perfil", "admin-perfiles", "admin-database", "seguimiento", "noticias", "reportes_ciudadanos", "seguimiento_reportes"],
+              opciones_app: ["register", "perfil", "eventos-historicos", "dashboard", "seguimiento", "movilizador-seguimiento", "noticias", "reportes_ciudadanos"]
+            }
+          };
+        }
         return null;
       }
     },
@@ -105,6 +116,14 @@ export default function Sidebar() {
     configuracionPerfil,
     configError,
     configLoading
+  });
+
+  // 🔧 NUEVO: Logs adicionales para debuggear permisos
+  console.log('🔍 Sidebar - Debug permisos:', {
+    userRol: user?.rol,
+    opcionesPermitidas: configuracionPerfil?.configuracion?.opciones_web || [],
+    esAdmin: user?.rol === 'admin',
+    configuracionCompleta: configuracionPerfil
   });
 
   // Refresca el logo cada vez que se monta el Sidebar o cambia la ruta
@@ -200,7 +219,8 @@ export default function Sidebar() {
     // Aplicar mapeo si existe, sino usar el valor original
     permisoRequerido = mapeoPermisos[permisoRequerido] || permisoRequerido;
     
-    const tienePermiso = opcionesPermitidas.includes(permisoRequerido);
+    // 🔧 CORRECCIÓN: Si el usuario es admin, permitir acceso a todas las opciones
+    const tienePermiso = user?.rol === 'admin' || opcionesPermitidas.includes(permisoRequerido);
     
     // VALIDACIÓN DE PERMISOS HABILITADA: Si no tiene permiso, no mostrar la opción
     if (!tienePermiso) return null;
@@ -365,4 +385,4 @@ export default function Sidebar() {
       </nav>
     </>
   );
-} 
+}
