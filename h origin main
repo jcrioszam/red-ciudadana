@@ -1,0 +1,5 @@
+[33m9486dc35a[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m ✨ Feature: Agregar endpoints de vista previa y limpieza de reportes
+[33m00643bb1f[m ✨ Feature: Agregar opción 'Todos' y vista previa de reportes en limpieza de BD
+[33mce6e4f5fb[m 🎨 Fix: Corregir posicionamiento del modal de limpieza de reportes - centrado y completamente visible
+[33mf53dc8325[m 🔧 Fix: Corregir rutas de administración de base de datos para que coincidan con el backend
+[33m5ffe58b2d[m 🔧 Fix: Agregar logs detallados para debuggear permisos del Sidebar
