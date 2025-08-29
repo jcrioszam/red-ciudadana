@@ -463,7 +463,7 @@ const AdminDatabase = () => {
                                 </div>
                                 
                                 {/* Resumen de selección */}
-                                <div className="mt-3 p-3 bg-info bg-opacity-10 rounded">
+                                <div className="mt-3 p-3 bg-info bg-opacity-10 rounded selection-summary">
                                     <div className={`row text-center ${isMobile ? 'g-2' : ''}`}>
                                         <div className="col-md-4 col-12">
                                             <strong>Total Reportes:</strong> {previewReports.length}
@@ -485,7 +485,7 @@ const AdminDatabase = () => {
                             </div>
                         )}
                         
-                        <Form.Group className="mb-3">
+                        <Form.Group className="mb-3 confirmation-checkbox">
                             <Form.Check
                                 type="checkbox"
                                 label="⚠️ Confirmar eliminación - Entiendo que esta acción no se puede deshacer"

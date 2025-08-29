@@ -666,3 +666,72 @@
 .admin-database-modal .table-responsive::-webkit-scrollbar-thumb:hover {
     background: #555;
 }
+
+/* NUEVO: Espaciado mejorado para evitar superposición */
+.admin-database-modal .modal-body {
+    padding-bottom: 120px !important; /* Espacio extra para el footer */
+}
+
+.admin-database-modal .table-responsive {
+    margin-bottom: 20px !important; /* Espacio entre tabla y footer */
+}
+
+/* NUEVO: Footer con mejor separación */
+.admin-database-modal .modal-footer {
+    margin-top: 20px !important;
+    padding-top: 20px !important;
+    border-top: 2px solid #dee2e6 !important;
+    background: linear-gradient(to bottom, #f8f9fa, #ffffff) !important;
+}
+
+/* NUEVO: Asegurar que la tabla no se sobreponga */
+.admin-database-modal .table-container {
+    position: relative !important;
+    z-index: 1 !important;
+}
+
+.admin-database-modal .table-responsive {
+    position: relative !important;
+    z-index: 1 !important;
+}
+
+/* NUEVO: Mejor separación del resumen */
+.admin-database-modal .selection-summary {
+    margin-bottom: 30px !important;
+    padding: 15px !important;
+    background: #f8f9fa !important;
+    border-radius: 8px !important;
+    border: 1px solid #dee2e6 !important;
+}
+
+/* NUEVO: Espaciado del checkbox de confirmación */
+.admin-database-modal .confirmation-checkbox {
+    margin-top: 20px !important;
+    margin-bottom: 20px !important;
+    padding: 15px !important;
+    background: #fff3cd !important;
+    border: 1px solid #ffeaa7 !important;
+    border-radius: 8px !important;
+}
+
+/* NUEVO: Ajustes específicos para evitar superposición */
+.admin-database-modal .modal-body > *:last-child {
+    margin-bottom: 0 !important;
+}
+
+.admin-database-modal .table-responsive:last-child {
+    margin-bottom: 0 !important;
+}
+
+/* NUEVO: Mejor manejo del scroll */
+.admin-database-modal .modal-body {
+    scroll-padding-bottom: 120px !important;
+}
+
+/* NUEVO: Asegurar que el footer esté siempre visible */
+.admin-database-modal .modal-footer {
+    position: relative !important;
+    bottom: auto !important;
+    background: white !important;
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.1) !important;
+}

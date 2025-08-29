@@ -238,6 +238,8 @@ async def limpiar_reportes_post(
     daysOld: int = 30,
     status: str = "todos",
     confirmDelete: bool = False,
+    reportes_ids: Optional[List[int]] = None,
+    total_seleccionados: Optional[int] = 0,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(verify_admin)
 ):
@@ -248,6 +250,46 @@ async def limpiar_reportes_post(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Debe confirmar la eliminación para proceder"
             )
+        
+        # Si se proporcionan IDs específicos, eliminar solo esos
+        if reportes_ids and len(reportes_ids) > 0:
+            print(f"🗑️ Eliminando {len(reportes_ids)} reportes específicos: {reportes_ids}")
+            
+            # Verificar que los reportes existan
+            reportes_existentes = db.query(ReporteCiudadano).filter(
+                ReporteCiudadano.id.in_(reportes_ids)
+            ).all()
+            
+            if not reportes_existentes:
+                return {
+                    "mensaje": "No se encontraron reportes con los IDs especificados",
+                    "total_eliminados": 0
+                }
+            
+            # Crear backup antes de eliminar
+            backup_info = crear_backup_reportes(db)
+            
+            # Eliminar reportes específicos
+            total_eliminados = db.query(ReporteCiudadano).filter(
+                ReporteCiudadano.id.in_(reportes_ids)
+            ).delete(synchronize_session=False)
+            
+            # Commit de los cambios
+            db.commit()
+            
+            return {
+                "mensaje": f"Se eliminaron {total_eliminados} reportes específicos de la base de datos",
+                "total_eliminados": total_eliminados,
+                "backup_info": backup_info,
+                "criterios": {
+                    "tipo": "eliminacion_especifica",
+                    "ids_proporcionados": len(reportes_ids),
+                    "ids_eliminados": total_eliminados
+                }
+            }
+        
+        # Si no hay IDs específicos, usar criterios generales
+        print(f"🗑️ Eliminando reportes por criterios: daysOld={daysOld}, status={status}")
         
         # Calcular fecha límite
         fecha_limite = datetime.now() - timedelta(days=daysOld)
@@ -292,6 +334,7 @@ async def limpiar_reportes_post(
         
     except Exception as e:
         db.rollback()
+        print(f"❌ ERROR en limpiar_reportes_post: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error limpiando reportes: {str(e)}"
