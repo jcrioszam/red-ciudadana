@@ -488,3 +488,181 @@
 .admin-database-modal.show .modal-dialog {
     transform: translate(-50%, -50%) scale(1) !important;
 }
+
+/* Estilos para la modal de administración de base de datos */
+.admin-database-modal {
+    /* Asegurar que la modal esté centrada y visible */
+    z-index: 9999 !important;
+}
+
+/* Hacer la modal responsive */
+.admin-database-modal .modal-dialog {
+    max-width: 95vw !important;
+    margin: 1rem auto !important;
+}
+
+/* Ajustes para pantallas pequeñas (móviles) */
+@media (max-width: 768px) {
+    .admin-database-modal .modal-dialog {
+        max-width: 98vw !important;
+        margin: 0.5rem auto !important;
+    }
+    
+    .admin-database-modal .modal-body {
+        padding: 1rem !important;
+    }
+    
+    .admin-database-modal .modal-footer {
+        padding: 1rem !important;
+        flex-direction: column !important;
+        gap: 0.5rem !important;
+    }
+    
+    .admin-database-modal .modal-footer .btn {
+        width: 100% !important;
+        margin: 0 !important;
+    }
+    
+    /* Ajustar tabla para móviles */
+    .admin-database-modal .table-responsive {
+        max-height: 300px !important;
+        font-size: 0.875rem !important;
+    }
+    
+    /* Hacer botones más pequeños en móviles */
+    .admin-database-modal .btn {
+        font-size: 0.875rem !important;
+        padding: 0.5rem 0.75rem !important;
+    }
+    
+    /* Ajustar controles de formulario */
+    .admin-database-modal .form-control,
+    .admin-database-modal .form-select {
+        font-size: 0.875rem !important;
+        padding: 0.5rem !important;
+    }
+}
+
+/* Ajustes para pantallas medianas (tablets) */
+@media (min-width: 769px) and (max-width: 1024px) {
+    .admin-database-modal .modal-dialog {
+        max-width: 90vw !important;
+        margin: 2rem auto !important;
+    }
+    
+    .admin-database-modal .table-responsive {
+        max-height: 350px !important;
+    }
+}
+
+/* Ajustes para pantallas grandes (PC) */
+@media (min-width: 1025px) {
+    .admin-database-modal .modal-dialog {
+        max-width: 80vw !important;
+        margin: 3rem auto !important;
+    }
+    
+    .admin-database-modal .table-responsive {
+        max-height: 400px !important;
+    }
+}
+
+/* Asegurar que el footer siempre sea visible */
+.admin-database-modal .modal-footer {
+    position: sticky;
+    bottom: 0;
+    background: white;
+    border-top: 1px solid #dee2e6;
+    z-index: 1000;
+}
+
+/* Hacer la tabla más compacta en pantallas pequeñas */
+@media (max-width: 576px) {
+    .admin-database-modal .table th,
+    .admin-database-modal .table td {
+        padding: 0.5rem 0.25rem !important;
+        font-size: 0.8rem !important;
+    }
+    
+    /* Ocultar columnas menos importantes en móviles */
+    .admin-database-modal .table th:nth-child(5),
+    .admin-database-modal .table td:nth-child(5) {
+        display: none !important;
+    }
+    
+    .admin-database-modal .table th:nth-child(6),
+    .admin-database-modal .table td:nth-child(6) {
+        display: none !important;
+    }
+}
+
+/* Asegurar que los botones de acción rápida sean visibles */
+.admin-database-modal .btn-group,
+.admin-database-modal .d-flex.gap-2 {
+    flex-wrap: wrap !important;
+    gap: 0.5rem !important;
+}
+
+/* Hacer el modal más alto en pantallas pequeñas */
+@media (max-height: 600px) {
+    .admin-database-modal .modal-body {
+        max-height: 60vh !important;
+        overflow-y: auto !important;
+    }
+    
+    .admin-database-modal .table-responsive {
+        max-height: 200px !important;
+    }
+}
+
+/* Ajustes para el contenido del modal */
+.admin-database-modal .modal-content {
+    max-height: 90vh !important;
+    overflow: hidden !important;
+}
+
+.admin-database-modal .modal-body {
+    overflow-y: auto !important;
+    max-height: calc(90vh - 120px) !important; /* Restar header y footer */
+}
+
+/* Asegurar que los botones del footer sean siempre visibles */
+.admin-database-modal .modal-footer {
+    min-height: 80px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+}
+
+/* Hacer los botones más prominentes */
+.admin-database-modal .btn-danger {
+    background-color: #dc3545 !important;
+    border-color: #dc3545 !important;
+    color: white !important;
+    font-weight: bold !important;
+}
+
+.admin-database-modal .btn-danger:hover {
+    background-color: #c82333 !important;
+    border-color: #bd2130 !important;
+}
+
+/* Ajustar el scroll de la tabla */
+.admin-database-modal .table-responsive::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.admin-database-modal .table-responsive::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.admin-database-modal .table-responsive::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+.admin-database-modal .table-responsive::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}

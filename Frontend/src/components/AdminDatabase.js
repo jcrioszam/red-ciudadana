@@ -23,6 +23,10 @@ const AdminDatabase = () => {
     const location = useLocation();
     const navigate = useNavigate();
     
+    // Estado para detectar el tamaño de pantalla
+    const [isMobile, setIsMobile] = useState(false);
+    const [isTablet, setIsTablet] = useState(false);
+    
     // Extraer la acción de la URL
     const getActionFromPath = () => {
         const path = location.pathname;
@@ -43,6 +47,26 @@ const AdminDatabase = () => {
     });
     const [previewReports, setPreviewReports] = useState([]);
     const [previewLoading, setPreviewLoading] = useState(false);
+
+    // Hook para detectar cambios en el tamaño de pantalla
+    useEffect(() => {
+        const checkScreenSize = () => {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            
+            setIsMobile(width <= 768);
+            setIsTablet(width > 768 && width <= 1024);
+        };
+
+        // Verificar al montar el componente
+        checkScreenSize();
+
+        // Agregar listener para cambios de tamaño
+        window.addEventListener('resize', checkScreenSize);
+
+        // Cleanup
+        return () => window.removeEventListener('resize', checkScreenSize);
+    }, []);
 
     useEffect(() => {
         loadDatabaseInfo();
@@ -247,16 +271,17 @@ const AdminDatabase = () => {
 
             {renderContent()}
 
-            {/* Modal de Limpieza Mejorado */}
+            {/* Modal de Limpieza Mejorado y Responsive */}
             <Modal 
                 show={showCleanModal} 
                 onHide={() => setShowCleanModal(false)}
                 centered
-                size="xl"
+                size={isMobile ? "fullscreen" : isTablet ? "xl" : "xl"}
                 backdrop="static"
                 keyboard={false}
                 className="admin-database-modal"
                 style={{ zIndex: 9999 }}
+                fullscreen={isMobile}
             >
                 <Modal.Header closeButton className="bg-primary text-white">
                     <Modal.Title className="d-flex align-items-center gap-2">
@@ -266,7 +291,7 @@ const AdminDatabase = () => {
                 <Modal.Body className="p-4">
                     <Form>
                         <Row>
-                            <Col md={6}>
+                            <Col md={6} xs={12}>
                                 <Form.Group className="mb-3">
                                     <Form.Label className="fw-bold">📅 Días de antigüedad</Form.Label>
                                     <Form.Control
@@ -275,20 +300,20 @@ const AdminDatabase = () => {
                                         onChange={(e) => setCleanForm({...cleanForm, daysOld: parseInt(e.target.value)})}
                                         min="0"
                                         max="365"
-                                        className="form-control-lg"
+                                        className={isMobile ? "form-control" : "form-control-lg"}
                                     />
                                     <Form.Text className="text-muted">
                                         Eliminar reportes más antiguos que este número de días (0 = todos)
                                     </Form.Text>
                                 </Form.Group>
                             </Col>
-                            <Col md={6}>
+                            <Col md={6} xs={12}>
                                 <Form.Group className="mb-3">
                                     <Form.Label className="fw-bold">📋 Estado de reportes</Form.Label>
                                     <Form.Select
                                         value={cleanForm.status}
                                         onChange={(e) => setCleanForm({...cleanForm, status: e.target.value})}
-                                        className="form-select-lg"
+                                        className={isMobile ? "form-select" : "form-select-lg"}
                                     >
                                         <option value="todos">🔄 Todos los estados</option>
                                         <option value="completado">✅ Completados</option>
@@ -306,7 +331,7 @@ const AdminDatabase = () => {
                                 variant="info" 
                                 onClick={getPreviewReports}
                                 disabled={previewLoading}
-                                size="lg"
+                                size={isMobile ? "sm" : "lg"}
                                 className="d-flex align-items-center gap-2 mx-auto px-4"
                             >
                                 {previewLoading ? (
@@ -338,9 +363,9 @@ const AdminDatabase = () => {
                                 
                                 {/* Opciones de selección */}
                                 <div className="mb-3 p-3 bg-light rounded">
-                                    <div className="d-flex justify-content-between align-items-center mb-2">
+                                    <div className={`d-flex ${isMobile ? 'flex-column' : 'justify-content-between'} align-items-center mb-2`}>
                                         <h6 className="mb-0">🎯 Selección de Reportes:</h6>
-                                        <div className="d-flex gap-2">
+                                        <div className="d-flex gap-2 mt-2">
                                             <Button 
                                                 variant="outline-primary" 
                                                 size="sm"
@@ -369,7 +394,10 @@ const AdminDatabase = () => {
                                 </div>
                                 
                                 {/* Tabla mejorada */}
-                                <div className="table-responsive" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                                <div className="table-responsive" style={{ 
+                                    maxHeight: isMobile ? '250px' : isTablet ? '350px' : '400px', 
+                                    overflowY: 'auto' 
+                                }}>
                                     <Table striped bordered hover size="sm" className="table-hover">
                                         <thead className="table-dark sticky-top">
                                             <tr>
@@ -387,7 +415,7 @@ const AdminDatabase = () => {
                                                 <th>Título</th>
                                                 <th style={{width: '120px'}}>Estado</th>
                                                 <th style={{width: '100px'}}>Fecha</th>
-                                                <th style={{width: '100px'}}>Tipo</th>
+                                                {!isMobile && <th style={{width: '100px'}}>Tipo</th>}
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -421,11 +449,13 @@ const AdminDatabase = () => {
                                                         </Badge>
                                                     </td>
                                                     <td>{new Date(reporte.fecha_creacion).toLocaleDateString()}</td>
-                                                    <td>
-                                                        <Badge bg="secondary" className="text-uppercase">
-                                                            {reporte.tipo}
-                                                        </Badge>
-                                                    </td>
+                                                    {!isMobile && (
+                                                        <td>
+                                                            <Badge bg="secondary" className="text-uppercase">
+                                                                {reporte.tipo}
+                                                            </Badge>
+                                                        </td>
+                                                    )}
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -434,14 +464,14 @@ const AdminDatabase = () => {
                                 
                                 {/* Resumen de selección */}
                                 <div className="mt-3 p-3 bg-info bg-opacity-10 rounded">
-                                    <div className="row text-center">
-                                        <div className="col-md-4">
+                                    <div className={`row text-center ${isMobile ? 'g-2' : ''}`}>
+                                        <div className="col-md-4 col-12">
                                             <strong>Total Reportes:</strong> {previewReports.length}
                                         </div>
-                                        <div className="col-md-4">
+                                        <div className="col-md-4 col-12">
                                             <strong>Seleccionados:</strong> {previewReports.filter(r => r.selected).length}
                                         </div>
-                                        <div className="col-md-4">
+                                        <div className="col-md-4 col-12">
                                             <strong>Pendientes:</strong> {previewReports.filter(r => !r.selected).length}
                                         </div>
                                     </div>
@@ -467,15 +497,20 @@ const AdminDatabase = () => {
                     </Form>
                 </Modal.Body>
                 <Modal.Footer className="bg-light">
-                    <Button variant="secondary" onClick={() => setShowCleanModal(false)} size="lg">
+                    <Button 
+                        variant="secondary" 
+                        onClick={() => setShowCleanModal(false)} 
+                        size={isMobile ? "sm" : "lg"}
+                        className={isMobile ? "w-100" : ""}
+                    >
                         ❌ Cancelar
                     </Button>
                     <Button 
                         variant="danger" 
                         onClick={handleCleanReports}
                         disabled={!cleanForm.confirmDelete || previewReports.filter(r => r.selected).length === 0}
-                        size="lg"
-                        className="d-flex align-items-center gap-2"
+                        size={isMobile ? "sm" : "lg"}
+                        className={`d-flex align-items-center gap-2 ${isMobile ? "w-100" : ""}`}
                     >
                         🗑️ Limpiar Reportes Seleccionados ({previewReports.filter(r => r.selected).length})
                     </Button>
