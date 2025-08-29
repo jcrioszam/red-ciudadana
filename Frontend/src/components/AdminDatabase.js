@@ -30,6 +30,7 @@ import {
     ArrowLeft
 } from 'react-bootstrap-icons';
 import api from '../api';
+import './AdminDatabase.css';
 
 const AdminDatabase = () => {
     const location = useLocation();
@@ -390,7 +391,16 @@ const AdminDatabase = () => {
             {renderContent()}
 
             {/* Modal de Limpieza */}
-            <Modal show={showCleanModal} onHide={() => setShowCleanModal(false)}>
+            <Modal 
+                show={showCleanModal} 
+                onHide={() => setShowCleanModal(false)}
+                centered
+                size="lg"
+                backdrop="static"
+                keyboard={false}
+                style={{ zIndex: 9999 }}
+                dialogClassName="admin-database-modal"
+            >
                 <Modal.Header closeButton>
                     <Modal.Title>Configurar Limpieza de Reportes</Modal.Title>
                 </Modal.Header>

@@ -311,3 +311,180 @@
     background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
     border: none;
 }
+
+/* Estilos personalizados para AdminDatabase */
+
+/* Asegurar que el modal esté centrado y visible */
+.modal {
+    z-index: 9999 !important;
+}
+
+.modal-dialog {
+    margin: 1.75rem auto !important;
+    max-width: 600px !important;
+}
+
+/* Estilos específicos para el modal de admin database */
+.admin-database-modal {
+    z-index: 9999 !important;
+}
+
+.admin-database-modal .modal-dialog {
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    margin: 0 !important;
+    max-width: 600px !important;
+    width: 90% !important;
+}
+
+.admin-database-modal .modal-content {
+    border-radius: 12px !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3) !important;
+}
+
+.admin-database-modal .modal-header {
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%) !important;
+    color: white !important;
+    border-bottom: none !important;
+    border-radius: 12px 12px 0 0 !important;
+}
+
+.admin-database-modal .modal-header .btn-close {
+    filter: invert(1) !important;
+}
+
+.admin-database-modal .modal-title {
+    font-weight: 600 !important;
+    font-size: 1.25rem !important;
+}
+
+.admin-database-modal .modal-body {
+    padding: 2rem !important;
+}
+
+.admin-database-modal .modal-footer {
+    border-top: 1px solid #dee2e6 !important;
+    padding: 1.5rem 2rem !important;
+    background-color: #f8f9fa !important;
+    border-radius: 0 0 12px 12px !important;
+}
+
+/* Mejorar la apariencia de los formularios */
+.form-label {
+    font-weight: 600 !important;
+    color: #495057 !important;
+    margin-bottom: 0.5rem !important;
+}
+
+.form-control, .form-select {
+    border-radius: 8px !important;
+    border: 2px solid #e9ecef !important;
+    padding: 0.75rem !important;
+    transition: all 0.2s ease !important;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: #dc3545 !important;
+    box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
+}
+
+.form-text {
+    font-size: 0.875rem !important;
+    color: #6c757d !important;
+    margin-top: 0.25rem !important;
+}
+
+/* Estilos para el checkbox de confirmación */
+.form-check {
+    margin-top: 1.5rem !important;
+    padding: 1rem !important;
+    background-color: #fff3cd !important;
+    border: 1px solid #ffeaa7 !important;
+    border-radius: 8px !important;
+}
+
+.form-check-input:checked {
+    background-color: #dc3545 !important;
+    border-color: #dc3545 !important;
+}
+
+.form-check-label {
+    color: #856404 !important;
+    font-weight: 500 !important;
+}
+
+/* Botones del modal */
+.btn {
+    border-radius: 8px !important;
+    padding: 0.75rem 1.5rem !important;
+    font-weight: 600 !important;
+    transition: all 0.2s ease !important;
+}
+
+.btn-secondary {
+    background-color: #6c757d !important;
+    border-color: #6c757d !important;
+}
+
+.btn-secondary:hover {
+    background-color: #5a6268 !important;
+    border-color: #545b62 !important;
+}
+
+.btn-danger {
+    background-color: #dc3545 !important;
+    border-color: #dc3545 !important;
+}
+
+.btn-danger:hover {
+    background-color: #c82333 !important;
+    border-color: #bd2130 !important;
+}
+
+.btn-danger:disabled {
+    background-color: #6c757d !important;
+    border-color: #6c757d !important;
+    opacity: 0.65 !important;
+}
+
+/* Responsive para pantallas pequeñas */
+@media (max-width: 768px) {
+    .admin-database-modal .modal-dialog {
+        width: 95% !important;
+        margin: 0.5rem !important;
+    }
+    
+    .admin-database-modal .modal-body {
+        padding: 1.5rem !important;
+    }
+    
+    .admin-database-modal .modal-footer {
+        padding: 1rem 1.5rem !important;
+    }
+}
+
+/* Asegurar que el modal esté por encima del sidebar */
+.modal-backdrop {
+    z-index: 9998 !important;
+}
+
+/* Animación de entrada del modal */
+.modal.fade .modal-dialog {
+    transform: scale(0.8) !important;
+    transition: transform 0.3s ease-out !important;
+}
+
+.modal.show .modal-dialog {
+    transform: scale(1) !important;
+}
+
+/* Override para el modal específico */
+.admin-database-modal.fade .modal-dialog {
+    transform: translate(-50%, -50%) scale(0.8) !important;
+}
+
+.admin-database-modal.show .modal-dialog {
+    transform: translate(-50%, -50%) scale(1) !important;
+}
