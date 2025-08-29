@@ -137,20 +137,56 @@ async def preview_limpiar_reportes(
 ):
     """Obtener vista previa de reportes que se van a eliminar"""
     try:
+        print(f"🔍 DEBUG: Buscando reportes con days_old={days_old}, status={status}")
+        
+        # Contar total de reportes primero
+        total_reportes = db.query(ReporteCiudadano).count()
+        print(f"📊 DEBUG: Total de reportes en BD: {total_reportes}")
+        
+        if total_reportes == 0:
+            return {
+                "reportes": [],
+                "total_a_eliminar": 0,
+                "criterios": {
+                    "days_old": days_old,
+                    "status": status,
+                    "fecha_limite": None
+                },
+                "mensaje": "No hay reportes en la base de datos",
+                "debug_info": {
+                    "total_reportes": 0,
+                    "filtros_aplicados": "N/A"
+                }
+            }
+        
         # Calcular fecha límite
         fecha_limite = datetime.now() - timedelta(days=days_old)
+        print(f"📅 DEBUG: Fecha límite calculada: {fecha_limite}")
         
-        # Construir query base
-        query = db.query(ReporteCiudadano).filter(
-            ReporteCiudadano.fecha_creacion < fecha_limite
-        )
+        # Construir query base - ser más flexible con las fechas
+        query = db.query(ReporteCiudadano)
+        
+        # Solo aplicar filtro de fecha si days_old > 0
+        if days_old > 0:
+            query = query.filter(ReporteCiudadano.fecha_creacion < fecha_limite)
+            print(f"🔍 DEBUG: Aplicando filtro de fecha: < {fecha_limite}")
+        else:
+            print(f"🔍 DEBUG: No aplicando filtro de fecha (days_old = 0)")
         
         # Aplicar filtro de estado si se especifica
         if status and status != 'todos':
             query = query.filter(ReporteCiudadano.estado == status)
+            print(f"🔍 DEBUG: Aplicando filtro de estado: {status}")
+        else:
+            print(f"🔍 DEBUG: No aplicando filtro de estado (todos)")
+        
+        # Contar reportes que cumplen los criterios
+        total_a_eliminar = query.count()
+        print(f"🔍 DEBUG: Total de reportes que cumplen criterios: {total_a_eliminar}")
         
         # Obtener reportes que se van a eliminar (limitado a 100 para la vista previa)
         reportes_a_eliminar = query.limit(100).all()
+        print(f"🔍 DEBUG: Reportes obtenidos para vista previa: {len(reportes_a_eliminar)}")
         
         # Preparar datos para el frontend
         reportes_preview = []
@@ -164,8 +200,19 @@ async def preview_limpiar_reportes(
                 "descripcion": reporte.descripcion or "Sin descripción"
             })
         
-        # Contar total de reportes que se eliminarían
-        total_a_eliminar = query.count()
+        # Información de debug
+        debug_info = {
+            "total_reportes": total_reportes,
+            "filtros_aplicados": {
+                "days_old": days_old,
+                "status": status,
+                "fecha_limite": fecha_limite.isoformat() if days_old > 0 else None
+            },
+            "query_result": {
+                "total_cumplen_criterios": total_a_eliminar,
+                "reportes_obtenidos": len(reportes_preview)
+            }
+        }
         
         return {
             "reportes": reportes_preview,
@@ -173,12 +220,14 @@ async def preview_limpiar_reportes(
             "criterios": {
                 "days_old": days_old,
                 "status": status,
-                "fecha_limite": fecha_limite.isoformat()
+                "fecha_limite": fecha_limite.isoformat() if days_old > 0 else None
             },
-            "mensaje": f"Se encontraron {total_a_eliminar} reportes que cumplen con los criterios"
+            "mensaje": f"Se encontraron {total_a_eliminar} reportes que cumplen con los criterios",
+            "debug_info": debug_info
         }
         
     except Exception as e:
+        print(f"❌ ERROR en preview_limpiar_reportes: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error obteniendo vista previa: {str(e)}"
