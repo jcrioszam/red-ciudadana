@@ -71,26 +71,26 @@ export default function Sidebar() {
   const { data: configuracionPerfil, error: configError, isLoading: configLoading } = useQuery(
     ['configuracion-perfil-usuario', user?.rol],
     async () => {
-      console.log('Sidebar: obteniendo configuración del perfil para rol:', user?.rol);
+      console.log('🔍 Sidebar: obteniendo configuración del perfil para rol:', user?.rol);
       if (!user?.rol) {
-        console.log('Sidebar: sin rol de usuario, retornando null');
+        console.log('❌ Sidebar: sin rol de usuario, retornando null');
         return null;
       }
       try {
-        console.log('Sidebar: llamando a /perfiles/mi-configuracion...');
+        console.log('🔍 Sidebar: llamando a /perfiles/mi-configuracion...');
         const response = await api.get('/perfiles/mi-configuracion');
-        console.log('Sidebar: configuración obtenida:', response.data);
+        console.log('✅ Sidebar: configuración obtenida:', response.data);
         return response.data;
       } catch (error) {
-        console.error('Sidebar: error al obtener configuración del perfil:', error);
-        console.error('Sidebar: detalles del error:', {
+        console.error('❌ Sidebar: error al obtener configuración del perfil:', error);
+        console.error('❌ Sidebar: detalles del error:', {
           status: error.response?.status,
           data: error.response?.data,
           message: error.message
         });
         // 🔧 NUEVO: Fallback para admin - si hay error, crear configuración por defecto
         if (user?.rol === 'admin') {
-          console.log('Sidebar: creando configuración por defecto para admin');
+          console.log('🔧 Sidebar: creando configuración por defecto para admin');
           return {
             rol: 'admin',
             configuracion: {
@@ -111,7 +111,7 @@ export default function Sidebar() {
   );
 
   // Debug logs
-  console.log('Sidebar render:', {
+  console.log('🔍 Sidebar render:', {
     user: user ? { id: user.id, email: user.email, rol: user.rol } : null,
     configuracionPerfil,
     configError,
@@ -198,6 +198,14 @@ export default function Sidebar() {
 
   // Función para renderizar elementos del menú
   const renderMenuItem = (item, level = 0) => {
+    // 🔍 NUEVO: Log al inicio para ver qué se está procesando
+    console.log(`🔍 Sidebar - Procesando elemento del menú:`, {
+      label: item.label,
+      ruta: item.to,
+      tieneSubmenu: item.hasSubmenu,
+      submenuItems: item.submenu?.length || 0
+    });
+
     // Verificar si el usuario tiene permiso para ver esta opción
     const opcionesPermitidas = configuracionPerfil?.configuracion?.opciones_web || [];
     
@@ -222,8 +230,24 @@ export default function Sidebar() {
     // 🔧 CORRECCIÓN: Si el usuario es admin, permitir acceso a todas las opciones
     const tienePermiso = user?.rol === 'admin' || opcionesPermitidas.includes(permisoRequerido);
     
+    // 🔍 NUEVO: Logs detallados para cada elemento del menú
+    console.log(`🔍 Sidebar - Verificando menú "${item.label}":`, {
+      ruta: item.to,
+      permisoRequerido,
+      userRol: user?.rol,
+      esAdmin: user?.rol === 'admin',
+      opcionesPermitidas,
+      tienePermiso,
+      resultado: tienePermiso ? '✅ PERMITIDO' : '❌ BLOQUEADO'
+    });
+    
     // VALIDACIÓN DE PERMISOS HABILITADA: Si no tiene permiso, no mostrar la opción
-    if (!tienePermiso) return null;
+    if (!tienePermiso) {
+      console.log(`❌ Sidebar - Elemento bloqueado: ${item.label} (${permisoRequerido})`);
+      return null;
+    }
+
+    console.log(`✅ Sidebar - Elemento permitido: ${item.label} (${permisoRequerido})`);
 
     const isActive = location.pathname === item.to || 
                      (item.submenu && item.submenu.some(subItem => location.pathname === subItem.to));
@@ -369,7 +393,11 @@ export default function Sidebar() {
             margin: 0,
             paddingBottom: isMobile ? 20 : 0
           }}>
-            {menu.map(item => renderMenuItem(item))}
+            {(() => {
+              const elementosRenderizados = menu.map(item => renderMenuItem(item)).filter(Boolean);
+              console.log(`🔍 Sidebar - Total elementos renderizados: ${elementosRenderizados.length}/${menu.length}`);
+              return elementosRenderizados;
+            })()}
           </ul>
         </div>
         <div style={{ 
