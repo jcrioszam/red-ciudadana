@@ -127,6 +127,127 @@ async def limpiar_reportes(
             detail=f"Error limpiando reportes: {str(e)}"
         )
 
+@admin_router.get("/database/limpiar-preview")
+async def preview_limpiar_reportes(
+    days_old: int = 30,
+    status: Optional[str] = None,
+    preview: bool = True,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(verify_admin)
+):
+    """Obtener vista previa de reportes que se van a eliminar"""
+    try:
+        # Calcular fecha límite
+        fecha_limite = datetime.now() - timedelta(days=days_old)
+        
+        # Construir query base
+        query = db.query(ReporteCiudadano).filter(
+            ReporteCiudadano.fecha_creacion < fecha_limite
+        )
+        
+        # Aplicar filtro de estado si se especifica
+        if status and status != 'todos':
+            query = query.filter(ReporteCiudadano.estado == status)
+        
+        # Obtener reportes que se van a eliminar (limitado a 100 para la vista previa)
+        reportes_a_eliminar = query.limit(100).all()
+        
+        # Preparar datos para el frontend
+        reportes_preview = []
+        for reporte in reportes_a_eliminar:
+            reportes_preview.append({
+                "id": reporte.id,
+                "titulo": reporte.titulo or "Sin título",
+                "estado": reporte.estado,
+                "fecha_creacion": reporte.fecha_creacion.isoformat() if reporte.fecha_creacion else None,
+                "tipo": reporte.tipo or "Sin tipo",
+                "descripcion": reporte.descripcion or "Sin descripción"
+            })
+        
+        # Contar total de reportes que se eliminarían
+        total_a_eliminar = query.count()
+        
+        return {
+            "reportes": reportes_preview,
+            "total_a_eliminar": total_a_eliminar,
+            "criterios": {
+                "days_old": days_old,
+                "status": status,
+                "fecha_limite": fecha_limite.isoformat()
+            },
+            "mensaje": f"Se encontraron {total_a_eliminar} reportes que cumplen con los criterios"
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error obteniendo vista previa: {str(e)}"
+        )
+
+@admin_router.post("/database/limpiar")
+async def limpiar_reportes_post(
+    daysOld: int = 30,
+    status: str = "todos",
+    confirmDelete: bool = False,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(verify_admin)
+):
+    """Limpiar reportes según criterios especificados (POST)"""
+    try:
+        if not confirmDelete:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Debe confirmar la eliminación para proceder"
+            )
+        
+        # Calcular fecha límite
+        fecha_limite = datetime.now() - timedelta(days=daysOld)
+        
+        # Construir query base
+        query = db.query(ReporteCiudadano).filter(
+            ReporteCiudadano.fecha_creacion < fecha_limite
+        )
+        
+        # Aplicar filtro de estado si se especifica
+        if status and status != 'todos':
+            query = query.filter(ReporteCiudadano.estado == status)
+        
+        # Contar antes de eliminar
+        total_a_eliminar = query.count()
+        
+        if total_a_eliminar == 0:
+            return {
+                "mensaje": "No hay reportes que cumplan con los criterios especificados",
+                "total_eliminados": 0
+            }
+        
+        # Crear backup antes de eliminar
+        backup_info = crear_backup_reportes(db)
+        
+        # Eliminar reportes
+        total_eliminados = query.delete(synchronize_session=False)
+        
+        # Commit de los cambios
+        db.commit()
+        
+        return {
+            "mensaje": f"Se eliminaron {total_eliminados} reportes de la base de datos",
+            "total_eliminados": total_eliminados,
+            "backup_info": backup_info,
+            "criterios": {
+                "days_old": daysOld,
+                "status": status,
+                "fecha_limite": fecha_limite.isoformat()
+            }
+        }
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error limpiando reportes: {str(e)}"
+        )
+
 @admin_router.post("/database/backup")
 async def crear_backup_completo(
     db: Session = Depends(get_db),
