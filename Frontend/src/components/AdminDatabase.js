@@ -77,10 +77,25 @@ const AdminDatabase = () => {
                 params.status = cleanForm.status;
             }
             
+            console.log('🔍 DEBUG: Llamando a endpoint con parámetros:', params);
+            
             const response = await api.get('/admin/database/limpiar-preview', { params });
-            setPreviewReports(response.data.reportes || []);
+            console.log('✅ DEBUG: Respuesta del endpoint:', response.data);
+            
+            const reportes = response.data.reportes || [];
+            console.log('📊 DEBUG: Reportes extraídos:', reportes);
+            console.log('📊 DEBUG: Cantidad de reportes:', reportes.length);
+            
+            setPreviewReports(reportes);
+            
+            // Mostrar información adicional si está disponible
+            if (response.data.debug_info) {
+                console.log('🔍 DEBUG: Información de debug del backend:', response.data.debug_info);
+            }
+            
         } catch (err) {
-            console.error('Error obteniendo vista previa:', err);
+            console.error('❌ Error obteniendo vista previa:', err);
+            console.error('❌ Detalles del error:', err.response?.data);
             setError('No se pudo obtener la vista previa de reportes: ' + (err.response?.data?.detail || err.message));
         } finally {
             setPreviewLoading(false);
