@@ -1,3 +1,4 @@
+
 print('🚀 INICIO DEL MAIN.PY - RAILWAY DEPLOYMENT - CORS WORKING! 🎉')
 print('🚨🚨🚨 LOGS SUPER AGRESIVOS AGREGADOS AL ENDPOINT /reportes-ciudadanos/ 🚨🚨🚨')
 print('🚨🚨🚨 LOGS SUPER AGRESIVOS AGREGADOS AL ENDPOINT /reportes-ciudadanos/ 🚨🚨🚨')
@@ -3721,6 +3722,53 @@ async def obtener_reportes_ciudadanos_publicos(
         print(f"❌ ERROR en endpoint público: {str(e)}")
         print(f"❌ TIPO DE ERROR: {type(e)}")
         raise HTTPException(status_code=500, detail=f"Error al obtener reportes: {str(e)}")
+# ============================================================================
+# ENDPOINTS PARA TIPOS DE REPORTE
+# ============================================================================
+
+@app.get("/tipos-reporte/")
+async def obtener_tipos_reporte():
+    """Obtener todos los tipos de reporte disponibles"""
+    try:
+        from .constants import obtener_tipos_reporte_formateados
+        tipos = obtener_tipos_reporte_formateados()
+        return {
+            "success": True,
+            "data": tipos,
+            "total": len(tipos)
+        }
+    except Exception as e:
+        print(f"❌ ERROR al obtener tipos de reporte: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al obtener tipos de reporte: {str(e)}")
+
+@app.get("/estados-reporte/")
+async def obtener_estados_reporte():
+    """Obtener todos los estados de reporte disponibles"""
+    try:
+        from .constants import ESTADOS_REPORTE
+        return {
+            "success": True,
+            "data": ESTADOS_REPORTE,
+            "total": len(ESTADOS_REPORTE)
+        }
+    except Exception as e:
+        print(f"❌ ERROR al obtener estados de reporte: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al obtener estados de reporte: {str(e)}")
+
+@app.get("/prioridades-reporte/")
+async def obtener_prioridades_reporte():
+    """Obtener todas las prioridades de reporte disponibles"""
+    try:
+        from .constants import PRIORIDADES_REPORTE
+        return {
+            "success": True,
+            "data": PRIORIDADES_REPORTE,
+            "total": len(PRIORIDADES_REPORTE)
+        }
+    except Exception as e:
+        print(f"❌ ERROR al obtener prioridades de reporte: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al obtener prioridades de reporte: {str(e)}")
+
 # ============================================================================
 # SISTEMA DE ADMINISTRACIÓN DE BASE DE DATOS
 # ============================================================================
