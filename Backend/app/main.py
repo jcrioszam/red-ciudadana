@@ -3739,15 +3739,3 @@ register_admin_routes(app)
 # ============================================================================
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000) 
-C:\Red Ciudadana\Backend>git status
-On branch main
-Changes not staged for commit:
-  (use "git add <file>..." to update what will be committed)
-  (use "git restore <file>..." to discard changes in working directory)
-        modified:   app/main.py
-        modified:   ../Frontend/src/api.js
-        modified:   ../Frontend/src/pages/DashboardCiudadano.js
-
-no changes added to commit (use "git add" and/or "git commit -a")
-
-C:\Red Ciudadana\Backend>
