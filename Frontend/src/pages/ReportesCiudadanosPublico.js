@@ -45,8 +45,18 @@ const ReportesCiudadanosPublico = () => {
     try {
       setLoadingTipos(true);
       const response = await api.get('/tipos-reporte/');
-      setTiposReporte(response.data.data);
-      console.log('✅ Tipos de reporte cargados:', response.data.data);
+      
+      // 🔧 TRANSFORMAR datos del backend al formato del frontend
+      const tiposTransformados = response.data.data.map(tipo => ({
+        value: tipo.valor,
+        title: tipo.nombre,
+        icon: tipo.icono,
+        desc: tipo.descripcion,
+        categoria: tipo.categoria
+      }));
+      
+      setTiposReporte(tiposTransformados);
+      console.log('✅ Tipos de reporte cargados y transformados:', tiposTransformados);
     } catch (error) {
       console.error('❌ Error al cargar tipos de reporte:', error);
       // Fallback a tipos estáticos si falla la API
