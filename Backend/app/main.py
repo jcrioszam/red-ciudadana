@@ -1,6 +1,5 @@
 
 
-print('🚀 INICIO DEL MAIN.PY - RAILWAY DEPLOYMENT - CORS WORKING! 🎉')
 print('🚨🚨🚨 LOGS SUPER AGRESIVOS AGREGADOS AL ENDPOINT /reportes-ciudadanos/ 🚨🚨🚨')
 print('🚨🚨🚨 LOGS SUPER AGRESIVOS AGREGADOS AL ENDPOINT /reportes-ciudadanos/ 🚨🚨🚨')
 print('🚨🚨🚨 LOGS SUPER AGRESIVOS AGREGADOS AL ENDPOINT /reportes-ciudadanos/ 🚨🚨🚨')
@@ -19,6 +18,7 @@ import uvicorn
 import requests
 import shutil
 import os
+
 import uuid
 import psycopg2
 import json
@@ -51,12 +51,21 @@ from datetime import datetime, timedelta
 from .models import Vehiculo as VehiculoModel, AsignacionMovilizacion as AsignacionMovilizacionModel, ConfiguracionPerfil as ConfiguracionPerfilModel, UbicacionTiempoReal as UbicacionTiempoRealModel, ConfiguracionDashboard as ConfiguracionDashboardModel
 from . import vehiculos, movilizaciones
 from sqlalchemy import func
-from .models import Noticia as NoticiaModel, Comentario as ComentarioModel, ReporteCiudadano as ReporteCiudadanoModel, FotoReporte as FotoReporteModel
-from .schemas import Noticia, NoticiaCreate, NoticiaUpdate, Comentario, ComentarioCreate, ComentarioUpdate
+from .models import Comentario as ComentarioModel, ReporteCiudadano as ReporteCiudadanoModel, FotoReporte as FotoReporteModel
+from .models_noticias import Noticia as NoticiaModel
+from .schemas import Comentario, ComentarioCreate, ComentarioUpdate
+from .schemas_noticias import Noticia, NoticiaCreate, NoticiaUpdate
 from .schemas_reportes import ReporteCiudadano, ReporteCiudadanoCreate, ReporteCiudadanoUpdate
 
 # Crear las tablas en la base de datos
 Base.metadata.create_all(bind=engine)
+
+# Crear directorio para imágenes si no existe
+UPLOAD_DIR = "uploads/images"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+# Montar archivos estáticos
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # Función para verificar y crear columnas faltantes
 def verificar_y_crear_columnas():
@@ -3989,6 +3998,53 @@ async def obtener_noticia(
 # ============================================================================
 # ENDPOINTS ADMINISTRATIVOS DE NOTICIAS
 # ============================================================================
+
+@app.post("/admin/upload-image/")
+async def upload_image(
+    file: UploadFile = File(...),
+    current_user: Usuario = Depends(require_admin)
+):
+    """Subir imagen para noticias (solo administradores)"""
+    try:
+        # Validar tipo de archivo
+        if not file.content_type.startswith('image/'):
+            raise HTTPException(status_code=400, detail="Solo se permiten archivos de imagen")
+        
+        # Validar tamaño (máximo 5MB)
+        file_size = 0
+        content = await file.read()
+        file_size = len(content)
+        if file_size > 5 * 1024 * 1024:  # 5MB
+            raise HTTPException(status_code=400, detail="El archivo es demasiado grande (máximo 5MB)")
+        
+        # Generar nombre único para el archivo
+        file_extension = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
+        unique_filename = f"{uuid.uuid4()}.{file_extension}"
+        file_path = os.path.join(UPLOAD_DIR, unique_filename)
+        
+        # Guardar archivo
+        with open(file_path, "wb") as buffer:
+            buffer.write(content)
+        
+        # Generar URL pública
+        image_url = f"/uploads/images/{unique_filename}"
+        
+        return {
+            "success": True,
+            "message": "Imagen subida exitosamente",
+            "data": {
+                "filename": unique_filename,
+                "url": image_url,
+                "size": file_size,
+                "content_type": file.content_type
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ ERROR al subir imagen: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al subir imagen: {str(e)}")
 
 @app.post("/admin/noticias/")
 async def crear_noticia(
