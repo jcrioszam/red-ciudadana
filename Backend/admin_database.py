@@ -96,9 +96,14 @@ async def limpiar_reportes(
         backup_info = crear_backup_reportes(db)
         
         if eliminar_todos:
-            # Eliminar todos los reportes
-            total_eliminados = db.query(ReporteCiudadano).delete()
-            mensaje = f"Se eliminaron {total_eliminados} reportes de la base de datos"
+            # Soft delete de todos los reportes
+            reportes_a_eliminar = db.query(ReporteCiudadano).all()
+            total_eliminados = 0
+            for reporte in reportes_a_eliminar:
+                reporte.activo = False
+                reporte.fecha_actualizacion = datetime.now()
+                total_eliminados += 1
+            mensaje = f"Se marcaron como inactivos {total_eliminados} reportes de la base de datos"
         else:
             # Construir query con filtros
             query = db.query(ReporteCiudadano)
@@ -115,10 +120,15 @@ async def limpiar_reportes(
             # Contar antes de eliminar
             total_a_eliminar = query.count()
             
-            # Eliminar
-            total_eliminados = query.delete(synchronize_session=False)
+            # Soft delete
+            reportes_a_eliminar = query.all()
+            total_eliminados = 0
+            for reporte in reportes_a_eliminar:
+                reporte.activo = False
+                reporte.fecha_actualizacion = datetime.now()
+                total_eliminados += 1
             
-            mensaje = f"Se eliminaron {total_eliminados} reportes de la base de datos"
+            mensaje = f"Se marcaron como inactivos {total_eliminados} reportes de la base de datos"
         
         # Commit de los cambios
         db.commit()
@@ -274,10 +284,16 @@ async def limpiar_reportes_post(
             # Crear backup antes de eliminar
             backup_info = crear_backup_reportes(db)
             
-            # Eliminar reportes específicos
-            total_eliminados = db.query(ReporteCiudadano).filter(
+            # Soft delete de reportes específicos (marcar como inactivos)
+            reportes_a_eliminar = db.query(ReporteCiudadano).filter(
                 ReporteCiudadano.id.in_(request.reportes_ids)
-            ).delete(synchronize_session=False)
+            ).all()
+            
+            total_eliminados = 0
+            for reporte in reportes_a_eliminar:
+                reporte.activo = False
+                reporte.fecha_actualizacion = datetime.now()
+                total_eliminados += 1
             
             # Commit de los cambios
             db.commit()
@@ -320,8 +336,14 @@ async def limpiar_reportes_post(
         # Crear backup antes de eliminar
         backup_info = crear_backup_reportes(db)
         
-        # Eliminar reportes
-        total_eliminados = query.delete(synchronize_session=False)
+        # Soft delete de reportes (marcar como inactivos)
+        reportes_a_eliminar = query.all()
+        
+        total_eliminados = 0
+        for reporte in reportes_a_eliminar:
+            reporte.activo = False
+            reporte.fecha_actualizacion = datetime.now()
+            total_eliminados += 1
         
         # Commit de los cambios
         db.commit()
@@ -458,7 +480,7 @@ async def mantenimiento_automatico(
         # Simular proceso de mantenimiento
         # En producción, aquí irían tareas reales de mantenimiento
         
-        # Limpiar reportes muy antiguos (más de 1 año)
+        # Contar reportes muy antiguos (más de 1 año) - solo contar, no eliminar
         fecha_limite = datetime.now() - timedelta(days=365)
         reportes_antiguos = db.query(ReporteCiudadano).filter(
             ReporteCiudadano.fecha_creacion < fecha_limite,
