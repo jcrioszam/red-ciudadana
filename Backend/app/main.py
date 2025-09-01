@@ -60,6 +60,10 @@ from .schemas_reportes import ReporteCiudadano, ReporteCiudadanoCreate, ReporteC
 # Crear las tablas en la base de datos
 Base.metadata.create_all(bind=engine)
 
+# Importar y crear tabla de noticias específicamente
+from .models_noticias import Base as NoticiasBase
+NoticiasBase.metadata.create_all(bind=engine)
+
 # Crear directorio para imágenes si no existe
 UPLOAD_DIR = "uploads/images"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
