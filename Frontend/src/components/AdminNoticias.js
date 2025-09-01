@@ -6,7 +6,6 @@ import {
   FiEye, 
   FiEyeOff, 
   FiStar, 
-  FiStarOff,
   FiCalendar,
   FiTag,
   FiLink,
@@ -406,7 +405,7 @@ const AdminNoticias = () => {
                         }`}
                         title={noticia.destacada ? 'Quitar destacada' : 'Marcar como destacada'}
                       >
-                        {noticia.destacada ? <FiStar className="w-4 h-4" /> : <FiStarOff className="w-4 h-4" />}
+                        <FiStar className={`w-4 h-4 ${noticia.destacada ? 'text-yellow-600' : 'text-gray-400'}`} />
                       </button>
                       
                       <button
