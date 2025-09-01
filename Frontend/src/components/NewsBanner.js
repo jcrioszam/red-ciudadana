@@ -17,7 +17,30 @@ const NewsBanner = () => {
         setNoticias(response.data.data || []);
       } catch (error) {
         console.error('Error al cargar noticias:', error);
-        setError('No se pudieron cargar las noticias');
+        // Noticias de ejemplo si no hay conexión
+        setNoticias([
+          {
+            id: 1,
+            titulo: "Bienvenidos a Red Ciudadana",
+            descripcion_corta: "Sistema integral para la gestión de reportes ciudadanos y movilización social",
+            imagen_url: "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=800&h=400&fit=crop",
+            enlace_externo: "#",
+            boton_texto: "Conocer más",
+            categoria: "general",
+            fecha_publicacion: new Date().toISOString()
+          },
+          {
+            id: 2,
+            titulo: "Reporta incidentes en tu comunidad",
+            descripcion_corta: "Ayuda a mejorar tu barrio reportando problemas y sugerencias",
+            imagen_url: "https://images.unsplash.com/photo-1582213782179-e0d53f98f2ca?w=800&h=400&fit=crop",
+            enlace_externo: "/reportes-ciudadanos",
+            boton_texto: "Crear reporte",
+            categoria: "noticias",
+            fecha_publicacion: new Date().toISOString()
+          }
+        ]);
+        setError(null);
       } finally {
         setLoading(false);
       }
