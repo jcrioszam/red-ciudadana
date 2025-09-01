@@ -26,6 +26,7 @@ const menu = [
   { to: '/admin-perfiles', label: 'Administrar Perfiles', icon: <FiShield /> },
   { to: '/admin-dashboard', label: 'Administrar Dashboard', icon: <FiSettings /> },
   { to: '/admin-tipos-reporte', label: 'Administrar Tipos de Reporte', icon: <FiSettings /> },
+  { to: '/admin-noticias', label: 'Administrar Noticias', icon: <FiFileText /> },
   // NUEVA OPCIÓN CON SUBMENÚ:
   { 
     to: '/admin-database', 
@@ -223,7 +224,8 @@ export default function Sidebar() {
       'seguimiento-reportes': 'seguimiento_reportes',
       'admin-perfiles': 'admin-perfiles',
       'admin-dashboard': 'admin-perfiles', // Usar los mismos permisos que admin-perfiles
-      'admin-tipos-reporte': 'admin-perfiles' // Usar los mismos permisos que admin-perfiles
+      'admin-tipos-reporte': 'admin-perfiles', // Usar los mismos permisos que admin-perfiles
+      'admin-noticias': 'admin-perfiles' // Usar los mismos permisos que admin-perfiles
     };
     
     // Aplicar mapeo si existe, sino usar el valor original

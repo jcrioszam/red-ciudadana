@@ -3835,6 +3835,335 @@ async def obtener_prioridades_reporte():
         raise HTTPException(status_code=500, detail=f"Error al obtener prioridades de reporte: {str(e)}")
 
 # ============================================================================
+# SISTEMA DE NOTICIAS Y BANNER
+# ============================================================================
+
+@app.get("/noticias/banner/")
+async def obtener_noticias_banner(
+    limit: int = Query(5, ge=1, le=10, description="Número máximo de noticias a mostrar"),
+    db: Session = Depends(get_db)
+):
+    """Obtener noticias para el banner principal"""
+    try:
+        from .crud_noticias import crud_noticias
+        noticias = crud_noticias.get_noticias_banner(db, limit=limit)
+        
+        # Convertir a formato de respuesta
+        noticias_banner = []
+        for noticia in noticias:
+            noticias_banner.append({
+                "id": noticia.id,
+                "titulo": noticia.titulo,
+                "descripcion_corta": noticia.descripcion_corta,
+                "imagen_url": noticia.imagen_url,
+                "imagen_alt": noticia.imagen_alt,
+                "categoria": noticia.categoria,
+                "destacada": noticia.destacada,
+                "prioridad": noticia.prioridad,
+                "enlace_externo": noticia.enlace_externo,
+                "boton_texto": noticia.boton_texto,
+                "fecha_publicacion": noticia.fecha_publicacion.isoformat() if noticia.fecha_publicacion else None
+            })
+        
+        return {
+            "success": True,
+            "data": noticias_banner,
+            "total": len(noticias_banner)
+        }
+        
+    except Exception as e:
+        print(f"❌ ERROR al obtener noticias del banner: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al obtener noticias del banner: {str(e)}")
+
+@app.get("/noticias/")
+async def obtener_noticias(
+    skip: int = Query(0, ge=0, description="Número de noticias a omitir"),
+    limit: int = Query(20, ge=1, le=100, description="Número máximo de noticias"),
+    categoria: Optional[str] = Query(None, description="Filtrar por categoría"),
+    destacadas: Optional[bool] = Query(None, description="Filtrar por destacadas"),
+    activas_only: bool = Query(True, description="Solo noticias activas"),
+    db: Session = Depends(get_db)
+):
+    """Obtener lista de noticias con filtros"""
+    try:
+        from .crud_noticias import crud_noticias
+        noticias = crud_noticias.get_noticias(
+            db, 
+            skip=skip, 
+            limit=limit,
+            activas_only=activas_only,
+            categoria=categoria,
+            destacadas=destacadas
+        )
+        
+        # Convertir a formato de respuesta
+        noticias_list = []
+        for noticia in noticias:
+            noticias_list.append({
+                "id": noticia.id,
+                "titulo": noticia.titulo,
+                "descripcion_corta": noticia.descripcion_corta,
+                "contenido_completo": noticia.contenido_completo,
+                "imagen_url": noticia.imagen_url,
+                "imagen_alt": noticia.imagen_alt,
+                "fecha_creacion": noticia.fecha_creacion.isoformat(),
+                "fecha_publicacion": noticia.fecha_publicacion.isoformat() if noticia.fecha_publicacion else None,
+                "fecha_expiracion": noticia.fecha_expiracion.isoformat() if noticia.fecha_expiracion else None,
+                "activa": noticia.activa,
+                "destacada": noticia.destacada,
+                "prioridad": noticia.prioridad,
+                "categoria": noticia.categoria,
+                "tags": noticia.tags,
+                "enlace_externo": noticia.enlace_externo,
+                "boton_texto": noticia.boton_texto,
+                "vistas": noticia.vistas,
+                "clicks": noticia.clicks,
+                "autor_id": noticia.autor_id,
+                "fecha_modificacion": noticia.fecha_modificacion.isoformat()
+            })
+        
+        return {
+            "success": True,
+            "data": noticias_list,
+            "total": len(noticias_list),
+            "skip": skip,
+            "limit": limit
+        }
+        
+    except Exception as e:
+        print(f"❌ ERROR al obtener noticias: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al obtener noticias: {str(e)}")
+
+@app.get("/noticias/{noticia_id}")
+async def obtener_noticia(
+    noticia_id: int,
+    db: Session = Depends(get_db)
+):
+    """Obtener una noticia específica por ID"""
+    try:
+        from .crud_noticias import crud_noticias
+        
+        # Incrementar contador de vistas
+        crud_noticias.incrementar_vistas(db, noticia_id)
+        
+        noticia = crud_noticias.get_noticia(db, noticia_id)
+        if not noticia:
+            raise HTTPException(status_code=404, detail="Noticia no encontrada")
+        
+        if not noticia.activa:
+            raise HTTPException(status_code=404, detail="Noticia no disponible")
+        
+        return {
+            "success": True,
+            "data": {
+                "id": noticia.id,
+                "titulo": noticia.titulo,
+                "descripcion_corta": noticia.descripcion_corta,
+                "contenido_completo": noticia.contenido_completo,
+                "imagen_url": noticia.imagen_url,
+                "imagen_alt": noticia.imagen_alt,
+                "fecha_creacion": noticia.fecha_creacion.isoformat(),
+                "fecha_publicacion": noticia.fecha_publicacion.isoformat() if noticia.fecha_publicacion else None,
+                "fecha_expiracion": noticia.fecha_expiracion.isoformat() if noticia.fecha_expiracion else None,
+                "activa": noticia.activa,
+                "destacada": noticia.destacada,
+                "prioridad": noticia.prioridad,
+                "categoria": noticia.categoria,
+                "tags": noticia.tags,
+                "enlace_externo": noticia.enlace_externo,
+                "boton_texto": noticia.boton_texto,
+                "vistas": noticia.vistas,
+                "clicks": noticia.clicks,
+                "autor_id": noticia.autor_id,
+                "fecha_modificacion": noticia.fecha_modificacion.isoformat()
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ ERROR al obtener noticia: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al obtener noticia: {str(e)}")
+
+# ============================================================================
+# ENDPOINTS ADMINISTRATIVOS DE NOTICIAS
+# ============================================================================
+
+@app.post("/admin/noticias/")
+async def crear_noticia(
+    noticia: NoticiaCreate,
+    current_user: Usuario = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """Crear una nueva noticia (solo administradores)"""
+    try:
+        from .crud_noticias import crud_noticias
+        
+        db_noticia = crud_noticias.create_noticia(
+            db, 
+            noticia, 
+            autor_id=current_user.id
+        )
+        
+        return {
+            "success": True,
+            "message": "Noticia creada exitosamente",
+            "data": {
+                "id": db_noticia.id,
+                "titulo": db_noticia.titulo,
+                "descripcion_corta": db_noticia.descripcion_corta,
+                "categoria": db_noticia.categoria,
+                "activa": db_noticia.activa,
+                "destacada": db_noticia.destacada,
+                "prioridad": db_noticia.prioridad
+            }
+        }
+        
+    except Exception as e:
+        print(f"❌ ERROR al crear noticia: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al crear noticia: {str(e)}")
+
+@app.put("/admin/noticias/{noticia_id}")
+async def actualizar_noticia(
+    noticia_id: int,
+    noticia_update: NoticiaUpdate,
+    current_user: Usuario = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """Actualizar una noticia existente (solo administradores)"""
+    try:
+        from .crud_noticias import crud_noticias
+        
+        db_noticia = crud_noticias.update_noticia(db, noticia_id, noticia_update)
+        if not db_noticia:
+            raise HTTPException(status_code=404, detail="Noticia no encontrada")
+        
+        return {
+            "success": True,
+            "message": "Noticia actualizada exitosamente",
+            "data": {
+                "id": db_noticia.id,
+                "titulo": db_noticia.titulo,
+                "descripcion_corta": db_noticia.descripcion_corta,
+                "categoria": db_noticia.categoria,
+                "activa": db_noticia.activa,
+                "destacada": db_noticia.destacada,
+                "prioridad": db_noticia.prioridad
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ ERROR al actualizar noticia: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al actualizar noticia: {str(e)}")
+
+@app.delete("/admin/noticias/{noticia_id}")
+async def eliminar_noticia(
+    noticia_id: int,
+    current_user: Usuario = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """Eliminar una noticia (soft delete, solo administradores)"""
+    try:
+        from .crud_noticias import crud_noticias
+        
+        success = crud_noticias.delete_noticia(db, noticia_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Noticia no encontrada")
+        
+        return {
+            "success": True,
+            "message": "Noticia eliminada exitosamente"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ ERROR al eliminar noticia: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al eliminar noticia: {str(e)}")
+
+@app.put("/admin/noticias/{noticia_id}/toggle-activa")
+async def toggle_noticia_activa(
+    noticia_id: int,
+    current_user: Usuario = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """Activar/desactivar una noticia (solo administradores)"""
+    try:
+        from .crud_noticias import crud_noticias
+        
+        db_noticia = crud_noticias.toggle_noticia_activa(db, noticia_id)
+        if not db_noticia:
+            raise HTTPException(status_code=404, detail="Noticia no encontrada")
+        
+        return {
+            "success": True,
+            "message": f"Noticia {'activada' if db_noticia.activa else 'desactivada'} exitosamente",
+            "data": {
+                "id": db_noticia.id,
+                "titulo": db_noticia.titulo,
+                "activa": db_noticia.activa
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ ERROR al cambiar estado de noticia: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al cambiar estado de noticia: {str(e)}")
+
+@app.put("/admin/noticias/{noticia_id}/toggle-destacada")
+async def toggle_noticia_destacada(
+    noticia_id: int,
+    current_user: Usuario = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """Marcar/desmarcar noticia como destacada (solo administradores)"""
+    try:
+        from .crud_noticias import crud_noticias
+        
+        db_noticia = crud_noticias.toggle_noticia_destacada(db, noticia_id)
+        if not db_noticia:
+            raise HTTPException(status_code=404, detail="Noticia no encontrada")
+        
+        return {
+            "success": True,
+            "message": f"Noticia {'marcada como destacada' if db_noticia.destacada else 'desmarcada como destacada'} exitosamente",
+            "data": {
+                "id": db_noticia.id,
+                "titulo": db_noticia.titulo,
+                "destacada": db_noticia.destacada
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ ERROR al cambiar estado destacada: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al cambiar estado destacada: {str(e)}")
+
+@app.get("/admin/noticias/estadisticas/")
+async def obtener_estadisticas_noticias(
+    current_user: Usuario = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """Obtener estadísticas de noticias (solo administradores)"""
+    try:
+        from .crud_noticias import crud_noticias
+        
+        estadisticas = crud_noticias.get_estadisticas_noticias(db)
+        
+        return {
+            "success": True,
+            "data": estadisticas
+        }
+        
+    except Exception as e:
+        print(f"❌ ERROR al obtener estadísticas: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al obtener estadísticas: {str(e)}")
+
+# ============================================================================
 # SISTEMA DE ADMINISTRACIÓN DE BASE DE DATOS
 # ============================================================================
 

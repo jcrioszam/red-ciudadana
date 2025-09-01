@@ -29,6 +29,7 @@ import MapaReportes from './pages/MapaReportes';
 import Layout from './components/Layout';
 import AdminDatabase from './components/AdminDatabase';
 import AdminTiposReporte from './components/AdminTiposReporte';
+import AdminNoticias from './components/AdminNoticias';
 
 const queryClient = new QueryClient();
 
@@ -90,6 +91,7 @@ function App() {
               <Route path="/admin-perfiles" element={<AdminPerfiles />} />
               <Route path="/admin-dashboard" element={<AdminDashboard />} />
               <Route path="/admin-tipos-reporte" element={<AdminTiposReporte />} />
+              <Route path="/admin-noticias" element={<AdminNoticias />} />
               <Route path="/seguimiento" element={<Seguimiento />} />
               <Route path="/noticias" element={<Noticias />} />
               <Route path="/reportes-ciudadanos-admin" element={<ReportesCiudadanos />} />
