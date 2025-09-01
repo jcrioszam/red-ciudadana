@@ -3487,6 +3487,7 @@ async def obtener_reportes_ciudadanos_publicos(
 ):
     """Obtener reportes ciudadanos públicos (sin autenticación)"""
     print(f"🚀🚀🚀 ENDPOINT PÚBLICO PARA OBTENER REPORTES 🚀🚀🚀")
+    print(f"🔍 DEBUG: Parámetros recibidos - skip: {skip}, limit: {limit}, estado: {estado}, tipo: {tipo}")
     
     try:
         # Obtener solo reportes públicos activos
@@ -3495,22 +3496,36 @@ async def obtener_reportes_ciudadanos_publicos(
             ReporteCiudadanoModel.es_publico == True
         )
         
+        print(f"🔍 DEBUG: Query base construida, total reportes activos: {query.count()}")
+        
         # Filtrar por estado si se especifica
         if estado:
             query = query.filter(ReporteCiudadanoModel.estado == estado)
+            print(f"🔍 DEBUG: Filtro estado aplicado: {estado}")
         
         # Filtrar por tipo si se especifica
         if tipo:
             query = query.filter(ReporteCiudadanoModel.tipo == tipo)
+            print(f"🔍 DEBUG: Filtro tipo aplicado: {tipo}")
         
         reportes = query.order_by(ReporteCiudadanoModel.fecha_creacion.desc()).offset(skip).limit(limit).all()
         
         print(f"✅✅✅ REPORTES PÚBLICOS OBTENIDOS: {len(reportes)} ✅✅✅")
+        print(f"🔍 DEBUG: Primeros 3 reportes: {[{'id': r.id, 'titulo': r.titulo, 'estado': r.estado} for r in reportes[:3]]}")
+        
         return reportes
         
     except Exception as e:
         print(f"❌❌❌ ERROR AL OBTENER REPORTES PÚBLICOS: {e} ❌❌❌")
+        print(f"❌ DEBUG: Tipo de error: {type(e)}")
+        print(f"❌ DEBUG: Detalles completos: {str(e)}")
         raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+# 🆕 NUEVO: Endpoint OPTIONS para CORS preflight del endpoint problemático
+@app.options("/reportes-ciudadanos/publicos/")
+async def options_reportes_publicos():
+    """Endpoint OPTIONS para CORS preflight"""
+    return {"message": "CORS preflight OK para reportes públicos"}
 
 @app.post("/reportes-ciudadanos/publico", response_model=dict)
 async def crear_reporte_ciudadano_publico(
@@ -3724,3 +3739,15 @@ register_admin_routes(app)
 # ============================================================================
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000) 
+C:\Red Ciudadana\Backend>git status
+On branch main
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+        modified:   app/main.py
+        modified:   ../Frontend/src/api.js
+        modified:   ../Frontend/src/pages/DashboardCiudadano.js
+
+no changes added to commit (use "git add" and/or "git commit -a")
+
+C:\Red Ciudadana\Backend>
