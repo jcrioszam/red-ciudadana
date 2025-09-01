@@ -50,6 +50,43 @@ const DashboardCiudadano = () => {
     refetchEstadisticas();
   };
 
+  // Función para eliminar un reporte
+  const handleDeleteReporte = async (reporteId) => {
+    try {
+      console.log('🗑️ Intentando eliminar reporte:', reporteId);
+      console.log('🔑 Token disponible:', localStorage.getItem('token') ? 'Sí' : 'No');
+      
+      const response = await api.delete(`/reportes-ciudadanos/${reporteId}`);
+      
+      console.log('✅ Respuesta del servidor:', response);
+      
+      if (response.status === 200) {
+        // Mostrar mensaje de éxito
+        alert('Reporte eliminado exitosamente');
+        // Refrescar la lista de reportes
+        refetchReportes();
+        refetchEstadisticas();
+      }
+    } catch (error) {
+      console.error('❌ Error al eliminar reporte:', error);
+      console.error('❌ Detalles del error:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message
+      });
+      
+      if (error.response?.status === 403) {
+        alert('No tienes permisos para eliminar este reporte');
+      } else if (error.response?.status === 404) {
+        alert('Reporte no encontrado');
+      } else if (error.response?.status === 401) {
+        alert('Sesión expirada. Por favor, inicia sesión nuevamente.');
+      } else {
+        alert(`Error al eliminar el reporte: ${error.response?.data?.detail || error.message}`);
+      }
+    }
+  };
+
   // Función para obtener color según estado
   const getEstadoColor = (estado) => {
     switch (estado) {
@@ -328,7 +365,7 @@ const DashboardCiudadano = () => {
                             <button
                               onClick={() => {
                                 if (window.confirm('¿Estás seguro de que quieres eliminar este reporte?')) {
-                                  // Aquí iría la lógica para eliminar
+                                  handleDeleteReporte(reporte.id);
                                 }
                               }}
                               className="text-red-600 hover:text-red-900"

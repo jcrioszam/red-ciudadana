@@ -25,7 +25,7 @@ export default function ListaReportesPublica() {
   const cargarReportes = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/reportes-ciudadanos/publicos');
+      const response = await api.get('/reportes-publicos');
       
       if (response.status === 200) {
         setReportes(response.data);

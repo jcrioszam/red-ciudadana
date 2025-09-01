@@ -192,7 +192,7 @@ const ReportesCiudadanosPublico = () => {
         
         // Reset after 3 seconds and redirect to map
         setTimeout(() => {
-          navigate('/mapa-reportes');
+          navigate('/mapa-reportes-publico');
         }, 3000);
       }
     } catch (error) {
@@ -902,7 +902,7 @@ const ReportesCiudadanosPublico = () => {
         flexWrap: 'wrap'
       }}>
         <button
-          onClick={() => navigate('/mapa-reportes')}
+                          onClick={() => navigate('/mapa-reportes-publico')}
           style={{
             padding: '12px 24px',
             backgroundColor: '#3b82f6',

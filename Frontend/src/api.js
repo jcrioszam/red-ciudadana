@@ -25,6 +25,13 @@ api.interceptors.request.use(
   (config) => {
     console.log('🚀 API REQUEST:', config.method?.toUpperCase(), config.url, 'BASE:', config.baseURL);
     
+    // Verificar si hay token en localStorage y agregarlo si no está en headers
+    const token = localStorage.getItem('token');
+    if (token && !config.headers.Authorization) {
+      config.headers.Authorization = `Bearer ${token}`;
+      console.log('🔑 Token agregado al request:', config.url);
+    }
+    
     // 🚨 FORZAR HTTPS SOLO en producción (Railway)
     if (process.env.NODE_ENV === 'production' && config.baseURL && config.baseURL.startsWith('http://')) {
       config.baseURL = config.baseURL.replace('http://', 'https://');

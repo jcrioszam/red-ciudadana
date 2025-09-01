@@ -73,7 +73,7 @@ export default function MapaReportesPublico() {
   const aplicarFiltros = async () => {
     try {
       setLoading(true);
-      let url = '/reportes-ciudadanos/publicos?';
+      let url = '/reportes-publicos?';
       
       if (filtros.tipo) url += `tipo=${filtros.tipo}&`;
       if (filtros.estado) url += `estado=${filtros.estado}&`;
