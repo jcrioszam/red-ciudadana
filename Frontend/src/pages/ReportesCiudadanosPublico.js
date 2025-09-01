@@ -827,7 +827,7 @@ const ReportesCiudadanosPublico = () => {
               <>
                 {obtenerTituloPorValor(formData.tipo)}
                 <span style={{ marginLeft: '8px' }}>
-                  {TIPOS_REPORTE.find(t => t.value === formData.tipo)?.icon || '📋'}
+                  {tiposReporte.find(t => t.value === formData.tipo)?.icon || '📋'}
                 </span>
               </>
             )}
