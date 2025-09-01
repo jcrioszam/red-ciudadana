@@ -13,7 +13,9 @@ import {
   FiSave,
   FiX,
   FiSearch,
-  FiFilter
+  FiFilter,
+  FiUpload,
+  FiCheck
 } from 'react-icons/fi';
 import api from '../api';
 
@@ -25,6 +27,9 @@ const AdminNoticias = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategoria, setFilterCategoria] = useState('');
   const [filterEstado, setFilterEstado] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [previewImage, setPreviewImage] = useState(null);
 
   // Estado del formulario
   const [formData, setFormData] = useState({
@@ -96,6 +101,8 @@ const AdminNoticias = () => {
       boton_texto: ''
     });
     setEditingNoticia(null);
+    setSelectedFile(null);
+    setPreviewImage(null);
   };
 
   // Abrir formulario para crear
@@ -183,6 +190,57 @@ const AdminNoticias = () => {
       await cargarNoticias();
     } catch (error) {
       console.error('Error al cambiar destacada:', error);
+    }
+  };
+
+  // Manejar selección de archivo
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setSelectedFile(file);
+      
+      // Crear preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setPreviewImage(e.target.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Subir imagen
+  const uploadImage = async () => {
+    if (!selectedFile) return;
+    
+    try {
+      setUploadingImage(true);
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      
+      const response = await api.post('/admin/upload-image/', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      
+      if (response.data.success) {
+        // Actualizar el formulario con la URL de la imagen
+        setFormData(prev => ({
+          ...prev,
+          imagen_url: response.data.data.url
+        }));
+        
+        // Limpiar estados
+        setSelectedFile(null);
+        setPreviewImage(null);
+        
+        alert('Imagen subida exitosamente');
+      }
+    } catch (error) {
+      console.error('Error al subir imagen:', error);
+      alert('Error al subir la imagen');
+    } finally {
+      setUploadingImage(false);
     }
   };
 
@@ -496,21 +554,82 @@ const AdminNoticias = () => {
                   />
                 </div>
 
-                {/* URL de imagen */}
+                {/* Subir imagen */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    URL de imagen
+                    Imagen de la noticia
                   </label>
-                  <div className="relative">
-                    <FiImage className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  
+                  {/* Preview de imagen actual */}
+                  {formData.imagen_url && !previewImage && (
+                    <div className="mb-4">
+                      <img
+                        src={formData.imagen_url}
+                        alt="Imagen actual"
+                        className="w-full h-32 object-cover rounded-lg border border-gray-300"
+                      />
+                    </div>
+                  )}
+                  
+                  {/* Preview de imagen seleccionada */}
+                  {previewImage && (
+                    <div className="mb-4">
+                      <img
+                        src={previewImage}
+                        alt="Preview"
+                        className="w-full h-32 object-cover rounded-lg border border-gray-300"
+                      />
+                    </div>
+                  )}
+                  
+                  {/* Selector de archivo */}
+                  <div className="space-y-3">
                     <input
-                      type="url"
-                      name="imagen_url"
-                      value={formData.imagen_url}
-                      onChange={handleInputChange}
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="https://ejemplo.com/imagen.jpg"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileSelect}
+                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                     />
+                    
+                    {/* Botón de subir */}
+                    {selectedFile && (
+                      <button
+                        type="button"
+                        onClick={uploadImage}
+                        disabled={uploadingImage}
+                        className="inline-flex items-center px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                      >
+                        {uploadingImage ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                            Subiendo...
+                          </>
+                        ) : (
+                          <>
+                            <FiUpload className="w-4 h-4 mr-2" />
+                            Subir Imagen
+                          </>
+                        )}
+                      </button>
+                    )}
+                    
+                    {/* URL manual como alternativa */}
+                    <div className="mt-4 pt-4 border-t border-gray-200">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        O ingresa URL manualmente
+                      </label>
+                      <div className="relative">
+                        <FiImage className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                        <input
+                          type="url"
+                          name="imagen_url"
+                          value={formData.imagen_url}
+                          onChange={handleInputChange}
+                          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="https://ejemplo.com/imagen.jpg"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
 
