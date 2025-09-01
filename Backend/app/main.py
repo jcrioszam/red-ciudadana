@@ -3192,24 +3192,7 @@ async def update_reporte_ciudadano(
     
     return reporte
 
-@app.delete("/reportes-ciudadanos/{reporte_id}")
-async def delete_reporte_ciudadano(reporte_id: int, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
-    """Eliminar un reporte ciudadano"""
-    reporte = db.query(ReporteCiudadanoModel).filter(ReporteCiudadanoModel.id == reporte_id).first()
-
-    if not reporte:
-        raise HTTPException(status_code=404, detail="Reporte no encontrado")
-
-    # Verificar permisos
-    if current_user.rol not in ['admin', 'presidente', 'lider_estatal', 'lider_municipal'] and reporte.ciudadano_id != current_user.id:
-        raise HTTPException(status_code=403, detail="No puedes eliminar este reporte")
-
-    # Soft delete
-    reporte.activo = False
-    reporte.fecha_actualizacion = datetime.now()
-    db.commit()
-
-    return {"message": "Reporte eliminado exitosamente"}
+# Endpoint duplicado eliminado - se mantiene solo el de abajo
 
 @app.get("/reportes-ciudadanos/estados/")
 async def get_estados_reportes(db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
@@ -3290,20 +3273,29 @@ async def update_reporte_ciudadano_estado(
 @app.delete("/reportes-ciudadanos/{reporte_id}")
 async def delete_reporte_ciudadano(reporte_id: int, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
     """Eliminar un reporte ciudadano"""
+    print(f"🗑️ DELETE REPORTE: Usuario {current_user.id} ({current_user.rol}) intentando eliminar reporte {reporte_id}")
+    
     reporte = db.query(ReporteCiudadanoModel).filter(ReporteCiudadanoModel.id == reporte_id).first()
 
     if not reporte:
+        print(f"❌ DELETE REPORTE: Reporte {reporte_id} no encontrado")
         raise HTTPException(status_code=404, detail="Reporte no encontrado")
+
+    print(f"✅ DELETE REPORTE: Reporte {reporte_id} encontrado, ciudadano_id: {reporte.ciudadano_id}")
 
     # Verificar permisos
     if current_user.rol not in ['admin', 'presidente', 'lider_estatal', 'lider_municipal'] and reporte.ciudadano_id != current_user.id:
+        print(f"❌ DELETE REPORTE: Usuario {current_user.id} no tiene permisos para eliminar reporte {reporte_id}")
         raise HTTPException(status_code=403, detail="No puedes eliminar este reporte")
+
+    print(f"✅ DELETE REPORTE: Permisos verificados, procediendo con eliminación")
 
     # Soft delete
     reporte.activo = False
     reporte.fecha_actualizacion = datetime.now()
     db.commit()
 
+    print(f"✅ DELETE REPORTE: Reporte {reporte_id} eliminado exitosamente")
     return {"message": "Reporte eliminado exitosamente"}
 
 # ✅ ELIMINADO: Endpoint duplicado /reportes-ciudadanos-con-foto/ que causaba conflicto CORS
