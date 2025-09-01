@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MapaInteractivo from '../components/MapaInteractivo';
 import api from '../api';
+import { TIPOS_REPORTE, obtenerTituloPorValor } from '../constants/reportTypes';
 
 // 🎯 FLUJO DE LÍNEA DE TIEMPO PARA REPORTES CIUDADANOS PÚBLICOS
 const ReportesCiudadanosPublico = () => {
@@ -37,14 +38,7 @@ const ReportesCiudadanosPublico = () => {
 
   // 🔧 FUNCIÓN: Generar título automático basado en tipo
   const generarTitulo = (tipo) => {
-    const titulos = {
-      'dano_via_publica': 'Reporte de Daño en Vía Pública',
-      'servicios_publicos': 'Reporte de Servicios Públicos',
-      'seguridad': 'Reporte de Seguridad',
-      'limpieza': 'Reporte de Limpieza',
-      'otro': 'Reporte Ciudadano'
-    };
-    return titulos[tipo] || 'Reporte Ciudadano';
+    return obtenerTituloPorValor(tipo) || 'Reporte Ciudadano';
   };
 
   // 🔧 FUNCIÓN: Convertir archivo a Base64
@@ -348,13 +342,7 @@ const ReportesCiudadanosPublico = () => {
         maxWidth: '800px',
         margin: '0 auto'
       }}>
-        {[
-          { value: 'dano_via_publica', icon: '🚧', title: 'Daño Vía Pública', desc: 'Baches, señales dañadas, etc.' },
-          { value: 'servicios_publicos', icon: '🚰', title: 'Servicios Públicos', desc: 'Agua, luz, drenaje' },
-          { value: 'seguridad', icon: '🚨', title: 'Seguridad', desc: 'Situaciones de riesgo' },
-          { value: 'limpieza', icon: '🧹', title: 'Limpieza', desc: 'Basura, espacios sucios' },
-          { value: 'otro', icon: '📋', title: 'Otro', desc: 'Otros problemas ciudadanos' }
-        ].map((tipo) => (
+        {TIPOS_REPORTE.map((tipo) => (
           <button
             key={tipo.value}
             onClick={() => {
@@ -794,11 +782,14 @@ const ReportesCiudadanosPublico = () => {
         <div style={{ marginBottom: '15px' }}>
           <strong style={{ color: '#374151' }}>Tipo:</strong>
           <div style={{ color: '#6b7280', marginTop: '5px' }}>
-            {formData.tipo === 'dano_via_publica' && '🚧 Daño Vía Pública'}
-            {formData.tipo === 'servicios_publicos' && '🚰 Servicios Públicos'}
-            {formData.tipo === 'seguridad' && '🚨 Seguridad'}
-            {formData.tipo === 'limpieza' && '🧹 Limpieza'}
-            {formData.tipo === 'otro' && '📋 Otro'}
+            {formData.tipo && (
+              <>
+                {obtenerTituloPorValor(formData.tipo)}
+                <span style={{ marginLeft: '8px' }}>
+                  {TIPOS_REPORTE.find(t => t.value === formData.tipo)?.icon || '📋'}
+                </span>
+              </>
+            )}
           </div>
         </div>
 
