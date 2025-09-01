@@ -58,11 +58,18 @@ from .schemas_noticias import Noticia, NoticiaCreate, NoticiaUpdate
 from .schemas_reportes import ReporteCiudadano, ReporteCiudadanoCreate, ReporteCiudadanoUpdate
 
 # Crear las tablas en la base de datos
-Base.metadata.create_all(bind=engine)
-
-# Importar y crear tabla de noticias específicamente
-from .models_noticias import Base as NoticiasBase
-NoticiasBase.metadata.create_all(bind=engine)
+try:
+    print("🚀 Creando tablas de base de datos...")
+    Base.metadata.create_all(bind=engine)
+    print("✅ Tablas principales creadas")
+    
+    # Importar y crear tabla de noticias específicamente
+    from .models_noticias import Base as NoticiasBase
+    NoticiasBase.metadata.create_all(bind=engine)
+    print("✅ Tabla de noticias creada")
+except Exception as e:
+    print(f"❌ Error al crear tablas: {e}")
+    # Continuar aunque haya error en las tablas
 
 # Crear directorio para imágenes si no existe
 UPLOAD_DIR = "uploads/images"
@@ -473,7 +480,30 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "service": "Red Ciudadana API", "platform": "Railway", "cors": "working", "timestamp": "2024-12-28", "version": "1.0"}
+    try:
+        # Verificar conexión a base de datos
+        db = SessionLocal()
+        db.execute("SELECT 1")
+        db.close()
+        
+        return {
+            "status": "healthy", 
+            "service": "Red Ciudadana API", 
+            "platform": "Railway", 
+            "cors": "working", 
+            "database": "connected",
+            "timestamp": "2024-12-28", 
+            "version": "1.0"
+        }
+    except Exception as e:
+        return {
+            "status": "unhealthy", 
+            "service": "Red Ciudadana API", 
+            "platform": "Railway", 
+            "error": str(e),
+            "timestamp": "2024-12-28", 
+            "version": "1.0"
+        }
 
 @app.options("/login")
 async def login_options():
