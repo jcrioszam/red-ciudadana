@@ -3728,7 +3728,7 @@ async def obtener_reportes_ciudadanos_publicos(
 
 @app.get("/tipos-reporte/")
 async def obtener_tipos_reporte():
-    """Obtener todos los tipos de reporte disponibles"""
+    """Obtener todos los tipos de reporte activos disponibles"""
     try:
         from .constants import obtener_tipos_reporte_formateados
         tipos = obtener_tipos_reporte_formateados()
@@ -3740,6 +3740,71 @@ async def obtener_tipos_reporte():
     except Exception as e:
         print(f"❌ ERROR al obtener tipos de reporte: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error al obtener tipos de reporte: {str(e)}")
+
+@app.get("/admin/tipos-reporte/")
+async def obtener_todos_tipos_reporte():
+    """Obtener TODOS los tipos de reporte (activos e inactivos) para administración"""
+    try:
+        from .constants import obtener_todos_tipos_reporte
+        tipos = obtener_todos_tipos_reporte()
+        return {
+            "success": True,
+            "data": tipos,
+            "total": len(tipos)
+        }
+    except Exception as e:
+        print(f"❌ ERROR al obtener todos los tipos de reporte: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al obtener todos los tipos de reporte: {str(e)}")
+
+@app.put("/admin/tipos-reporte/{tipo_valor}/activar")
+async def activar_tipo_reporte(
+    tipo_valor: str,
+    activo: bool = True,
+    db: Session = Depends(get_db)
+):
+    """Activar o desactivar un tipo de reporte"""
+    try:
+        from .constants import activar_tipo_reporte, obtener_todos_tipos_reporte
+        
+        # Verificar que el tipo existe
+        tipos = obtener_todos_tipos_reporte()
+        tipo_existe = any(tipo["valor"] == tipo_valor for tipo in tipos)
+        
+        if not tipo_existe:
+            raise HTTPException(status_code=404, detail=f"Tipo de reporte '{tipo_valor}' no encontrado")
+        
+        # Activar/desactivar el tipo
+        activar_tipo_reporte(tipo_valor, activo)
+        
+        # Obtener el tipo actualizado
+        tipo_actualizado = next((tipo for tipo in tipos if tipo["valor"] == tipo_valor), None)
+        
+        return {
+            "success": True,
+            "message": f"Tipo de reporte '{tipo_valor}' {'activado' if activo else 'desactivado'} exitosamente",
+            "data": tipo_actualizado
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ ERROR al activar/desactivar tipo de reporte: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al activar/desactivar tipo de reporte: {str(e)}")
+
+@app.get("/tipos-reporte/categorias/")
+async def obtener_tipos_por_categoria():
+    """Obtener tipos de reporte agrupados por categoría"""
+    try:
+        from .constants import obtener_tipos_por_categoria
+        categorias = obtener_tipos_por_categoria()
+        return {
+            "success": True,
+            "data": categorias,
+            "total_categorias": len(categorias)
+        }
+    except Exception as e:
+        print(f"❌ ERROR al obtener tipos por categoría: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al obtener tipos por categoría: {str(e)}")
 
 @app.get("/estados-reporte/")
 async def obtener_estados_reporte():

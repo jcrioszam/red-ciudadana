@@ -1,32 +1,94 @@
 # Constantes para el sistema de reportes ciudadanos
 
-# Tipos de reporte disponibles
-TIPOS_REPORTE = [
-    "tala_arboles_ecologia",      # 🌳 Tala de árboles/ecología
-    "basura_alumbrado",           # 🗑️ Basura/alumbrado
-    "transporte_urbano_rutas",    # 🚌 Transporte urbano/rutas
-    "agua_potable_drenaje",       # 💧 Agua potable/drenaje
-    "policia_accidentes_delitos", # 🚔 Policía/accidentes/delitos
-    "otro_queja_sugerencia",      # ❓ Otro/queja/sugerencia
-    "baches_banqueta_invadida",   # 🔧 Baches/banqueta invadida
-    "transito_vialidad",          # 🚦 Tránsito, vialidad
-    "citas_presidente_otros",     # 🏁 Citas con presidente/otros
-    "obras_publicas_navojoa"      # 🏠 Obras Públicas en Navojoa
+# Tipos de reporte disponibles con estado activo
+TIPOS_REPORTE_CONFIG = [
+    {
+        "valor": "tala_arboles_ecologia",
+        "nombre": "Tala de árboles/Ecología",
+        "icono": "🌳",
+        "descripcion": "Problemas ambientales, tala de árboles, etc.",
+        "activo": True,
+        "categoria": "medio_ambiente"
+    },
+    {
+        "valor": "basura_alumbrado",
+        "nombre": "Basura/Alumbrado",
+        "icono": "🗑️",
+        "descripcion": "Recolección de basura, alumbrado público, etc.",
+        "activo": True,
+        "categoria": "servicios_publicos"
+    },
+    {
+        "valor": "transporte_urbano_rutas",
+        "nombre": "Transporte urbano/Rutas",
+        "icono": "🚌",
+        "descripcion": "Problemas con transporte público, rutas, etc.",
+        "activo": True,
+        "categoria": "transporte"
+    },
+    {
+        "valor": "agua_potable_drenaje",
+        "nombre": "Agua potable/Drenaje",
+        "icono": "💧",
+        "descripcion": "Problemas con agua potable, drenaje, etc.",
+        "activo": True,
+        "categoria": "servicios_publicos"
+    },
+    {
+        "valor": "policia_accidentes_delitos",
+        "nombre": "Policía/Accidentes/Delitos",
+        "icono": "🚔",
+        "descripcion": "Reportes de seguridad, accidentes, delitos, etc.",
+        "activo": True,
+        "categoria": "seguridad"
+    },
+    {
+        "valor": "otro_queja_sugerencia",
+        "nombre": "Otro/Queja/Sugerencia",
+        "icono": "❓",
+        "descripcion": "Otros problemas, quejas o sugerencias",
+        "activo": True,
+        "categoria": "general"
+    },
+    {
+        "valor": "baches_banqueta_invadida",
+        "nombre": "Baches/Banqueta invadida",
+        "icono": "🔧",
+        "descripcion": "Baches en calles, banquetas invadidas, etc.",
+        "activo": True,
+        "categoria": "vialidad"
+    },
+    {
+        "valor": "transito_vialidad",
+        "nombre": "Tránsito/Vialidad",
+        "icono": "🚦",
+        "descripcion": "Problemas de tránsito, semáforos, vialidad, etc.",
+        "activo": True,
+        "categoria": "vialidad"
+    },
+    {
+        "valor": "citas_presidente_otros",
+        "nombre": "Citas con presidente/Otros",
+        "icono": "🏁",
+        "descripcion": "Solicitudes de citas con autoridades, etc.",
+        "activo": False,  # 🔧 DESACTIVADO por defecto
+        "categoria": "administrativo"
+    },
+    {
+        "valor": "obras_publicas_navojoa",
+        "nombre": "Obras Públicas en Navojoa",
+        "icono": "🏠",
+        "descripcion": "Problemas con obras públicas municipales",
+        "activo": True,
+        "categoria": "obras_publicas"
+    }
 ]
 
-# Mapeo de tipos a nombres legibles
-TIPOS_REPORTE_NAMES = {
-    "tala_arboles_ecologia": "Tala de árboles/Ecología",
-    "basura_alumbrado": "Basura/Alumbrado",
-    "transporte_urbano_rutas": "Transporte urbano/Rutas",
-    "agua_potable_drenaje": "Agua potable/Drenaje",
-    "policia_accidentes_delitos": "Policía/Accidentes/Delitos",
-    "otro_queja_sugerencia": "Otro/Queja/Sugerencia",
-    "baches_banqueta_invadida": "Baches/Banqueta invadida",
-    "transito_vialidad": "Tránsito/Vialidad",
-    "citas_presidente_otros": "Citas con presidente/Otros",
-    "obras_publicas_navojoa": "Obras Públicas en Navojoa"
-}
+# Lista de tipos activos (para compatibilidad)
+TIPOS_REPORTE = [tipo["valor"] for tipo in TIPOS_REPORTE_CONFIG if tipo["activo"]]
+
+# Mapeo de tipos a nombres legibles (solo activos)
+TIPOS_REPORTE_NAMES = {tipo["valor"]: tipo["nombre"] for tipo in TIPOS_REPORTE_CONFIG if tipo["activo"]}
 
 # Estados de reporte
 ESTADOS_REPORTE = [
@@ -47,7 +109,7 @@ PRIORIDADES_REPORTE = [
 
 # Validación de tipos de reporte
 def es_tipo_reporte_valido(tipo: str) -> bool:
-    """Verifica si un tipo de reporte es válido"""
+    """Verifica si un tipo de reporte es válido y está activo"""
     return tipo in TIPOS_REPORTE
 
 def obtener_nombre_tipo_reporte(tipo: str) -> str:
@@ -55,28 +117,47 @@ def obtener_nombre_tipo_reporte(tipo: str) -> str:
     return TIPOS_REPORTE_NAMES.get(tipo, tipo)
 
 def obtener_tipos_reporte_formateados():
-    """Retorna los tipos de reporte con formato para el frontend"""
+    """Retorna los tipos de reporte activos con formato para el frontend"""
     return [
         {
-            "valor": tipo,
-            "nombre": nombre,
-            "icono": obtener_icono_tipo(tipo)
+            "valor": tipo["valor"],
+            "nombre": tipo["nombre"],
+            "icono": tipo["icono"],
+            "categoria": tipo["categoria"],
+            "descripcion": tipo["descripcion"]
         }
-        for tipo, nombre in TIPOS_REPORTE_NAMES.items()
+        for tipo in TIPOS_REPORTE_CONFIG if tipo["activo"]
     ]
+
+def obtener_todos_tipos_reporte():
+    """Retorna TODOS los tipos de reporte (activos e inactivos) para administración"""
+    return TIPOS_REPORTE_CONFIG
+
+def obtener_tipos_por_categoria():
+    """Retorna los tipos agrupados por categoría"""
+    categorias = {}
+    for tipo in TIPOS_REPORTE_CONFIG:
+        if tipo["activo"]:
+            if tipo["categoria"] not in categorias:
+                categorias[tipo["categoria"]] = []
+            categorias[tipo["categoria"]].append(tipo)
+    return categorias
+
+def activar_tipo_reporte(valor: str, activo: bool = True):
+    """Activa o desactiva un tipo de reporte"""
+    for tipo in TIPOS_REPORTE_CONFIG:
+        if tipo["valor"] == valor:
+            tipo["activo"] = activo
+            break
+    
+    # Actualizar listas derivadas
+    global TIPOS_REPORTE, TIPOS_REPORTE_NAMES
+    TIPOS_REPORTE = [tipo["valor"] for tipo in TIPOS_REPORTE_CONFIG if tipo["activo"]]
+    TIPOS_REPORTE_NAMES = {tipo["valor"]: tipo["nombre"] for tipo in TIPOS_REPORTE_CONFIG if tipo["activo"]}
 
 def obtener_icono_tipo(tipo: str) -> str:
     """Retorna el emoji/icono correspondiente al tipo de reporte"""
-    iconos = {
-        "tala_arboles_ecologia": "🌳",
-        "basura_alumbrado": "🗑️",
-        "transporte_urbano_rutas": "🚌",
-        "agua_potable_drenaje": "💧",
-        "policia_accidentes_delitos": "🚔",
-        "otro_queja_sugerencia": "❓",
-        "baches_banqueta_invadida": "🔧",
-        "transito_vialidad": "🚦",
-        "citas_presidente_otros": "🏁",
-        "obras_publicas_navojoa": "🏠"
-    }
-    return iconos.get(tipo, "📋")
+    for config in TIPOS_REPORTE_CONFIG:
+        if config["valor"] == tipo:
+            return config["icono"]
+    return "📋"
