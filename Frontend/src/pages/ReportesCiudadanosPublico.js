@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MapaInteractivo from '../components/MapaInteractivo';
 import api from '../api';
-import { TIPOS_REPORTE, obtenerTituloPorValor } from '../constants/reportTypes';
+import { obtenerTituloPorValor } from '../constants/reportTypes';
 
 // 🎯 FLUJO DE LÍNEA DE TIEMPO PARA REPORTES CIUDADANOS PÚBLICOS
 const ReportesCiudadanosPublico = () => {
@@ -31,10 +31,40 @@ const ReportesCiudadanosPublico = () => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   
+  // 🆕 NUEVO: Estado para tipos de reporte desde API
+  const [tiposReporte, setTiposReporte] = useState([]);
+  const [loadingTipos, setLoadingTipos] = useState(true);
+  
   const [mensaje, setMensaje] = useState('');
   const [loading, setLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const navigate = useNavigate();
+
+  // 🆕 NUEVO: Cargar tipos de reporte desde la API
+  const cargarTiposReporte = async () => {
+    try {
+      setLoadingTipos(true);
+      const response = await api.get('/tipos-reporte/');
+      setTiposReporte(response.data.data);
+      console.log('✅ Tipos de reporte cargados:', response.data.data);
+    } catch (error) {
+      console.error('❌ Error al cargar tipos de reporte:', error);
+      // Fallback a tipos estáticos si falla la API
+      setTiposReporte([
+        { value: 'tala_arboles_ecologia', icon: '🌳', title: 'Tala de árboles/Ecología', desc: 'Problemas ambientales, tala de árboles, etc.' },
+        { value: 'basura_alumbrado', icon: '🗑️', title: 'Basura/Alumbrado', desc: 'Recolección de basura, alumbrado público, etc.' },
+        { value: 'transporte_urbano_rutas', icon: '🚌', title: 'Transporte urbano/Rutas', desc: 'Problemas con transporte público, rutas, etc.' },
+        { value: 'agua_potable_drenaje', icon: '💧', title: 'Agua potable/Drenaje', desc: 'Problemas con agua potable, drenaje, etc.' },
+        { value: 'policia_accidentes_delitos', icon: '🚔', title: 'Policía/Accidentes/Delitos', desc: 'Reportes de seguridad, accidentes, delitos, etc.' },
+        { value: 'otro_queja_sugerencia', icon: '❓', title: 'Otro/Queja/Sugerencia', desc: 'Otros problemas, quejas o sugerencias' },
+        { value: 'baches_banqueta_invadida', icon: '🔧', title: 'Baches/Banqueta invadida', desc: 'Baches en calles, banquetas invadidas, etc.' },
+        { value: 'transito_vialidad', icon: '🚦', title: 'Tránsito/Vialidad', desc: 'Problemas de tránsito, semáforos, vialidad, etc.' },
+        { value: 'obras_publicas_navojoa', icon: '🏠', title: 'Obras Públicas en Navojoa', desc: 'Problemas con obras públicas municipales' }
+      ]);
+    } finally {
+      setLoadingTipos(false);
+    }
+  };
 
   // 🔧 FUNCIÓN: Generar título automático basado en tipo
   const generarTitulo = (tipo) => {
@@ -50,6 +80,11 @@ const ReportesCiudadanosPublico = () => {
       reader.onerror = error => reject(error);
     });
   };
+
+  // 🆕 NUEVO: Cargar tipos de reporte al montar el componente
+  useEffect(() => {
+    cargarTiposReporte();
+  }, []);
 
   // 🗺️ Función para obtener ubicación GPS actual
   const getCurrentLocation = () => {
@@ -342,7 +377,12 @@ const ReportesCiudadanosPublico = () => {
         maxWidth: '800px',
         margin: '0 auto'
       }}>
-        {TIPOS_REPORTE.map((tipo) => (
+        {loadingTipos ? (
+          <div style={{ textAlign: 'center', gridColumn: '1 / -1', padding: '40px' }}>
+            <div>🔄 Cargando tipos de reporte...</div>
+          </div>
+        ) : (
+          tiposReporte.map((tipo) => (
           <button
             key={tipo.value}
             onClick={() => {
@@ -377,7 +417,8 @@ const ReportesCiudadanosPublico = () => {
               {tipo.desc}
             </div>
           </button>
-        ))}
+        ))
+        )}
       </div>
     </div>
   );
