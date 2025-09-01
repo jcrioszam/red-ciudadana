@@ -2,7 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import LandingPage from './pages/LandingPage';
+import Home from './pages/Home';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Personas from './pages/Personas';
@@ -65,7 +65,7 @@ function App() {
         <Router>
           <Routes>
             {/* Rutas públicas */}
-            <Route path="/" element={<LandingPage />} />
+            <Route path="/" element={<Home />} />
             <Route path="/reportes-ciudadanos" element={<ReportesCiudadanosPublico />} />
             <Route path="/lista-reportes" element={<ListaReportesPublica />} />
             <Route path="/mapa-reportes-publico" element={<MapaReportesPublico />} />
