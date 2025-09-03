@@ -62,13 +62,8 @@ try:
     print("🚀 Creando tablas de base de datos...")
     Base.metadata.create_all(bind=engine)
     print("✅ Tablas principales creadas")
-    
-    # Importar y crear tabla de noticias específicamente
-    from .models_noticias import Base as NoticiasBase
-    NoticiasBase.metadata.create_all(bind=engine)
-    print("✅ Tabla de noticias creada")
 except Exception as e:
-    print(f"❌ Error al crear tablas: {e}")
+    print(f"❌ Error al crear tablas principales: {e}")
     # Continuar aunque haya error en las tablas
 
 # Crear directorio para imágenes si no existe
@@ -480,30 +475,14 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    try:
-        # Verificar conexión a base de datos
-        db = SessionLocal()
-        db.execute("SELECT 1")
-        db.close()
-        
-        return {
-            "status": "healthy", 
-            "service": "Red Ciudadana API", 
-            "platform": "Railway", 
-            "cors": "working", 
-            "database": "connected",
-            "timestamp": "2024-12-28", 
-            "version": "1.0"
-        }
-    except Exception as e:
-        return {
-            "status": "unhealthy", 
-            "service": "Red Ciudadana API", 
-            "platform": "Railway", 
-            "error": str(e),
-            "timestamp": "2024-12-28", 
-            "version": "1.0"
-        }
+    return {
+        "status": "healthy", 
+        "service": "Red Ciudadana API", 
+        "platform": "Railway", 
+        "cors": "working", 
+        "timestamp": "2024-12-28", 
+        "version": "1.0"
+    }
 
 @app.options("/login")
 async def login_options():

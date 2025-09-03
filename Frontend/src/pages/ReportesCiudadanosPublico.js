@@ -25,6 +25,9 @@ const ReportesCiudadanosPublico = () => {
   // 🗺️ Estado para ubicación seleccionada en mapa
   const [selectedLocation, setSelectedLocation] = useState(null);
   
+  // 🆕 NUEVO: Estado para confirmación de ubicación GPS
+  const [gpsLocation, setGpsLocation] = useState(null);
+  
   // 📸 Estado para funcionalidad de cámara
   const [showCamera, setShowCamera] = useState(false);
   const [cameraStream, setCameraStream] = useState(null);
@@ -105,21 +108,13 @@ const ReportesCiudadanosPublico = () => {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { latitude, longitude } = position.coords;
-          setFormData(prev => ({
-            ...prev,
-            latitud: latitude,
-            longitud: longitude,
-          }));
           
+          // 🆕 NUEVO: Guardar ubicación GPS y ir a confirmación
+          setGpsLocation({ lat: latitude, lng: longitude });
           setSelectedLocation({ lat: latitude, lng: longitude });
           setLoading(false);
-          setMensaje('✅ Ubicación GPS obtenida exitosamente');
-          
-          // Avanzar al siguiente paso después de 2 segundos
-          setTimeout(() => {
-            setMensaje('');
-            setCurrentStep(3);
-          }, 2000);
+          setMensaje('');
+          setCurrentStep(2.6); // Ir al paso de confirmación GPS
         },
         (error) => {
           console.error('Error GPS:', error);
@@ -144,6 +139,23 @@ const ReportesCiudadanosPublico = () => {
         setCurrentStep(2.5);
       }, 2000);
     }
+  };
+
+  // 🆕 NUEVA FUNCIÓN: Confirmar ubicación GPS
+  const confirmGpsLocation = () => {
+    if (gpsLocation) {
+      setFormData(prev => ({
+        ...prev,
+        latitud: gpsLocation.lat,
+        longitud: gpsLocation.lng,
+      }));
+      setCurrentStep(3); // Ir a paso de foto
+    }
+  };
+
+  // 🆕 NUEVA FUNCIÓN: Ajustar ubicación GPS
+  const adjustGpsLocation = () => {
+    setCurrentStep(2.5); // Volver al paso de selección de ubicación
   };
 
   // 🗺️ Función para manejar selección de ubicación en mapa
@@ -357,12 +369,13 @@ const ReportesCiudadanosPublico = () => {
     }
   };
 
-  // 🎯 FLUJO CON MAPA Y FOTO - 5 PASOS TOTAL
+  // 🎯 FLUJO CON MAPA Y FOTO - 6 PASOS TOTAL
   const renderStepContent = () => {
     switch (currentStep) {
       case 1: return renderTipoReporte();
       case 2: return renderDescripcion();
       case 2.5: return renderUbicacion(); // 🆕 NUEVO: Paso de ubicación (mapa/GPS)
+      case 2.6: return renderLocationConfirmation(); // 🆕 NUEVO: Paso de confirmación GPS
       case 3: return renderFoto(); // 🆕 NUEVO: Paso de foto
       case 4: return renderResumen();
       case 5: return renderAgradecimiento();
@@ -492,6 +505,97 @@ const ReportesCiudadanosPublico = () => {
           }}
         >
           Continuar →
+        </button>
+      </div>
+    </div>
+  );
+
+  // 🆕 NUEVO PASO: Confirmación de ubicación GPS
+  const renderLocationConfirmation = () => (
+    <div style={{ textAlign: 'center', padding: '20px' }}>
+      <h2 style={{ color: '#374151', marginBottom: '10px' }}>
+        📍 Confirma tu ubicación detectada
+      </h2>
+      <p style={{ color: '#6b7280', marginBottom: '20px' }}>
+        Hemos detectado tu ubicación actual. ¿Es correcta o quieres ajustarla?
+      </p>
+
+      {/* 🗺️ Mapa con ubicación GPS */}
+      <div style={{ marginTop: '20px' }}>
+        <MapaInteractivo
+          onLocationSelect={handleLocationSelect}
+          selectedLocation={gpsLocation}
+          modo="seleccion"
+          center={gpsLocation ? [gpsLocation.lat, gpsLocation.lng] : [19.4326, -99.1332]}
+          zoom={16}
+        />
+      </div>
+
+      {/* 📍 Información de ubicación GPS */}
+      {gpsLocation && (
+        <div style={{
+          marginTop: '20px',
+          padding: '15px',
+          backgroundColor: '#fef3c7',
+          border: '2px solid #f59e0b',
+          borderRadius: '8px',
+          maxWidth: '400px',
+          margin: '20px auto 0'
+        }}>
+          <h3 style={{ color: '#f59e0b', marginBottom: '10px' }}>
+            📍 Ubicación GPS detectada
+          </h3>
+          <p style={{ margin: '5px 0', fontSize: '14px' }}>
+            <strong>Latitud:</strong> {gpsLocation.lat.toFixed(6)}
+          </p>
+          <p style={{ margin: '5px 0', fontSize: '14px' }}>
+            <strong>Longitud:</strong> {gpsLocation.lng.toFixed(6)}
+          </p>
+        </div>
+      )}
+
+      {/* 🔘 Botones de acción */}
+      <div style={{ 
+        display: 'flex', 
+        gap: '15px', 
+        justifyContent: 'center', 
+        marginTop: '20px',
+        flexWrap: 'wrap'
+      }}>
+        <button
+          onClick={confirmGpsLocation}
+          style={{
+            backgroundColor: '#10b981',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            padding: '12px 24px',
+            fontSize: '16px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}
+        >
+          ✅ Sí, es correcta - Continuar
+        </button>
+
+        <button
+          onClick={adjustGpsLocation}
+          style={{
+            backgroundColor: '#6b7280',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            padding: '12px 24px',
+            fontSize: '16px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}
+        >
+          🔧 Ajustar ubicación
         </button>
       </div>
     </div>
