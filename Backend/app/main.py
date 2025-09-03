@@ -477,6 +477,10 @@ async def root():
 
 @app.get("/health")
 async def health_check():
+    return {"status": "ok"}
+
+@app.get("/health-detailed")
+async def health_check_detailed():
     try:
         return {
             "status": "healthy", 
