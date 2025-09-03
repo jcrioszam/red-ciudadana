@@ -28,9 +28,13 @@ async def list_tipos_reporte():
             {"id": 1, "valor": "tala_arboles_ecologia", "nombre": "Tala de árboles/Ecología", "icono": "🌳", "descripcion": "Problemas ambientales, tala de árboles, etc.", "categoria": "ecologia"},
             {"id": 2, "valor": "basura_alumbrado", "nombre": "Basura/Alumbrado", "icono": "🗑️", "descripcion": "Recolección de basura, alumbrado público, etc.", "categoria": "servicios"},
             {"id": 3, "valor": "transporte_urbano_rutas", "nombre": "Transporte urbano/Rutas", "icono": "🚌", "descripcion": "Problemas con transporte público, rutas, etc.", "categoria": "transporte"},
-            {"id": 4, "valor": "agua_drenaje", "nombre": "Agua/Drenaje", "icono": "💧", "descripcion": "Fugas de agua, problemas de drenaje, etc.", "categoria": "servicios"},
-            {"id": 5, "valor": "seguridad_publica", "nombre": "Seguridad Pública", "icono": "🚨", "descripcion": "Problemas de seguridad, iluminación, etc.", "categoria": "seguridad"},
-            {"id": 6, "valor": "vialidades_baches", "nombre": "Vialidades/Baches", "icono": "🕳️", "descripcion": "Baches, semáforos, señalización, etc.", "categoria": "vialidades"}
+            {"id": 4, "valor": "agua_potable_drenaje", "nombre": "Agua potable/Drenaje", "icono": "💧", "descripcion": "Problemas con agua potable, drenaje, etc.", "categoria": "servicios"},
+            {"id": 5, "valor": "policia_accidentes_delitos", "nombre": "Policía/Accidentes/Delitos", "icono": "🚔", "descripcion": "Reportes de seguridad, accidentes, delitos, etc.", "categoria": "seguridad"},
+            {"id": 6, "valor": "otro_queja_sugerencia", "nombre": "Otro/Queja/Sugerencia", "icono": "❓", "descripcion": "Otros problemas, quejas o sugerencias", "categoria": "general"},
+            {"id": 7, "valor": "baches_banqueta_invadida", "nombre": "Baches/Banqueta invadida", "icono": "🔧", "descripcion": "Baches en calles, banquetas invadidas, etc.", "categoria": "vialidades"},
+            {"id": 8, "valor": "transito_vialidad", "nombre": "Tránsito/Vialidad", "icono": "🚦", "descripcion": "Problemas de tránsito, semáforos, vialidad, etc.", "categoria": "vialidades"},
+            {"id": 9, "valor": "citas_presidente_otros", "nombre": "Citas con presidente/Otros", "icono": "🏁", "descripcion": "Solicitudes de citas con autoridades, etc.", "categoria": "administracion"},
+            {"id": 10, "valor": "obras_publicas_navojoa", "nombre": "Obras Públicas en Navojoa", "icono": "🏠", "descripcion": "Problemas con obras públicas municipales", "categoria": "obras"}
         ]
     }
 
