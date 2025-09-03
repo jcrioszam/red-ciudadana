@@ -473,14 +473,21 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    return {
-        "status": "healthy", 
-        "service": "Red Ciudadana API", 
-        "platform": "Railway", 
-        "cors": "working", 
-        "timestamp": "2024-12-28", 
-        "version": "1.0"
-    }
+    try:
+        return {
+            "status": "healthy", 
+            "service": "Red Ciudadana API", 
+            "platform": "Railway", 
+            "cors": "working", 
+            "timestamp": "2024-12-28", 
+            "version": "1.0"
+        }
+    except Exception as e:
+        return {
+            "status": "unhealthy",
+            "error": str(e),
+            "service": "Red Ciudadana API"
+        }
 
 @app.options("/login")
 async def login_options():
