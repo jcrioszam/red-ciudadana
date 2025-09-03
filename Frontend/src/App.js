@@ -66,7 +66,8 @@ function App() {
           <Routes>
             {/* Rutas públicas */}
             <Route path="/" element={<Home />} />
-            <Route path="/reportes-ciudadanos" element={<ReportesCiudadanosPublico />} />
+            <Route path="/reportes-publico" element={<ReportesCiudadanosPublico />} />
+            <Route path="/reportes-ciudadanos" element={<ReportesCiudadanos />} />
             <Route path="/lista-reportes" element={<ListaReportesPublica />} />
             <Route path="/mapa-reportes-publico" element={<MapaReportesPublico />} />
             <Route path="/mapa-reportes" element={<MapaReportes />} />
