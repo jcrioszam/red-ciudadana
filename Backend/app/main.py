@@ -278,13 +278,17 @@ def migrate_foto_url_auto():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 🔧 NUEVO: Ejecutar migración automática al iniciar
-    print("🚀 Iniciando migración automática de base de datos...")
-    migrate_foto_url_auto()
+    print("🚀 Iniciando aplicación Red Ciudadana...")
+    # Inicialización simplificada para evitar bloqueos
     yield
+    print("🛑 Cerrando aplicación Red Ciudadana...")
 
-# Crear usuarios iniciales al iniciar
-create_initial_users()
+# Crear usuarios iniciales al iniciar (en background para no bloquear startup)
+try:
+    create_initial_users()
+except Exception as e:
+    print(f"⚠️ Error creando usuarios iniciales: {e}")
+    print("⚠️ Continuando sin usuarios iniciales...")
 
 app = FastAPI(
     title="Red Ciudadana API",
