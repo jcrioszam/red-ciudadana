@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import MapaInteractivoSimple from '../components/MapaInteractivoSimple';
+import MapaBasico from '../components/MapaBasico';
 import api from '../api';
 import { obtenerTituloPorValor } from '../constants/reportTypes';
 
@@ -522,7 +522,7 @@ const ReportesCiudadanosPublico = () => {
 
       {/* 🗺️ Mapa con ubicación GPS */}
       <div style={{ marginTop: '20px' }}>
-        <MapaInteractivoSimple
+        <MapaBasico
           onLocationSelect={handleLocationSelect}
           selectedLocation={gpsLocation}
           modo="seleccion"
@@ -656,7 +656,7 @@ const ReportesCiudadanosPublico = () => {
 
       {/* 🗺️ Mapa interactivo */}
       <div style={{ marginTop: '20px' }}>
-        <MapaInteractivoSimple
+        <MapaBasico
           onLocationSelect={handleLocationSelect}
           selectedLocation={selectedLocation}
           modo="seleccion"

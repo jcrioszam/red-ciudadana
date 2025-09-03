@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
-import MapaInteractivoSimple from '../components/MapaInteractivoSimple';
+import MapaBasico from '../components/MapaBasico';
 import api from '../api'; // ✅ IMPORTAR INSTANCIA API CON EXPORT DEFAULT
 
 // 🎯 FLUJO DE LÍNEA DE TIEMPO PARA REPORTES CIUDADANOS
@@ -443,7 +443,7 @@ const ReportesCiudadanos = () => {
 
       {/* 🗺️ Mapa con ubicación GPS */}
       <div style={{ marginTop: '20px' }}>
-        <MapaInteractivoSimple
+        <MapaBasico
           onLocationSelect={handleLocationSelect}
           selectedLocation={gpsLocation}
           modo="seleccion"
@@ -577,7 +577,7 @@ const ReportesCiudadanos = () => {
 
       {/* 🗺️ Mapa interactivo */}
       <div style={{ marginTop: '20px' }}>
-        <MapaInteractivoSimple
+        <MapaBasico
           onLocationSelect={handleLocationSelect}
           selectedLocation={selectedLocation}
           modo="seleccion"
