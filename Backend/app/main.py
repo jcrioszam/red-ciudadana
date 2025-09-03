@@ -283,12 +283,7 @@ async def lifespan(app: FastAPI):
     yield
     print("🛑 Cerrando aplicación Red Ciudadana...")
 
-# Crear usuarios iniciales al iniciar (en background para no bloquear startup)
-try:
-    create_initial_users()
-except Exception as e:
-    print(f"⚠️ Error creando usuarios iniciales: {e}")
-    print("⚠️ Continuando sin usuarios iniciales...")
+# Los usuarios iniciales se crearán en el lifespan
 
 app = FastAPI(
     title="Red Ciudadana API",
