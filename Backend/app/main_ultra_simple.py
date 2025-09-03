@@ -53,6 +53,41 @@ async def get_noticias_banner(limit: int = 5):
         ]
     }
 
+@app.get("/reportes-publicos")
+async def listar_reportes_publicos():
+    return {
+        "data": [
+            {
+                "id": 1,
+                "titulo": "Bache en calle principal",
+                "descripcion": "Bache grande en la calle principal que necesita reparación urgente",
+                "tipo": "baches_banqueta_invadida",
+                "latitud": 27.0706,
+                "longitud": -109.4437,
+                "direccion": "Calle Principal, Navojoa",
+                "prioridad": "alta",
+                "estado": "pendiente",
+                "fecha_creacion": "2025-01-03T10:30:00Z",
+                "es_publico": True,
+                "fotos": []
+            },
+            {
+                "id": 2,
+                "titulo": "Problema de alumbrado",
+                "descripcion": "Poste de luz dañado en el parque central",
+                "tipo": "basura_alumbrado",
+                "latitud": 27.0710,
+                "longitud": -109.4440,
+                "direccion": "Parque Central, Navojoa",
+                "prioridad": "normal",
+                "estado": "en_revision",
+                "fecha_creacion": "2025-01-02T15:45:00Z",
+                "es_publico": True,
+                "fotos": []
+            }
+        ]
+    }
+
 @app.post("/reportes-ciudadanos/publico")
 async def crear_reporte_ciudadano_publico(
     titulo: str = Form(...),
