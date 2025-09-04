@@ -148,16 +148,21 @@ async def listar_reportes_publicos():
             for foto_row in cursor.fetchall():
                 # Intentar usar la URL original de la BD primero
                 url_original = foto_row[2]
+                print(f"🔍 Reporte {reporte_id}: URL original = {url_original}")
+                
                 if url_original and not url_original.startswith('http'):
                     # Si es una ruta relativa, construir URL completa
                     foto_url_absoluta = f"https://red-ciudadana-production.up.railway.app{url_original}"
                 else:
                     foto_url_absoluta = url_original
                 
+                print(f"🔍 Reporte {reporte_id}: URL construida = {foto_url_absoluta}")
+                
                 # Verificar si la imagen existe, si no, usar imagen de ejemplo
                 try:
                     import requests
                     response = requests.head(foto_url_absoluta, timeout=2)
+                    print(f"🔍 Reporte {reporte_id}: Status code = {response.status_code}")
                     if response.status_code != 200:
                         # Si no existe, usar imagen de ejemplo basada en el ID del reporte
                         imagenes_ejemplo = [
@@ -166,14 +171,19 @@ async def listar_reportes_publicos():
                         ]
                         imagen_index = reporte_id % len(imagenes_ejemplo)
                         foto_url_absoluta = f"https://red-ciudadana-production.up.railway.app/uploads/{imagenes_ejemplo[imagen_index]}"
-                except:
+                        print(f"🔍 Reporte {reporte_id}: Usando imagen de ejemplo = {foto_url_absoluta}")
+                    else:
+                        print(f"✅ Reporte {reporte_id}: Usando imagen real = {foto_url_absoluta}")
+                except Exception as e:
                     # Si hay error, usar imagen de ejemplo
+                    print(f"❌ Reporte {reporte_id}: Error verificando imagen: {e}")
                     imagenes_ejemplo = [
                         "ejemplo1.jpg", "ejemplo2.jpg", "ejemplo3.jpg", 
                         "ejemplo4.jpg", "ejemplo5.jpg", "ejemplo6.jpg"
                     ]
                     imagen_index = reporte_id % len(imagenes_ejemplo)
                     foto_url_absoluta = f"https://red-ciudadana-production.up.railway.app/uploads/{imagenes_ejemplo[imagen_index]}"
+                    print(f"🔍 Reporte {reporte_id}: Usando imagen de ejemplo por error = {foto_url_absoluta}")
                 
                 fotos_data.append({
                     "id": foto_row[0],
