@@ -145,17 +145,36 @@ async def listar_reportes_publicos():
             """, (reporte_id,))
             
             fotos_data = []
-            # Lista de imágenes disponibles para mapear
-            imagenes_disponibles = [
-                "ejemplo1.jpg", "ejemplo2.jpg", "ejemplo3.jpg", 
-                "ejemplo4.jpg", "ejemplo5.jpg", "ejemplo6.jpg",
-                "reporte_30_images.jpeg", "reporte_31_images.jpeg", "reporte_32_images.jpeg"
-            ]
-            
-            for i, foto_row in enumerate(cursor.fetchall()):
-                # Usar imagen disponible basada en el índice del reporte
-                imagen_index = reporte_id % len(imagenes_disponibles)
-                foto_url_absoluta = f"https://red-ciudadana-production.up.railway.app/uploads/{imagenes_disponibles[imagen_index]}"
+            for foto_row in cursor.fetchall():
+                # Intentar usar la URL original de la BD primero
+                url_original = foto_row[2]
+                if url_original and not url_original.startswith('http'):
+                    # Si es una ruta relativa, construir URL completa
+                    foto_url_absoluta = f"https://red-ciudadana-production.up.railway.app{url_original}"
+                else:
+                    foto_url_absoluta = url_original
+                
+                # Verificar si la imagen existe, si no, usar imagen de ejemplo
+                try:
+                    import requests
+                    response = requests.head(foto_url_absoluta, timeout=2)
+                    if response.status_code != 200:
+                        # Si no existe, usar imagen de ejemplo basada en el ID del reporte
+                        imagenes_ejemplo = [
+                            "ejemplo1.jpg", "ejemplo2.jpg", "ejemplo3.jpg", 
+                            "ejemplo4.jpg", "ejemplo5.jpg", "ejemplo6.jpg"
+                        ]
+                        imagen_index = reporte_id % len(imagenes_ejemplo)
+                        foto_url_absoluta = f"https://red-ciudadana-production.up.railway.app/uploads/{imagenes_ejemplo[imagen_index]}"
+                except:
+                    # Si hay error, usar imagen de ejemplo
+                    imagenes_ejemplo = [
+                        "ejemplo1.jpg", "ejemplo2.jpg", "ejemplo3.jpg", 
+                        "ejemplo4.jpg", "ejemplo5.jpg", "ejemplo6.jpg"
+                    ]
+                    imagen_index = reporte_id % len(imagenes_ejemplo)
+                    foto_url_absoluta = f"https://red-ciudadana-production.up.railway.app/uploads/{imagenes_ejemplo[imagen_index]}"
+                
                 fotos_data.append({
                     "id": foto_row[0],
                     "nombre_archivo": foto_row[1],
