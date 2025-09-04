@@ -29,23 +29,24 @@ export default function MapaReportesPublico() {
       console.log('🔍 Cargando reportes públicos...');
       const response = await api.get('/reportes-publicos');
       console.log('✅ Reportes cargados:', response.data);
-      console.log('📊 Cantidad de reportes:', response.data.length);
+      const reportesData = response.data.data || [];
+      console.log('📊 Cantidad de reportes:', reportesData.length);
       
-      if (response.data.length > 0) {
+      if (reportesData.length > 0) {
         console.log('📍 Primer reporte:', {
-          latitud: response.data[0].latitud,
-          longitud: response.data[0].longitud,
-          titulo: response.data[0].titulo
+          latitud: reportesData[0].latitud,
+          longitud: reportesData[0].longitud,
+          titulo: reportesData[0].titulo
         });
         
         // 🔧 NUEVO: Logging detallado del primer reporte
-        console.log('🔍 ESTRUCTURA COMPLETA del primer reporte:', response.data[0]);
-        console.log('📸 ¿Tiene fotos?', response.data[0].fotos);
-        console.log('📸 ¿Tiene flag tiene_foto?', response.data[0].tiene_foto);
-        console.log('📸 Array de fotos:', response.data[0].fotos);
+        console.log('🔍 ESTRUCTURA COMPLETA del primer reporte:', reportesData[0]);
+        console.log('📸 ¿Tiene fotos?', reportesData[0].fotos);
+        console.log('📸 ¿Tiene flag tiene_foto?', reportesData[0].tiene_foto);
+        console.log('📸 Array de fotos:', reportesData[0].fotos);
         
         // 🔧 NUEVO: Verificar todos los reportes que tienen fotos
-        const reportesConFotos = response.data.filter(r => r.fotos && r.fotos.length > 0);
+        const reportesConFotos = reportesData.filter(r => r.fotos && r.fotos.length > 0);
         console.log('📸 Reportes con fotos:', reportesConFotos.length);
         console.log('📸 Detalles de reportes con fotos:', reportesConFotos);
         
@@ -60,7 +61,7 @@ export default function MapaReportesPublico() {
         });
       }
       
-      setReportes(response.data);
+      setReportes(reportesData);
       setError(null);
     } catch (error) {
       console.error('Error al cargar reportes:', error);
