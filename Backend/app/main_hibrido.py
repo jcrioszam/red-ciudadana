@@ -146,7 +146,8 @@ async def listar_reportes_publicos():
             
             fotos_data = []
             for foto_row in cursor.fetchall():
-                foto_url_absoluta = f"https://red-ciudadana-production.up.railway.app{foto_row[2]}"
+                # Usar imagen de ejemplo disponible en lugar de URL de BD
+                foto_url_absoluta = f"https://red-ciudadana-production.up.railway.app/uploads/ejemplo1.jpg"
                 fotos_data.append({
                     "id": foto_row[0],
                     "nombre_archivo": foto_row[1],
