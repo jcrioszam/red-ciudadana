@@ -106,8 +106,29 @@ async def listar_reportes_publicos():
         
         reportes = []
         for row in cursor.fetchall():
+            reporte_id = row[0]
+            
+            # Obtener fotos para este reporte
+            cursor.execute("""
+                SELECT id, nombre_archivo, url, tipo, fecha_creacion
+                FROM fotos_reportes 
+                WHERE id_reporte = %s AND activo = true
+                ORDER BY fecha_creacion ASC
+            """, (reporte_id,))
+            
+            fotos_data = []
+            for foto_row in cursor.fetchall():
+                foto_url_absoluta = f"https://red-ciudadana-production.up.railway.app{foto_row[2]}"
+                fotos_data.append({
+                    "id": foto_row[0],
+                    "nombre_archivo": foto_row[1],
+                    "url": foto_url_absoluta,
+                    "tipo": foto_row[3],
+                    "fecha_creacion": foto_row[4].isoformat() if foto_row[4] else "2025-01-01T00:00:00Z"
+                })
+            
             reporte = {
-                "id": row[0],
+                "id": reporte_id,
                 "titulo": row[1],
                 "descripcion": row[2],
                 "tipo": row[3],
@@ -118,7 +139,7 @@ async def listar_reportes_publicos():
                 "estado": row[8] or "pendiente",
                 "fecha_creacion": row[9].isoformat() if row[9] else "2025-01-01T00:00:00Z",
                 "es_publico": bool(row[10]),
-                "fotos": []  # Por ahora sin fotos
+                "fotos": fotos_data
             }
             reportes.append(reporte)
         
@@ -126,6 +147,7 @@ async def listar_reportes_publicos():
         conn.close()
         
         print(f"📊 Reportes reales obtenidos: {len(reportes)}")
+        print(f"📸 Total de fotos: {sum(len(r['fotos']) for r in reportes)}")
         return {"data": reportes}
         
     except Exception as e:
