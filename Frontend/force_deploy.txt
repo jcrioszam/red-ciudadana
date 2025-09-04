@@ -1,0 +1,1 @@
+Forzar deployment del frontend con fix de .filter()
