@@ -257,23 +257,87 @@ async def crear_reporte_ciudadano_publico(
     print(f"📍 Ubicación: {latitud}, {longitud}")
     print(f"📷 Foto: {'Sí' if foto else 'No'}")
     
-    # Por ahora solo devolver éxito sin guardar en BD
-    return {
-        "message": "Reporte creado exitosamente",
-        "reporte_id": 12345,
-        "status": "success",
-        "data": {
-            "titulo": titulo,
-            "descripcion": descripcion,
-            "tipo": tipo,
-            "latitud": latitud,
-            "longitud": longitud,
-            "direccion": direccion,
-            "prioridad": prioridad,
-            "es_publico": es_publico,
-            "foto": "adjunta" if foto else "sin_foto"
+    try:
+        # Conectar a la base de datos
+        conn = psycopg2.connect(
+            host=os.getenv("DATABASE_HOST"),
+            database=os.getenv("DATABASE_NAME"),
+            user=os.getenv("DATABASE_USER"),
+            password=os.getenv("DATABASE_PASSWORD"),
+            port=os.getenv("DATABASE_PORT", 5432)
+        )
+        cursor = conn.cursor()
+        
+        # Insertar reporte en la base de datos
+        cursor.execute("""
+            INSERT INTO reportes_ciudadanos 
+            (titulo, descripcion, tipo, latitud, longitud, direccion, prioridad, estado, es_publico, fecha_creacion)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+            RETURNING id
+        """, (titulo, descripcion, tipo, latitud, longitud, direccion, prioridad, "pendiente", es_publico == "true"))
+        
+        reporte_id = cursor.fetchone()[0]
+        print(f"✅ Reporte guardado con ID: {reporte_id}")
+        
+        # Procesar foto si existe
+        foto_url = None
+        if foto and foto.filename:
+            # Crear directorio uploads si no existe
+            os.makedirs("uploads", exist_ok=True)
+            
+            # Generar nombre único para el archivo
+            import uuid
+            file_extension = os.path.splitext(foto.filename)[1]
+            unique_filename = f"reporte_{reporte_id}_{uuid.uuid4().hex}{file_extension}"
+            file_path = os.path.join("uploads", unique_filename)
+            
+            # Guardar archivo
+            with open(file_path, "wb") as buffer:
+                content = await foto.read()
+                buffer.write(content)
+            
+            # Construir URL
+            foto_url = f"/uploads/{unique_filename}"
+            print(f"📸 Foto guardada: {foto_url}")
+            
+            # Guardar información de la foto en la base de datos
+            cursor.execute("""
+                INSERT INTO fotos_reportes 
+                (reporte_id, nombre_archivo, url, tipo, fecha_creacion)
+                VALUES (%s, %s, %s, %s, NOW())
+            """, (reporte_id, foto.filename, foto_url, foto.content_type))
+            
+            print(f"✅ Foto guardada en BD con URL: {foto_url}")
+        
+        # Confirmar transacción
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        return {
+            "message": "Reporte creado exitosamente",
+            "reporte_id": reporte_id,
+            "status": "success",
+            "data": {
+                "titulo": titulo,
+                "descripcion": descripcion,
+                "tipo": tipo,
+                "latitud": latitud,
+                "longitud": longitud,
+                "direccion": direccion,
+                "prioridad": prioridad,
+                "es_publico": es_publico,
+                "foto": foto_url if foto_url else "sin_foto"
+            }
         }
-    }
+        
+    except Exception as e:
+        print(f"❌ Error creando reporte: {e}")
+        return {
+            "message": "Error al crear reporte",
+            "status": "error",
+            "error": str(e)
+        }
 
 if __name__ == "__main__":
     import uvicorn
