@@ -1,0 +1,1 @@
+Forzar deployment de Railway con backend híbrido y reportes reales
