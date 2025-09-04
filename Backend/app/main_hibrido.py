@@ -40,6 +40,30 @@ async def root():
 async def health_check():
     return {"status": "ok"}
 
+@app.get("/debug/uploads")
+async def debug_uploads():
+    """Debug endpoint para verificar archivos en uploads"""
+    try:
+        uploads_dir = "uploads"
+        if os.path.exists(uploads_dir):
+            files = os.listdir(uploads_dir)
+            return {
+                "status": "ok",
+                "uploads_dir": uploads_dir,
+                "files": files,
+                "count": len(files)
+            }
+        else:
+            return {
+                "status": "error",
+                "message": "Directorio uploads no existe"
+            }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+
 @app.get("/tipos-reporte/")
 async def list_tipos_reporte():
     return {
