@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 
 const MapaBasico = ({ onLocationSelect, selectedLocation }) => {
+  console.log('🗺️ MapaBasico renderizando con props:', { onLocationSelect: !!onLocationSelect, selectedLocation });
+  
   const [coordenadas, setCoordenadas] = useState({
     lat: 27.0706,
     lng: -109.4437
@@ -42,10 +44,12 @@ const MapaBasico = ({ onLocationSelect, selectedLocation }) => {
   return (
     <div style={{ 
       width: '100%', 
+      minHeight: '400px',
       padding: '20px',
       border: '2px solid #e5e7eb',
       borderRadius: '8px',
-      backgroundColor: '#f9fafb'
+      backgroundColor: '#f9fafb',
+      margin: '10px 0'
     }}>
       <h3 style={{ marginTop: 0, marginBottom: '15px', color: '#374151' }}>
         📍 Seleccionar Ubicación
