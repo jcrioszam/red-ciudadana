@@ -1,11 +1,15 @@
 from fastapi import FastAPI, Form, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from typing import Optional
 import psycopg2
 import os
 import json
 
 app = FastAPI(title="Red Ciudadana API", version="1.0.0")
+
+# Montar archivos estáticos para servir imágenes
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # Configurar CORS
 app.add_middleware(
