@@ -77,7 +77,7 @@ export const AuthProvider = ({ children }) => {
       console.log('AuthContext: verificación completada, loading = false');
     };
     verifyToken();
-  }, [token]);
+  }, []); // 🔧 CORREGIDO: Remover dependencia [token] para evitar loops
 
   const login = async (identificador, password) => {
     try {
