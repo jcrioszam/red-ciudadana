@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
-import MapaBasico from '../components/MapaBasico';
+import MapaInteractivo from '../components/MapaInteractivo';
 import api from '../api'; // ✅ IMPORTAR INSTANCIA API CON EXPORT DEFAULT
 
 // 🎯 FLUJO DE LÍNEA DE TIEMPO PARA REPORTES CIUDADANOS
@@ -443,11 +443,11 @@ const ReportesCiudadanos = () => {
 
       {/* 🗺️ Mapa con ubicación GPS */}
       <div style={{ marginTop: '20px' }}>
-        <MapaBasico
+        <MapaInteractivo
           onLocationSelect={handleLocationSelect}
           selectedLocation={gpsLocation}
           modo="seleccion"
-          center={gpsLocation ? [gpsLocation.lat, gpsLocation.lng] : [19.4326, -99.1332]}
+          center={gpsLocation ? [gpsLocation.lat, gpsLocation.lng] : [27.0706, -109.4437]}
           zoom={16}
         />
       </div>
@@ -560,7 +560,10 @@ const ReportesCiudadanos = () => {
         </button>
 
         <button
-          onClick={() => setCurrentStep(3)}
+          onClick={() => {
+            // El mapa ya está visible en este paso, no necesitamos cambiar de paso
+            console.log('🗺️ Mapa ya visible en el paso actual');
+          }}
           style={{
             backgroundColor: '#6b7280',
             color: 'white',
@@ -577,11 +580,11 @@ const ReportesCiudadanos = () => {
 
       {/* 🗺️ Mapa interactivo */}
       <div style={{ marginTop: '20px' }}>
-        <MapaBasico
+        <MapaInteractivo
           onLocationSelect={handleLocationSelect}
           selectedLocation={selectedLocation}
           modo="seleccion"
-          center={[19.4326, -99.1332]} // México City
+          center={[27.0706, -109.4437]} // Navojoa, Sonora
           zoom={12}
         />
       </div>
@@ -609,22 +612,46 @@ const ReportesCiudadanos = () => {
         </div>
       )}
 
-      {/* 🔙 Botón para regresar */}
-      <button
-        onClick={() => setCurrentStep(2)}
-        style={{
-          backgroundColor: '#6b7280',
-          color: 'white',
-          border: 'none',
-          borderRadius: '8px',
-          padding: '10px 20px',
-          fontSize: '14px',
-          cursor: 'pointer',
-          marginTop: '20px'
-        }}
-      >
-        🔙 Regresar
-      </button>
+      {/* 🔘 Botones de navegación */}
+      <div style={{ 
+        display: 'flex', 
+        gap: '15px', 
+        justifyContent: 'center', 
+        marginTop: '20px',
+        flexWrap: 'wrap'
+      }}>
+        <button
+          onClick={() => setCurrentStep(2)}
+          style={{
+            backgroundColor: '#6b7280',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            padding: '10px 20px',
+            fontSize: '14px',
+            cursor: 'pointer'
+          }}
+        >
+          🔙 Regresar
+        </button>
+
+        {selectedLocation && (
+          <button
+            onClick={() => setCurrentStep(3)}
+            style={{
+              backgroundColor: '#8b5cf6',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '10px 20px',
+              fontSize: '14px',
+              cursor: 'pointer'
+            }}
+          >
+            Continuar →
+          </button>
+        )}
+      </div>
     </div>
   );
 
