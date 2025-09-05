@@ -256,7 +256,8 @@ class FotoReporte(Base):
     nombre_archivo = Column(String(255), nullable=False)
     tipo = Column(String(100), nullable=False)  # MIME type
     tamaño = Column(Integer, nullable=False)  # en bytes
-    url = Column(String(500), nullable=False)
+    url = Column(String(500), nullable=True)  # URL opcional para archivos externos
+    contenido_base64 = Column(Text, nullable=True)  # 🔧 NUEVO: Contenido de la imagen en base64
     fecha_creacion = Column(DateTime, default=func.now())
     activo = Column(Boolean, default=True)
     

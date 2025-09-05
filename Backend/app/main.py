@@ -1,6 +1,7 @@
 
 
 
+
 print('🚨🚨🚨 LOGS SUPER AGRESIVOS AGREGADOS AL ENDPOINT /reportes-ciudadanos/ 🚨🚨🚨')
 print('🚨🚨🚨 LOGS SUPER AGRESIVOS AGREGADOS AL ENDPOINT /reportes-ciudadanos/ 🚨🚨🚨')
 print('🚨🚨🚨 LOGS SUPER AGRESIVOS AGREGADOS AL ENDPOINT /reportes-ciudadanos/ 🚨🚨🚨')
@@ -3624,30 +3625,26 @@ async def crear_reporte_ciudadano_publico(
         
         # Procesar foto si se proporcionó
         if foto and foto.size > 0:
-            # 🔧 NUEVO: Crear directorio de uploads si no existe
-            import os
-            upload_dir = "uploads"
-            if not os.path.exists(upload_dir):
-                os.makedirs(upload_dir)
+            # 🔧 NUEVO: Convertir imagen a base64 para almacenamiento en BD
+            import base64
             
-            # Guardar la foto físicamente
+            # Leer contenido de la foto
             contenido = await foto.read()
             nombre_archivo = f"reporte_{db_reporte.id}_{foto.filename}"
-            file_path = os.path.join(upload_dir, nombre_archivo)
             
-            # 🔧 NUEVO: Escribir archivo al sistema de archivos
-            with open(file_path, "wb") as f:
-                f.write(contenido)
+            # Convertir a base64
+            contenido_base64 = base64.b64encode(contenido).decode('utf-8')
             
-            print(f"✅ Foto guardada físicamente en: {file_path}")
+            print(f"✅ Foto convertida a base64, tamaño: {len(contenido_base64)} caracteres")
             
-            # Crear registro de foto en la base de datos
+            # Crear registro de foto en la base de datos con base64
             foto_data = {
                 "id_reporte": db_reporte.id,
                 "nombre_archivo": nombre_archivo,
                 "tipo": foto.content_type,
                 "tamaño": foto.size,
-                "url": f"/uploads/{nombre_archivo}"  # URL relativa para la BD
+                "url": None,  # No usamos URL para archivos base64
+                "contenido_base64": contenido_base64  # 🔧 NUEVO: Almacenar en base64
             }
             
             # Crear registro de foto en la base de datos
@@ -3655,7 +3652,7 @@ async def crear_reporte_ciudadano_publico(
             db.add(db_foto)
             db.commit()
             
-            print(f"✅ Registro de foto guardado en BD: {foto_data}")
+            print(f"✅ Registro de foto guardado en BD con base64: {foto_data['nombre_archivo']}")
         
         return {
             "mensaje": "Reporte ciudadano creado exitosamente",
@@ -3719,12 +3716,21 @@ async def obtener_reportes_ciudadanos_publicos(
             # Formatear datos de fotos
             fotos_data = []
             for foto in fotos:
-                # 🔧 CORREGIR: Generar URL absoluta en lugar de relativa
-                foto_url_absoluta = f"https://red-ciudadana-production.up.railway.app{foto.url}"
+                # 🔧 NUEVO: Usar base64 si está disponible, sino URL
+                if foto.contenido_base64:
+                    # Usar base64 para mostrar la imagen
+                    foto_url = f"data:{foto.tipo};base64,{foto.contenido_base64}"
+                elif foto.url:
+                    # Usar URL absoluta como fallback
+                    foto_url = f"https://red-ciudadana-production.up.railway.app{foto.url}"
+                else:
+                    # Sin imagen
+                    foto_url = None
+                
                 fotos_data.append({
                     "id": foto.id,
                     "nombre_archivo": foto.nombre_archivo,
-                    "url": foto_url_absoluta,  # 🔧 URL absoluta
+                    "url": foto_url,  # 🔧 URL con base64 o URL absoluta
                     "tipo": foto.tipo,
                     "tamaño": foto.tamaño
                 })
@@ -3754,6 +3760,44 @@ async def obtener_reportes_ciudadanos_publicos(
         print(f"❌ ERROR en endpoint público: {str(e)}")
         print(f"❌ TIPO DE ERROR: {type(e)}")
         raise HTTPException(status_code=500, detail=f"Error al obtener reportes: {str(e)}")
+# ============================================================================
+# ENDPOINT PARA MIGRACIÓN DE BASE DE DATOS
+# ============================================================================
+
+@app.post("/migracion/agregar-columna-base64")
+async def agregar_columna_base64_migracion(db: Session = Depends(get_db)):
+    """Agregar columna contenido_base64 a la tabla fotos_reportes"""
+    try:
+        print("🔧 INICIANDO MIGRACIÓN: Agregar columna contenido_base64")
+        
+        # Verificar si la columna ya existe
+        result = db.execute(text("""
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'fotos_reportes' 
+            AND column_name = 'contenido_base64'
+        """))
+        
+        if result.fetchone():
+            print("✅ La columna 'contenido_base64' ya existe")
+            return {"mensaje": "La columna ya existe", "exito": True}
+        
+        # Agregar la columna
+        print("📝 Agregando columna 'contenido_base64'...")
+        db.execute(text("""
+            ALTER TABLE fotos_reportes 
+            ADD COLUMN contenido_base64 TEXT
+        """))
+        db.commit()
+        
+        print("✅ Columna 'contenido_base64' agregada exitosamente")
+        return {"mensaje": "Columna agregada exitosamente", "exito": True}
+        
+    except Exception as e:
+        print(f"❌ Error en migración: {str(e)}")
+        db.rollback()
+        return {"mensaje": f"Error: {str(e)}", "exito": False}
+
 # ============================================================================
 # ENDPOINTS PARA TIPOS DE REPORTE
 # ============================================================================
