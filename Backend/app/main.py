@@ -54,7 +54,7 @@ from sqlalchemy import func
 from .models import Comentario as ComentarioModel, ReporteCiudadano as ReporteCiudadanoModel, FotoReporte as FotoReporteModel
 from .models_noticias import Noticia as NoticiaModel
 from .schemas import Comentario, ComentarioCreate, ComentarioUpdate
-from .schemas_noticias import Noticia, NoticiaCreate, NoticiaUpdate
+from .schemas_noticias import NoticiaResponse as Noticia, NoticiaCreate, NoticiaUpdate
 from .schemas_reportes import ReporteCiudadano, ReporteCiudadanoCreate, ReporteCiudadanoUpdate
 
 # Crear las tablas en la base de datos
@@ -69,9 +69,6 @@ except Exception as e:
 # Crear directorio para imágenes si no existe
 UPLOAD_DIR = "uploads/images"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-# Montar archivos estáticos
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # Función para verificar y crear columnas faltantes
 def verificar_y_crear_columnas():
