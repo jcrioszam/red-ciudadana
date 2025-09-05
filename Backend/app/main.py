@@ -1,5 +1,6 @@
 
 
+
 print('🚨🚨🚨 LOGS SUPER AGRESIVOS AGREGADOS AL ENDPOINT /reportes-ciudadanos/ 🚨🚨🚨')
 print('🚨🚨🚨 LOGS SUPER AGRESIVOS AGREGADOS AL ENDPOINT /reportes-ciudadanos/ 🚨🚨🚨')
 print('🚨🚨🚨 LOGS SUPER AGRESIVOS AGREGADOS AL ENDPOINT /reportes-ciudadanos/ 🚨🚨🚨')
@@ -278,7 +279,8 @@ def migrate_foto_url_auto():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("🚀 Iniciando aplicación Red Ciudadana...")
-    # Inicialización simplificada para evitar bloqueos
+    # Crear usuarios iniciales si no existen
+    create_initial_users()
     yield
     print("🛑 Cerrando aplicación Red Ciudadana...")
 
