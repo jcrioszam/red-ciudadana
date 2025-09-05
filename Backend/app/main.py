@@ -3798,6 +3798,24 @@ async def agregar_columna_base64_migracion(db: Session = Depends(get_db)):
         db.rollback()
         return {"mensaje": f"Error: {str(e)}", "exito": False}
 
+@app.get("/migracion/ejecutar-sql")
+async def ejecutar_sql_migracion(sql: str, db: Session = Depends(get_db)):
+    """Ejecutar SQL directamente para migraciones"""
+    try:
+        print(f"🔧 EJECUTANDO SQL: {sql}")
+        
+        # Ejecutar SQL
+        result = db.execute(text(sql))
+        db.commit()
+        
+        print("✅ SQL ejecutado exitosamente")
+        return {"mensaje": "SQL ejecutado exitosamente", "exito": True}
+        
+    except Exception as e:
+        print(f"❌ Error ejecutando SQL: {str(e)}")
+        db.rollback()
+        return {"mensaje": f"Error: {str(e)}", "exito": False}
+
 # ============================================================================
 # ENDPOINTS PARA TIPOS DE REPORTE
 # ============================================================================
