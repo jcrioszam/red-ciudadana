@@ -29,7 +29,7 @@ export default function MapaReportesPublico() {
       console.log('🔍 Cargando reportes públicos...');
       const response = await api.get('/reportes-publicos');
       console.log('✅ Reportes cargados:', response.data);
-      const reportesData = response.data.data || [];
+      const reportesData = response.data || [];
       console.log('📊 Cantidad de reportes:', reportesData.length);
       
       if (reportesData.length > 0) {

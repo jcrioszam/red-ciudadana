@@ -50,7 +50,7 @@ const ReportesCiudadanosPublico = () => {
       const response = await api.get('/tipos-reporte/');
       
       // 🔧 TRANSFORMAR datos del backend al formato del frontend
-      const tiposTransformados = response.data.data.map(tipo => ({
+      const tiposTransformados = response.data.map(tipo => ({
         value: tipo.valor,
         title: tipo.nombre,
         icon: tipo.icono,
