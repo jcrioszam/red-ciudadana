@@ -86,7 +86,33 @@ const AdminPadron = () => {
     }
   );
 
-  // Mutación para subir archivo
+  // Mutación para probar archivo DBF
+  const testMutation = useMutation(
+    (formData) => api.post('/api/padron/test-dbf', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      timeout: 60000, // 1 minuto de timeout para prueba
+    }),
+    {
+      onSuccess: (response) => {
+        console.log('✅ Prueba DBF exitosa:', response.data);
+        setUploadMessage(`Archivo válido: ${response.data.total_records} registros encontrados. Campos: ${response.data.field_names?.join(', ')}`);
+        setUploadStatus('success');
+        // Si la prueba es exitosa, proceder con la importación real
+        if (response.data.success) {
+          handleRealImport();
+        }
+      },
+      onError: (error) => {
+        setUploadStatus('error');
+        console.error('Error probando archivo:', error);
+        setUploadMessage(`Error probando archivo: ${error.response?.data?.error || error.message}`);
+      }
+    }
+  );
+
+  // Mutación para subir archivo (importación real)
   const uploadMutation = useMutation(
     (formData) => api.post('/api/padron/importar-dbf', formData, {
       headers: {
@@ -104,6 +130,7 @@ const AdminPadron = () => {
         setUploadProgress(100);
         queryClient.invalidateQueries('estadisticas-padron');
         queryClient.invalidateQueries('metricas-movilizacion');
+        setUploadMessage(response.data.mensaje || 'Archivo subido exitosamente.');
         setTimeout(() => {
           setUploadStatus('');
           setUploadProgress(0);
@@ -116,6 +143,7 @@ const AdminPadron = () => {
       onError: (error) => {
         setUploadStatus('error');
         console.error('Error subiendo archivo:', error);
+        setUploadMessage(`Error subiendo archivo: ${error.response?.data?.detail || error.message}`);
       }
     }
   );
@@ -152,19 +180,30 @@ const AdminPadron = () => {
         setUploadFile(file);
         setUploadStatus('');
         setUploadProgress(0);
+        setUploadMessage('');
       } else {
         setUploadStatus('error');
-        alert('Por favor selecciona un archivo DBF válido');
+        setUploadMessage('Por favor selecciona un archivo DBF válido');
       }
     }
   };
 
+  const handleRealImport = () => {
+    if (!uploadFile) return;
+    
+    const formData = new FormData();
+    formData.append('file', uploadFile);
+    setUploadStatus('uploading');
+    uploadMutation.mutate(formData);
+  };
+
   const handleUpload = () => {
     if (uploadFile) {
+      // Primero probar el archivo
       const formData = new FormData();
       formData.append('file', uploadFile);
       setUploadStatus('uploading');
-      uploadMutation.mutate(formData);
+      testMutation.mutate(formData);
     }
   };
 
