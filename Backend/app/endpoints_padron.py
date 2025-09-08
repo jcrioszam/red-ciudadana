@@ -22,6 +22,73 @@ from .models import Usuario
 
 router = APIRouter()
 
+@router.post("/padron/test-dbf", response_model=dict)
+async def test_dbf_upload(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(require_admin)
+):
+    """Endpoint de prueba para diagnosticar problemas con archivos DBF"""
+    try:
+        print(f"📁 Archivo recibido: {file.filename}, tamaño: {file.size} bytes")
+        
+        if not file.filename or not file.filename.lower().endswith('.dbf'):
+            return {
+                "success": False,
+                "error": "El archivo debe ser un DBF",
+                "filename": file.filename
+            }
+        
+        # Leer archivo DBF
+        content = await file.read()
+        print(f"📖 Archivo leído: {len(content)} bytes")
+        
+        if len(content) == 0:
+            return {
+                "success": False,
+                "error": "El archivo está vacío"
+            }
+        
+        # Procesar DBF con manejo de errores mejorado
+        try:
+            with io.BytesIO(content) as f:
+                table = dbf.Table(f)
+                print(f"🗂️ Tabla DBF abierta: {len(table)} registros")
+                
+                # Obtener información de la estructura
+                field_names = [field.name for field in table.field_names]
+                print(f"📋 Campos disponibles: {field_names}")
+                
+                # Leer solo el primer registro para verificar estructura
+                first_record = None
+                if len(table) > 0:
+                    first_record = table[0]
+                    print(f"📄 Primer registro: {dict(first_record)}")
+                
+                return {
+                    "success": True,
+                    "total_records": len(table),
+                    "field_names": field_names,
+                    "first_record": dict(first_record) if first_record else None,
+                    "file_size": len(content)
+                }
+                
+        except Exception as dbf_error:
+            print(f"❌ Error procesando DBF: {str(dbf_error)}")
+            return {
+                "success": False,
+                "error": f"Error procesando archivo DBF: {str(dbf_error)}",
+                "error_type": type(dbf_error).__name__
+            }
+            
+    except Exception as e:
+        print(f"❌ Error general: {str(e)}")
+        return {
+            "success": False,
+            "error": f"Error general: {str(e)}",
+            "error_type": type(e).__name__
+        }
+
 @router.post("/padron/importar-dbf", response_model=dict)
 async def importar_padron_dbf(
     file: UploadFile = File(...),
