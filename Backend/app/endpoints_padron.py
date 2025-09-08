@@ -30,92 +30,113 @@ async def importar_padron_dbf(
 ):
     """Importar archivo DBF del padrón electoral"""
     try:
-        if not file.filename.endswith('.dbf'):
+        print(f"📁 Archivo recibido: {file.filename}, tamaño: {file.size} bytes")
+        
+        if not file.filename or not file.filename.lower().endswith('.dbf'):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="El archivo debe ser un DBF"
             )
         
-        # Leer archivo DBF en chunks para archivos grandes
+        # Leer archivo DBF
         content = await file.read()
+        print(f"📖 Archivo leído: {len(content)} bytes")
         
-        # Procesar DBF
-        with io.BytesIO(content) as f:
-            table = dbf.Table(f)
-            
-            registros_importados = 0
-            registros_duplicados = 0
-            errores = []
-            batch_size = 500  # Reducir tamaño de lote para archivos grandes
-            
-            print(f"🚀 Iniciando importación de {len(table)} registros...")
-            
-            for i, record in enumerate(table):
-                try:
-                    # Verificar si ya existe
-                    existing = db.query(PadronElectoral).filter(
-                        PadronElectoral.elector == record.ELECTOR
-                    ).first()
-                    
-                    if existing:
-                        registros_duplicados += 1
-                        continue
-                    
-                    # Crear nuevo registro
-                    padron_record = PadronElectoral(
-                        consecutivo=record.CONSECUTIV,
-                        elector=record.ELECTOR,
-                        fol_nac=record.FOL_NAC,
-                        ocr=record.OCR,
-                        ape_pat=record.APE_PAT,
-                        ape_mat=record.APE_MAT,
-                        nombre=record.NOMBRE,
-                        fnac=record.FNAC,
-                        edad=record.EDAD,
-                        sexo=record.SEXO,
-                        curp=record.CURP,
-                        ocupacion=record.OCUPACION,
-                        calle=record.CALLE,
-                        num_ext=record.NUM_EXT,
-                        num_int=record.NUM_INT,
-                        colonia=record.COLONIA,
-                        codpostal=record.CODPOSTAL,
-                        tiempres=record.TIEMPRES,
-                        entidad=record.ENTIDAD,
-                        distrito=record.DISTRITO,
-                        municipio=record.MUNICIPIO,
-                        seccion=record.SECCION,
-                        localidad=record.LOCALIDAD,
-                        manzana=record.MANZANA,
-                        en_ln=record.EN_LN,
-                        misioncr=record.MISIONCR
-                    )
-                    
-                    db.add(padron_record)
-                    registros_importados += 1
-                    
-                    # Commit cada batch_size registros para evitar memory issues
-                    if registros_importados % batch_size == 0:
-                        db.commit()
-                        print(f"📊 Procesados {registros_importados} registros...")
+        if len(content) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="El archivo está vacío"
+            )
+        
+        # Procesar DBF con manejo de errores mejorado
+        try:
+            with io.BytesIO(content) as f:
+                table = dbf.Table(f)
+                print(f"🗂️ Tabla DBF abierta: {len(table)} registros")
+                
+                registros_importados = 0
+                registros_duplicados = 0
+                errores = []
+                batch_size = 100  # Reducir aún más el batch size
+                
+                print(f"🚀 Iniciando importación de {len(table)} registros...")
+                
+                for i, record in enumerate(table):
+                    try:
+                        # Verificar si ya existe
+                        existing = db.query(PadronElectoral).filter(
+                            PadronElectoral.elector == record.ELECTOR
+                        ).first()
                         
-                except Exception as e:
-                    errores.append(f"Error en registro {record.CONSECUTIV}: {str(e)}")
-                    continue
+                        if existing:
+                            registros_duplicados += 1
+                            continue
+                        
+                        # Crear nuevo registro con validación de campos
+                        padron_record = PadronElectoral(
+                            consecutivo=getattr(record, 'CONSECUTIV', None),
+                            elector=getattr(record, 'ELECTOR', ''),
+                            fol_nac=getattr(record, 'FOL_NAC', None),
+                            ocr=getattr(record, 'OCR', None),
+                            ape_pat=getattr(record, 'APE_PAT', None),
+                            ape_mat=getattr(record, 'APE_MAT', None),
+                            nombre=getattr(record, 'NOMBRE', None),
+                            fnac=str(getattr(record, 'FNAC', '')) if getattr(record, 'FNAC', None) else None,
+                            edad=getattr(record, 'EDAD', None),
+                            sexo=getattr(record, 'SEXO', None),
+                            curp=getattr(record, 'CURP', None),
+                            ocupacion=getattr(record, 'OCUPACION', None),
+                            calle=getattr(record, 'CALLE', None),
+                            num_ext=getattr(record, 'NUM_EXT', None),
+                            num_int=getattr(record, 'NUM_INT', None),
+                            colonia=getattr(record, 'COLONIA', None),
+                            codpostal=getattr(record, 'CODPOSTAL', None),
+                            tiempres=getattr(record, 'TIEMPRES', None),
+                            entidad=getattr(record, 'ENTIDAD', None),
+                            distrito=getattr(record, 'DISTRITO', None),
+                            municipio=getattr(record, 'MUNICIPIO', None),
+                            seccion=getattr(record, 'SECCION', None),
+                            localidad=getattr(record, 'LOCALIDAD', None),
+                            manzana=getattr(record, 'MANZANA', None),
+                            en_ln=getattr(record, 'EN_LN', None),
+                            misioncr=getattr(record, 'MISIONCR', None)
+                        )
+                        
+                        db.add(padron_record)
+                        registros_importados += 1
+                        
+                        # Commit cada batch_size registros para evitar memory issues
+                        if registros_importados % batch_size == 0:
+                            db.commit()
+                            print(f"📊 Procesados {registros_importados} registros...")
+                            
+                    except Exception as e:
+                        errores.append(f"Error en registro {i+1}: {str(e)}")
+                        print(f"⚠️ Error en registro {i+1}: {str(e)}")
+                        continue
+                
+                # Commit final
+                db.commit()
+                print(f"✅ Importación completada: {registros_importados} registros")
+                
+                return {
+                    "success": True,
+                    "mensaje": "Importación completada",
+                    "registros_importados": registros_importados,
+                    "registros_duplicados": registros_duplicados,
+                    "errores": len(errores),
+                    "fecha_importacion": datetime.now().isoformat()
+                }
+                
+        except Exception as dbf_error:
+            print(f"❌ Error procesando DBF: {str(dbf_error)}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Error procesando archivo DBF: {str(dbf_error)}"
+            )
             
-            # Commit final
-            db.commit()
-            print(f"✅ Importación completada: {registros_importados} registros")
-            
-            return {
-                "success": True,
-                "mensaje": "Importación completada",
-                "registros_importados": registros_importados,
-                "registros_duplicados": registros_duplicados,
-                "errores": len(errores),
-                "fecha_importacion": datetime.now().isoformat()
-            }
-            
+    except HTTPException:
+        raise
     except Exception as e:
         db.rollback()
         print(f"❌ Error importando padrón: {str(e)}")
