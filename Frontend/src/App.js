@@ -30,6 +30,7 @@ import Layout from './components/Layout';
 import AdminDatabase from './components/AdminDatabase';
 import AdminTiposReporte from './components/AdminTiposReporte';
 import AdminNoticias from './components/AdminNoticias';
+import AdminPadron from './pages/AdminPadron';
 
 const queryClient = new QueryClient();
 
@@ -99,6 +100,7 @@ function App() {
               <Route path="/mapa-reportes-admin" element={<MapaReportes />} />
               <Route path="/seguimiento-reportes" element={<SeguimientoReportes />} />
               <Route path="/admin-database" element={<AdminDatabase />} />
+              <Route path="/admin-padron" element={<AdminPadron />} />
               {/* Rutas del submenú de Administración BD */}
               <Route path="/admin/database/stats" element={<AdminDatabase />} />
               <Route path="/admin/database/optimize" element={<AdminDatabase />} />

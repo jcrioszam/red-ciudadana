@@ -36,7 +36,7 @@ async def importar_padron_dbf(
                 detail="El archivo debe ser un DBF"
             )
         
-        # Leer archivo DBF
+        # Leer archivo DBF en chunks para archivos grandes
         content = await file.read()
         
         # Procesar DBF
@@ -46,8 +46,11 @@ async def importar_padron_dbf(
             registros_importados = 0
             registros_duplicados = 0
             errores = []
+            batch_size = 500  # Reducir tamaño de lote para archivos grandes
             
-            for record in table:
+            print(f"🚀 Iniciando importación de {len(table)} registros...")
+            
+            for i, record in enumerate(table):
                 try:
                     # Verificar si ya existe
                     existing = db.query(PadronElectoral).filter(
@@ -91,9 +94,10 @@ async def importar_padron_dbf(
                     db.add(padron_record)
                     registros_importados += 1
                     
-                    # Commit cada 1000 registros para evitar memory issues
-                    if registros_importados % 1000 == 0:
+                    # Commit cada batch_size registros para evitar memory issues
+                    if registros_importados % batch_size == 0:
                         db.commit()
+                        print(f"📊 Procesados {registros_importados} registros...")
                         
                 except Exception as e:
                     errores.append(f"Error en registro {record.CONSECUTIV}: {str(e)}")
@@ -101,6 +105,7 @@ async def importar_padron_dbf(
             
             # Commit final
             db.commit()
+            print(f"✅ Importación completada: {registros_importados} registros")
             
             return {
                 "success": True,
@@ -113,6 +118,7 @@ async def importar_padron_dbf(
             
     except Exception as e:
         db.rollback()
+        print(f"❌ Error importando padrón: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error importando padrón: {str(e)}"

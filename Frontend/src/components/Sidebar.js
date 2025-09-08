@@ -8,7 +8,7 @@ import api from '../api';
 import { useAuth } from '../contexts/AuthContext';
 
 const menu = [
-  { to: '/', label: 'Dashboard', icon: <FiHome /> },
+  { to: '/dashboard', label: 'Dashboard', icon: <FiHome /> },
   { to: '/usuarios', label: 'Usuarios', icon: <FiUsers /> },
   { to: '/personas', label: 'Personas', icon: <FiUserCheck /> },
   { to: '/eventos', label: 'Eventos', icon: <FiCalendar /> },
@@ -27,6 +27,7 @@ const menu = [
   { to: '/admin-dashboard', label: 'Administrar Dashboard', icon: <FiSettings /> },
   { to: '/admin-tipos-reporte', label: 'Administrar Tipos de Reporte', icon: <FiSettings /> },
   { to: '/admin-noticias', label: 'Administrar Noticias', icon: <FiFileText /> },
+  { to: '/admin-padron', label: 'Administrar Padrón Electoral', icon: <FiUsers /> },
   // NUEVA OPCIÓN CON SUBMENÚ:
   { 
     to: '/admin-database', 

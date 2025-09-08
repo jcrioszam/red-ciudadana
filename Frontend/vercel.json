@@ -10,6 +10,6 @@
     "REACT_APP_ENVIRONMENT": "production",
     "REACT_APP_BACKEND_URL": "https://red-ciudadana-production.up.railway.app"
   },
-  "buildCommand": "npm run build-production",
+  "buildCommand": "npm run build",
   "outputDirectory": "build"
 }
