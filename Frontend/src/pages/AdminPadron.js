@@ -86,6 +86,16 @@ const AdminPadron = () => {
     }
   );
 
+  // Función para importación real
+  const handleRealImport = () => {
+    if (!uploadFile) return;
+    
+    const formData = new FormData();
+    formData.append('file', uploadFile);
+    setUploadStatus('uploading');
+    uploadMutation.mutate(formData);
+  };
+
   // Mutación para probar archivo DBF
   const testMutation = useMutation(
     (formData) => api.post('/api/padron/test-dbf', formData, {
@@ -186,15 +196,6 @@ const AdminPadron = () => {
         setUploadMessage('Por favor selecciona un archivo DBF válido');
       }
     }
-  };
-
-  const handleRealImport = () => {
-    if (!uploadFile) return;
-    
-    const formData = new FormData();
-    formData.append('file', uploadFile);
-    setUploadStatus('uploading');
-    uploadMutation.mutate(formData);
   };
 
   const handleUpload = () => {
