@@ -14,3 +14,5 @@ httpx>=0.26.0
 requests>=2.31.0
 googlemaps>=4.10.0
 pillow>=10.2.0
+dbf>=0.99.0
+pandas>=2.0.0

@@ -1,4 +1,7 @@
 
+c:\Red Ciudadana\Frontend> rmdir /s /q .vercel
+
+c:\Red Ciudadana\Frontend>
 
 
 
@@ -29,6 +32,7 @@ from contextlib import asynccontextmanager
 
 from .database import engine, get_db, SessionLocal
 from .models import Base
+from .models_padron import PadronElectoral
 from .schemas import Token, Login, Usuario, UsuarioCreate, UsuarioUpdate, Persona, PersonaCreate, PersonaUpdate, Evento, EventoCreate, EventoUpdate, Asistencia, AsistenciaCreate, AsistenciaUpdate, ReportePersonas, ReporteEventos, EstructuraJerarquica, NodoJerarquico, PersonaUbicacion, Vehiculo, VehiculoCreate, VehiculoUpdate, AsignacionMovilizacion, AsignacionMovilizacionCreate, AsignacionMovilizacionUpdate
 from .auth import (
     authenticate_user, 
@@ -52,6 +56,7 @@ from jose import jwt
 from datetime import datetime, timedelta
 from .models import Vehiculo as VehiculoModel, AsignacionMovilizacion as AsignacionMovilizacionModel, ConfiguracionPerfil as ConfiguracionPerfilModel, UbicacionTiempoReal as UbicacionTiempoRealModel, ConfiguracionDashboard as ConfiguracionDashboardModel
 from . import vehiculos, movilizaciones
+from . import endpoints_padron
 from sqlalchemy import func
 from .models import Comentario as ComentarioModel, ReporteCiudadano as ReporteCiudadanoModel, FotoReporte as FotoReporteModel
 from .models_noticias import Noticia as NoticiaModel
@@ -386,6 +391,86 @@ async def test_reportes_publicos():
 
 app.include_router(vehiculos.router)
 app.include_router(movilizaciones.router)
+app.include_router(endpoints_padron.router, prefix="/api", tags=["padron"])
+
+# Endpoint para métricas de movilización por líder
+@app.get("/metricas-movilizacion/", response_model=dict)
+async def obtener_metricas_movilizacion(
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_active_user)
+):
+    """Obtener métricas de movilización por líder"""
+    try:
+        # Obtener estadísticas del padrón
+        total_padron = db.query(PadronElectoral).filter(PadronElectoral.activo == True).count()
+        padron_asignado = db.query(PadronElectoral).filter(
+            and_(
+                PadronElectoral.activo == True,
+                PadronElectoral.id_lider_asignado.isnot(None)
+            )
+        ).count()
+        
+        # Obtener estadísticas de personas registradas
+        total_personas = db.query(PersonaModel).filter(PersonaModel.activo == True).count()
+        
+        # Obtener métricas por líder
+        metricas_lideres = db.query(
+            UsuarioModel.nombre,
+            UsuarioModel.rol,
+            func.count(PersonaModel.id).label('personas_registradas'),
+            func.count(PadronElectoral.id).label('personas_padron_asignadas')
+        ).outerjoin(
+            PersonaModel, UsuarioModel.id == PersonaModel.id_lider_responsable
+        ).outerjoin(
+            PadronElectoral, UsuarioModel.id == PadronElectoral.id_lider_asignado
+        ).filter(
+            UsuarioModel.activo == True,
+            UsuarioModel.rol.in_(["lider_estatal", "lider_regional", "lider_municipal", "lider_zona"])
+        ).group_by(
+            UsuarioModel.id, UsuarioModel.nombre, UsuarioModel.rol
+        ).all()
+        
+        # Calcular totales
+        total_personas_lideres = sum([m.personas_registradas for m in metricas_lideres])
+        total_padron_lideres = sum([m.personas_padron_asignadas for m in metricas_lideres])
+        
+        return {
+            "resumen_general": {
+                "total_padron_electoral": total_padron,
+                "padron_asignado": padron_asignado,
+                "padron_disponible": total_padron - padron_asignado,
+                "total_personas_registradas": total_personas,
+                "total_lideres_activos": len(metricas_lideres)
+            },
+            "metricas_por_lider": [
+                {
+                    "lider": lider.nombre,
+                    "rol": lider.rol,
+                    "personas_registradas": lider.personas_registradas,
+                    "personas_padron_asignadas": lider.personas_padron_asignadas,
+                    "total_movilizacion": lider.personas_registradas + lider.personas_padron_asignadas
+                }
+                for lider in metricas_lideres
+            ],
+            "ranking_movilizacion": sorted(
+                [
+                    {
+                        "lider": lider.nombre,
+                        "rol": lider.rol,
+                        "total_movilizacion": lider.personas_registradas + lider.personas_padron_asignadas
+                    }
+                    for lider in metricas_lideres
+                ],
+                key=lambda x: x["total_movilizacion"],
+                reverse=True
+            )
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error obteniendo métricas: {str(e)}"
+        )
 
 LOGO_PATH = "static/logo.png"
 
@@ -1018,11 +1103,52 @@ async def create_persona(persona: PersonaCreate, db: Session = Depends(get_db), 
     # Solo líderes y capturistas pueden registrar personas
     if current_user.rol not in ["admin", "lider_estatal", "lider_regional", "lider_municipal", "lider_zona", "capturista"]:
         raise HTTPException(status_code=403, detail="No tiene permisos para registrar personas")
-    # Validar clave de elector única
+    
+    # Verificar en el padrón electoral si se proporciona clave de elector
     if persona.clave_elector:
+        # Verificar si ya existe en personas
         exists = db.query(PersonaModel).filter(PersonaModel.clave_elector == persona.clave_elector).first()
         if exists:
             raise HTTPException(status_code=400, detail="Clave de elector ya registrada")
+        
+        # Verificar en el padrón electoral
+        padron_record = db.query(PadronElectoral).filter(
+            and_(
+                PadronElectoral.elector == persona.clave_elector,
+                PadronElectoral.activo == True
+            )
+        ).first()
+        
+        if padron_record:
+            # Si existe en el padrón, verificar si ya está asignado
+            if padron_record.id_lider_asignado:
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Esta clave de elector ya está asignada a {padron_record.lider_asignado.nombre if padron_record.lider_asignado else 'otro líder'}"
+                )
+            
+            # Asignar automáticamente al líder actual
+            padron_record.id_lider_asignado = current_user.id
+            padron_record.fecha_asignacion = datetime.now()
+            padron_record.id_usuario_asignacion = current_user.id
+            
+            # Usar datos del padrón si están disponibles
+            if not persona.nombre and padron_record.nombre:
+                persona.nombre = padron_record.nombre
+            if not persona.curp and padron_record.curp:
+                persona.curp = padron_record.curp
+            if not persona.seccion_electoral and padron_record.seccion:
+                persona.seccion_electoral = padron_record.seccion
+            if not persona.municipio and padron_record.municipio:
+                persona.municipio = padron_record.municipio
+            if not persona.estado and padron_record.entidad:
+                persona.estado = padron_record.entidad
+            if not persona.colonia and padron_record.colonia:
+                persona.colonia = padron_record.colonia
+            if not persona.codigo_postal and padron_record.codpostal:
+                persona.codigo_postal = padron_record.codpostal
+            if not persona.distrito and padron_record.distrito:
+                persona.distrito = padron_record.distrito
     
     # Crear la persona con el usuario que la registra
     persona_data = persona.dict()
