@@ -1,15 +1,10 @@
 
-c:\Red Ciudadana\Frontend> rmdir /s /q .vercel
-
-c:\Red Ciudadana\Frontend>
-
-
 
 print('🚨🚨🚨 LOGS SUPER AGRESIVOS AGREGADOS AL ENDPOINT /reportes-ciudadanos/ 🚨🚨🚨')
 print('🚨🚨🚨 LOGS SUPER AGRESIVOS AGREGADOS AL ENDPOINT /reportes-ciudadanos/ 🚨🚨🚨')
 print('🚨🚨🚨 LOGS SUPER AGRESIVOS AGREGADOS AL ENDPOINT /reportes-ciudadanos/ 🚨🚨🚨')
 from fastapi import FastAPI, Depends, HTTPException, status, Body, UploadFile, File, Form, Request, Query
-from sqlalchemy import text
+from sqlalchemy import text, and_
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response, JSONResponse
