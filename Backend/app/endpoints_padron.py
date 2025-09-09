@@ -212,12 +212,17 @@ async def importar_padron_dbf(
                 db.commit()
                 print(f"✅ Importación completada: {registros_importados} registros")
                 
+                # Verificar que realmente se guardaron los registros
+                total_guardados = db.query(PadronElectoral).count()
+                print(f"🔍 Verificación: Total registros en BD después de importación: {total_guardados}")
+                
                 return {
                     "success": True,
                     "mensaje": "Importación completada",
                     "registros_importados": registros_importados,
                     "registros_duplicados": registros_duplicados,
                     "errores": len(errores),
+                    "total_guardados": total_guardados,
                     "fecha_importacion": datetime.now().isoformat()
                 }
                 
@@ -515,6 +520,57 @@ async def obtener_estado_importacion():
         "errores": 0,
         "mensaje": "No hay importación en progreso"
     }
+
+@router.get("/padron/debug")
+async def debug_padron(
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(require_admin)
+):
+    """Debug endpoint para verificar el estado del padrón"""
+    try:
+        # Contar registros totales
+        total_registros = db.query(PadronElectoral).count()
+        total_activos = db.query(PadronElectoral).filter(PadronElectoral.activo == True).count()
+        total_inactivos = total_registros - total_activos
+        
+        # Obtener algunos registros de muestra
+        registros_muestra = db.query(PadronElectoral).limit(5).all()
+        
+        # Verificar estructura de la tabla
+        primer_registro = db.query(PadronElectoral).first()
+        
+        return {
+            "success": True,
+            "debug_info": {
+                "total_registros": total_registros,
+                "total_activos": total_activos,
+                "total_inactivos": total_inactivos,
+                "primer_registro": {
+                    "id": primer_registro.id if primer_registro else None,
+                    "elector": primer_registro.elector if primer_registro else None,
+                    "nombre": primer_registro.nombre if primer_registro else None,
+                    "activo": primer_registro.activo if primer_registro else None
+                } if primer_registro else None,
+                "registros_muestra": [
+                    {
+                        "id": r.id,
+                        "elector": r.elector,
+                        "nombre": r.nombre,
+                        "activo": r.activo
+                    } for r in registros_muestra
+                ]
+            }
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "debug_info": {
+                "total_registros": 0,
+                "error": str(e)
+            }
+        }
 
 @router.delete("/padron/limpiar")
 async def limpiar_padron(
