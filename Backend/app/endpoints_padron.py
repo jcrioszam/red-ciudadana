@@ -45,7 +45,11 @@ async def test_dbf_upload(
             }
         
         # Leer archivo DBF
-        content = await file.read()
+        # Leer archivo en chunks para archivos grandes
+        content = b""
+        chunk_size = 1024 * 1024  # 1MB chunks
+        while chunk := await file.read(chunk_size):
+            content += chunk
         print(f"📖 Archivo leído: {len(content)} bytes")
         
         if len(content) == 0:
@@ -134,7 +138,11 @@ async def importar_padron_dbf(
             )
         
         # Leer archivo DBF
-        content = await file.read()
+        # Leer archivo en chunks para archivos grandes
+        content = b""
+        chunk_size = 1024 * 1024  # 1MB chunks
+        while chunk := await file.read(chunk_size):
+            content += chunk
         print(f"📖 Archivo leído: {len(content)} bytes")
         
         if len(content) == 0:

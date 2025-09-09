@@ -292,6 +292,10 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# Configurar límites para archivos grandes
+from fastapi.middleware.gzip import GZipMiddleware
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
 # Configurar CORS - Permitir frontend y backend de Railway
 origins = [
     "http://localhost:3000",  # Desarrollo local
