@@ -750,6 +750,96 @@ async def importar_dbf_chunked(
             "error": f"Error en importación: {str(e)}"
         }
 
+@router.post("/padron/analizar-dbf", response_model=dict)
+async def analizar_dbf(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(require_admin)
+):
+    """Analizar estructura del archivo DBF para identificar campos"""
+    try:
+        print(f"🔍 ANALIZANDO DBF - Iniciando")
+        print(f"📁 Archivo: {file.filename}, tamaño: {file.size} bytes")
+        
+        if not file.filename or not file.filename.lower().endswith('.dbf'):
+            return {
+                "success": False,
+                "error": "El archivo debe ser un DBF"
+            }
+
+        # Leer archivo en chunks pequeños
+        chunk_size = 1024 * 1024  # 1MB chunks
+        total_bytes_read = 0
+        temp_file_path = f"/tmp/{file.filename}"
+        
+        print(f"💾 Guardando archivo temporal en: {temp_file_path}")
+        
+        with open(temp_file_path, "wb") as temp_file:
+            while chunk := await file.read(chunk_size):
+                temp_file.write(chunk)
+                total_bytes_read += len(chunk)
+                print(f"📖 Leídos {total_bytes_read} bytes...")
+
+        print(f"✅ Archivo guardado: {total_bytes_read} bytes")
+
+        # Analizar el archivo DBF
+        try:
+            import dbf
+            print(f"🔍 Intentando abrir archivo DBF: {temp_file_path}")
+            table = dbf.Table(temp_file_path)
+            table.open()
+            print(f"✅ Archivo DBF abierto exitosamente")
+            
+            # Obtener información de campos
+            campos_disponibles = [field.name for field in table.field_names]
+            print(f"🔍 Campos disponibles: {campos_disponibles}")
+            print(f"📊 Total registros en DBF: {len(table)}")
+            
+            # Obtener muestra de registros
+            registros_muestra = []
+            for i, record in enumerate(table[:5]):  # Primeros 5 registros
+                registro_data = {}
+                for campo in campos_disponibles:
+                    try:
+                        valor = record.get(campo, '')
+                        registro_data[campo] = str(valor)[:100] if valor else ''  # Limitar a 100 chars
+                    except:
+                        registro_data[campo] = 'ERROR'
+                registros_muestra.append(registro_data)
+            
+            table.close()
+            
+            # Limpiar archivo temporal
+            import os
+            try:
+                os.remove(temp_file_path)
+                print(f"🗑️ Archivo temporal eliminado: {temp_file_path}")
+            except:
+                pass
+            
+            return {
+                "success": True,
+                "mensaje": "Análisis completado",
+                "campos_disponibles": campos_disponibles,
+                "total_registros": len(table),
+                "registros_muestra": registros_muestra,
+                "filename": file.filename
+            }
+            
+        except Exception as e:
+            print(f"❌ Error analizando DBF: {str(e)}")
+            return {
+                "success": False,
+                "error": f"Error analizando archivo DBF: {str(e)}"
+            }
+            
+    except Exception as e:
+        print(f"❌ Error en análisis: {str(e)}")
+        return {
+            "success": False,
+            "error": f"Error en análisis: {str(e)}"
+        }
+
 @router.get("/padron/debug")
 async def debug_padron(
     db: Session = Depends(get_db),
