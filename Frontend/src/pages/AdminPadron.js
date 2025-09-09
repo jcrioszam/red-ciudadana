@@ -103,20 +103,26 @@ const AdminPadron = () => {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
-      timeout: 60000, // 1 minuto de timeout para prueba
+      timeout: 300000, // 5 minutos de timeout para archivos DBF grandes
     }),
     {
       onSuccess: (response) => {
         console.log('✅ Prueba DBF exitosa:', response.data);
+        setUploadProgress(50);
         setUploadMessage(`Archivo válido: ${response.data.total_records} registros encontrados. Campos: ${response.data.field_names?.join(', ')}`);
         setUploadStatus('success');
         // Si la prueba es exitosa, proceder con la importación real
         if (response.data.success) {
-          handleRealImport();
+          setTimeout(() => {
+            setUploadProgress(60);
+            setUploadMessage('Iniciando importación...');
+            handleRealImport();
+          }, 1000);
         }
       },
       onError: (error) => {
         setUploadStatus('error');
+        setUploadProgress(0);
         console.error('Error probando archivo:', error);
         setUploadMessage(`Error probando archivo: ${error.response?.data?.error || error.message}`);
       }
@@ -153,6 +159,7 @@ const AdminPadron = () => {
       },
       onError: (error) => {
         setUploadStatus('error');
+        setUploadProgress(0);
         console.error('Error subiendo archivo:', error);
         setUploadMessage(`Error subiendo archivo: ${error.response?.data?.detail || error.message}`);
       }
@@ -205,6 +212,8 @@ const AdminPadron = () => {
       const formData = new FormData();
       formData.append('file', uploadFile);
       setUploadStatus('uploading');
+      setUploadProgress(10);
+      setUploadMessage('Probando archivo DBF...');
       testMutation.mutate(formData);
     }
   };
