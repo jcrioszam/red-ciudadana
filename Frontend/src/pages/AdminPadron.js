@@ -103,7 +103,7 @@ const AdminPadron = () => {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
-      timeout: 120000, // 2 minutos de timeout para archivos DBF grandes
+      timeout: 1800000, // 30 minutos de timeout para archivos DBF grandes (658MB)
     }),
     {
       onSuccess: (response) => {
@@ -135,7 +135,7 @@ const AdminPadron = () => {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
-      timeout: 600000, // 10 minutos de timeout
+      timeout: 3600000, // 60 minutos de timeout para archivos DBF grandes
       onUploadProgress: (progressEvent) => {
         const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
         setUploadProgress(percentCompleted);
