@@ -398,6 +398,25 @@ const AdminPadron = () => {
                 <Box sx={{ mb: 2 }}>
                   <Button
                     variant="contained"
+                    color="primary"
+                    onClick={() => {
+                      if (uploadFile) {
+                        console.log('🧪 Iniciando test de archivo DBF:', uploadFile.name, 'Tamaño:', uploadFile.size);
+                        const formData = new FormData();
+                        formData.append('file', uploadFile);
+                        setUploadStatus('testing');
+                        setUploadMessage('Probando archivo DBF...');
+                        testMutation.mutate(formData);
+                      }
+                    }}
+                    disabled={testMutation.isLoading || uploadStatus === 'testing'}
+                    startIcon={<FiCheckCircle />}
+                    sx={{ mr: 2 }}
+                  >
+                    {uploadStatus === 'testing' ? 'Probando...' : 'Probar Archivo'}
+                  </Button>
+                  <Button
+                    variant="contained"
                     onClick={handleUpload}
                     disabled={uploadMutation.isLoading}
                     startIcon={<FiUpload />}
@@ -434,6 +453,15 @@ const AdminPadron = () => {
                   <LinearProgress variant="determinate" value={uploadProgress} />
                   <Typography variant="body2" sx={{ mt: 1 }}>
                     Subiendo archivo... {uploadProgress}%
+                  </Typography>
+                </Box>
+              )}
+
+              {uploadStatus === 'testing' && (
+                <Box sx={{ mb: 2 }}>
+                  <LinearProgress />
+                  <Typography variant="body2" sx={{ mt: 1 }}>
+                    Probando archivo DBF...
                   </Typography>
                 </Box>
               )}
