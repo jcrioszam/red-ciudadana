@@ -153,6 +153,7 @@ async def importar_padron_dbf(
                 batch_size = 100  # Reducir aún más el batch size
                 
                 print(f"🚀 Iniciando importación de {len(table)} registros...")
+                print(f"🔍 Campos disponibles en DBF: {[field.name for field in table.field_names]}")
                 
                 for i, record in enumerate(table):
                     try:
@@ -198,10 +199,14 @@ async def importar_padron_dbf(
                         db.add(padron_record)
                         registros_importados += 1
                         
+                        # Log cada 10 registros para debugging
+                        if registros_importados % 10 == 0:
+                            print(f"📊 Procesados {registros_importados} registros...")
+                        
                         # Commit cada batch_size registros para evitar memory issues
                         if registros_importados % batch_size == 0:
                             db.commit()
-                            print(f"📊 Procesados {registros_importados} registros...")
+                            print(f"💾 Commit realizado: {registros_importados} registros guardados")
                             
                     except Exception as e:
                         errores.append(f"Error en registro {i+1}: {str(e)}")
