@@ -32,7 +32,9 @@ async def test_dbf_upload(
 ):
     """Endpoint de prueba para diagnosticar problemas con archivos DBF"""
     try:
+        print(f"🧪 TEST DBF - Iniciando endpoint")
         print(f"📁 Archivo recibido: {file.filename}, tamaño: {file.size} bytes")
+        print(f"👤 Usuario autenticado: {current_user.email}")
         
         if not file.filename or not file.filename.lower().endswith('.dbf'):
             return {
