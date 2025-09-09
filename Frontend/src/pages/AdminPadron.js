@@ -225,6 +225,41 @@ const AdminPadron = () => {
     }
   };
 
+  const handleAnalyze = () => {
+    if (uploadFile) {
+      console.log('🔍 Analizando estructura del archivo DBF:', uploadFile.name);
+      const formData = new FormData();
+      formData.append('file', uploadFile);
+      setUploadStatus('analyzing');
+      setUploadMessage('Analizando estructura del archivo DBF...');
+      
+      // Llamar al endpoint de análisis
+      api.post('/api/padron/analizar-dbf', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        timeout: 300000, // 5 minutos
+      })
+      .then(response => {
+        console.log('✅ Análisis completado:', response.data);
+        setUploadStatus('success');
+        setUploadMessage(`Análisis completado. Campos encontrados: ${response.data.campos_disponibles?.length || 0}`);
+        
+        // Mostrar información detallada en consola
+        if (response.data.campos_disponibles) {
+          console.log('📋 Campos disponibles:', response.data.campos_disponibles);
+          console.log('📊 Total registros:', response.data.total_registros);
+          console.log('📝 Muestra de registros:', response.data.registros_muestra);
+        }
+      })
+      .catch(error => {
+        console.error('❌ Error en análisis:', error);
+        setUploadStatus('error');
+        setUploadMessage(`Error analizando archivo: ${error.response?.data?.error || error.message}`);
+      });
+    }
+  };
+
   const handleSearch = () => {
     const params = Object.fromEntries(
       Object.entries(searchParams).filter(([_, value]) => value.trim() !== '')
@@ -371,6 +406,16 @@ const AdminPadron = () => {
                     Subir Archivo
                   </Button>
                   <Button
+                    variant="contained"
+                    color="info"
+                    onClick={handleAnalyze}
+                    disabled={uploadStatus === 'analyzing'}
+                    startIcon={<FiSearch />}
+                    sx={{ mr: 2 }}
+                  >
+                    {uploadStatus === 'analyzing' ? 'Analizando...' : 'Analizar Estructura'}
+                  </Button>
+                  <Button
                     variant="outlined"
                     onClick={() => {
                       setUploadFile(null);
@@ -393,15 +438,24 @@ const AdminPadron = () => {
                 </Box>
               )}
 
+              {uploadStatus === 'analyzing' && (
+                <Box sx={{ mb: 2 }}>
+                  <LinearProgress />
+                  <Typography variant="body2" sx={{ mt: 1 }}>
+                    Analizando estructura del archivo DBF...
+                  </Typography>
+                </Box>
+              )}
+
               {uploadStatus === 'success' && (
                 <Alert severity="success" sx={{ mb: 2 }}>
-                  ¡Archivo subido exitosamente!
+                  {uploadMessage || '¡Operación completada exitosamente!'}
                 </Alert>
               )}
 
               {uploadStatus === 'error' && (
                 <Alert severity="error" sx={{ mb: 2 }}>
-                  Error al subir el archivo. Verifica que sea un archivo DBF válido.
+                  {uploadMessage || 'Error al procesar el archivo. Verifica que sea un archivo DBF válido.'}
                 </Alert>
               )}
 
