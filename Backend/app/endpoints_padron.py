@@ -791,7 +791,7 @@ async def analizar_dbf(
             print(f"✅ Archivo DBF abierto exitosamente")
             
             # Obtener información de campos
-            campos_disponibles = [field.name for field in table.field_names]
+            campos_disponibles = list(table.field_names)
             print(f"🔍 Campos disponibles: {campos_disponibles}")
             print(f"📊 Total registros en DBF: {len(table)}")
             
