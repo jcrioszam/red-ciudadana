@@ -536,6 +536,78 @@ async def obtener_estado_importacion():
         "mensaje": "No hay importación en progreso"
     }
 
+@router.post("/padron/test-dbf-large", response_model=dict)
+async def test_dbf_large_file(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(require_admin)
+):
+    """Endpoint optimizado para archivos DBF muy grandes (solo validación básica)"""
+    try:
+        print(f"🧪 TEST DBF LARGE - Iniciando endpoint")
+        print(f"📁 Archivo recibido: {file.filename}, tamaño: {file.size} bytes")
+        print(f"👤 Usuario autenticado: {current_user.email}")
+        
+        if not file.filename or not file.filename.lower().endswith('.dbf'):
+            return {
+                "success": False,
+                "error": "El archivo debe ser un DBF",
+                "filename": file.filename
+            }
+        
+        # Para archivos muy grandes, solo leer los primeros 5MB para validación básica
+        max_read_size = 5 * 1024 * 1024  # 5MB
+        content = b""
+        chunk_size = 1024 * 1024  # 1MB chunks
+        bytes_read = 0
+        
+        while chunk := await file.read(chunk_size):
+            content += chunk
+            bytes_read += len(chunk)
+            if bytes_read >= max_read_size:
+                print(f"📖 Archivo muy grande, leyendo solo primeros {bytes_read} bytes")
+                break
+                
+        print(f"📖 Archivo leído: {len(content)} bytes (de {file.size} total)")
+        
+        if len(content) == 0:
+            return {
+                "success": False,
+                "error": "El archivo está vacío"
+            }
+        
+        # Validación básica del formato DBF (solo los primeros bytes)
+        if len(content) < 32:
+            return {
+                "success": False,
+                "error": "El archivo es demasiado pequeño para ser un DBF válido"
+            }
+        
+        # Verificar firma DBF (primeros bytes)
+        dbf_signature = content[:1]
+        if dbf_signature != b'\x03' and dbf_signature != b'\x83':
+            return {
+                "success": False,
+                "error": "El archivo no parece ser un DBF válido (firma incorrecta)"
+            }
+        
+        return {
+            "success": True,
+            "mensaje": "Archivo DBF válido detectado",
+            "filename": file.filename,
+            "file_size": file.size,
+            "bytes_analyzed": len(content),
+            "ready_for_import": True,
+            "note": "Archivo muy grande - solo se validó la estructura básica"
+        }
+        
+    except Exception as e:
+        print(f"❌ Error en test DBF large: {str(e)}")
+        return {
+            "success": False,
+            "error": f"Error procesando archivo: {str(e)}"
+        }
+
 @router.get("/padron/debug")
 async def debug_padron(
     db: Session = Depends(get_db),

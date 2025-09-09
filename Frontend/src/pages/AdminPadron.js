@@ -97,9 +97,9 @@ const AdminPadron = () => {
     uploadMutation.mutate(formData);
   };
 
-  // Mutación para probar archivo DBF
+  // Mutación para probar archivo DBF (usar endpoint optimizado para archivos grandes)
   const testMutation = useMutation(
-    (formData) => api.post('/api/padron/test-dbf', formData, {
+    (formData) => api.post('/api/padron/test-dbf-large', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
