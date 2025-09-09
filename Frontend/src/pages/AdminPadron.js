@@ -131,16 +131,22 @@ const AdminPadron = () => {
 
   // Mutación para subir archivo (importación real)
   const uploadMutation = useMutation(
-    (formData) => api.post('/api/padron/importar-dbf', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-      timeout: 3600000, // 60 minutos de timeout para archivos DBF grandes
-      onUploadProgress: (progressEvent) => {
-        const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-        setUploadProgress(percentCompleted);
-      },
-    }),
+    (formData) => {
+      // Usar endpoint chunked para archivos grandes (>100MB)
+      const file = formData.get('file');
+      const endpoint = file.size > 100 * 1024 * 1024 ? '/api/padron/importar-dbf-chunked' : '/api/padron/importar-dbf';
+      
+      return api.post(endpoint, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        timeout: 3600000, // 60 minutos de timeout para archivos DBF grandes
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          setUploadProgress(percentCompleted);
+        },
+      });
+    },
     {
       onSuccess: (response) => {
         setUploadStatus('success');

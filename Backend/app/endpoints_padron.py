@@ -547,42 +547,42 @@ async def test_dbf_large_file(
         print(f"🧪 TEST DBF LARGE - Iniciando endpoint")
         print(f"📁 Archivo recibido: {file.filename}, tamaño: {file.size} bytes")
         print(f"👤 Usuario autenticado: {current_user.email}")
-        
+
         if not file.filename or not file.filename.lower().endswith('.dbf'):
             return {
                 "success": False,
                 "error": "El archivo debe ser un DBF",
                 "filename": file.filename
             }
-        
+
         # Para archivos muy grandes, solo leer los primeros 5MB para validación básica
         max_read_size = 5 * 1024 * 1024  # 5MB
         content = b""
         chunk_size = 1024 * 1024  # 1MB chunks
         bytes_read = 0
-        
+
         while chunk := await file.read(chunk_size):
             content += chunk
             bytes_read += len(chunk)
             if bytes_read >= max_read_size:
                 print(f"📖 Archivo muy grande, leyendo solo primeros {bytes_read} bytes")
                 break
-                
+
         print(f"📖 Archivo leído: {len(content)} bytes (de {file.size} total)")
-        
+
         if len(content) == 0:
             return {
                 "success": False,
                 "error": "El archivo está vacío"
             }
-        
+
         # Validación básica del formato DBF (solo los primeros bytes)
         if len(content) < 32:
             return {
                 "success": False,
                 "error": "El archivo es demasiado pequeño para ser un DBF válido"
             }
-        
+
         # Verificar firma DBF (primeros bytes)
         dbf_signature = content[:1]
         if dbf_signature != b'\x03' and dbf_signature != b'\x83':
@@ -590,7 +590,7 @@ async def test_dbf_large_file(
                 "success": False,
                 "error": "El archivo no parece ser un DBF válido (firma incorrecta)"
             }
-        
+
         return {
             "success": True,
             "mensaje": "Archivo DBF válido detectado",
@@ -600,12 +600,142 @@ async def test_dbf_large_file(
             "ready_for_import": True,
             "note": "Archivo muy grande - solo se validó la estructura básica"
         }
-        
+
     except Exception as e:
         print(f"❌ Error en test DBF large: {str(e)}")
         return {
             "success": False,
             "error": f"Error procesando archivo: {str(e)}"
+        }
+
+@router.post("/padron/importar-dbf-chunked", response_model=dict)
+async def importar_dbf_chunked(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(require_admin)
+):
+    """Importar DBF por chunks para archivos muy grandes"""
+    try:
+        print(f"🚀 IMPORTACIÓN CHUNKED - Iniciando")
+        print(f"📁 Archivo: {file.filename}, tamaño: {file.size} bytes")
+        print(f"👤 Usuario: {current_user.email}")
+
+        if not file.filename or not file.filename.lower().endswith('.dbf'):
+            return {
+                "success": False,
+                "error": "El archivo debe ser un DBF",
+                "filename": file.filename
+            }
+
+        # Leer archivo en chunks pequeños
+        chunk_size = 1024 * 1024  # 1MB chunks
+        total_bytes_read = 0
+        temp_file_path = f"/tmp/{file.filename}"
+        
+        print(f"💾 Guardando archivo temporal en: {temp_file_path}")
+        
+        with open(temp_file_path, "wb") as temp_file:
+            while chunk := await file.read(chunk_size):
+                temp_file.write(chunk)
+                total_bytes_read += len(chunk)
+                print(f"📖 Leídos {total_bytes_read} bytes...")
+
+        print(f"✅ Archivo guardado: {total_bytes_read} bytes")
+
+        # Procesar el archivo DBF
+        try:
+            import dbf
+            table = dbf.Table(temp_file_path)
+            table.open()
+            
+            print(f"🔍 Campos disponibles: {[field.name for field in table.field_names]}")
+            print(f"📊 Total registros en DBF: {len(table)}")
+            
+            # Procesar en lotes pequeños
+            batch_size = 1000
+            registros_importados = 0
+            
+            for i in range(0, len(table), batch_size):
+                batch = table[i:i + batch_size]
+                
+                for record in batch:
+                    try:
+                        # Crear registro del padrón
+                        padron_record = PadronElectoral(
+                            cedula=str(record.get('CEDULA', '')).strip(),
+                            nombre=str(record.get('NOMBRE', '')).strip(),
+                            apellido_paterno=str(record.get('APELLIDO_PATERNO', '')).strip(),
+                            apellido_materno=str(record.get('APELLIDO_MATERNO', '')).strip(),
+                            fecha_nacimiento=record.get('FECHA_NACIMIENTO'),
+                            sexo=str(record.get('SEXO', '')).strip(),
+                            estado=str(record.get('ESTADO', '')).strip(),
+                            municipio=str(record.get('MUNICIPIO', '')).strip(),
+                            seccion=str(record.get('SECCION', '')).strip(),
+                            localidad=str(record.get('LOCALIDAD', '')).strip(),
+                            casilla=str(record.get('CASILLA', '')).strip(),
+                            tipo_casilla=str(record.get('TIPO_CASILLA', '')).strip(),
+                            domicilio=str(record.get('DOMICILIO', '')).strip(),
+                            colonia=str(record.get('COLONIA', '')).strip(),
+                            codigo_postal=str(record.get('CODIGO_POSTAL', '')).strip(),
+                            telefono=str(record.get('TELEFONO', '')).strip(),
+                            email=str(record.get('EMAIL', '')).strip(),
+                            activo=True,
+                            fecha_importacion=datetime.now()
+                        )
+                        
+                        db.add(padron_record)
+                        registros_importados += 1
+                        
+                        if registros_importados % 1000 == 0:
+                            print(f"📊 Procesados {registros_importados} registros...")
+                            
+                    except Exception as e:
+                        print(f"⚠️ Error procesando registro {registros_importados}: {str(e)}")
+                        continue
+                
+                # Commit cada lote
+                try:
+                    db.commit()
+                    print(f"💾 Commit realizado: {registros_importados} registros guardados")
+                except Exception as e:
+                    print(f"❌ Error en commit: {str(e)}")
+                    db.rollback()
+                    continue
+            
+            table.close()
+            
+            # Limpiar archivo temporal
+            import os
+            try:
+                os.remove(temp_file_path)
+                print(f"🗑️ Archivo temporal eliminado: {temp_file_path}")
+            except:
+                pass
+            
+            # Verificar total en BD
+            total_guardados = db.query(PadronElectoral).count()
+            print(f"🔍 Verificación: Total registros en BD después de importación: {total_guardados}")
+            
+            return {
+                "success": True,
+                "mensaje": f"Importación completada exitosamente",
+                "registros_importados": registros_importados,
+                "total_en_bd": total_guardados,
+                "filename": file.filename
+            }
+            
+        except Exception as e:
+            print(f"❌ Error procesando DBF: {str(e)}")
+            return {
+                "success": False,
+                "error": f"Error procesando archivo DBF: {str(e)}"
+            }
+            
+    except Exception as e:
+        print(f"❌ Error en importación chunked: {str(e)}")
+        return {
+            "success": False,
+            "error": f"Error en importación: {str(e)}"
         }
 
 @router.get("/padron/debug")
