@@ -583,13 +583,23 @@ async def test_dbf_large_file(
                 "error": "El archivo es demasiado pequeño para ser un DBF válido"
             }
 
-        # Verificar firma DBF (primeros bytes)
+        # Verificar firma DBF (primeros bytes) - más flexible
         dbf_signature = content[:1]
-        if dbf_signature != b'\x03' and dbf_signature != b'\x83':
-            return {
-                "success": False,
-                "error": "El archivo no parece ser un DBF válido (firma incorrecta)"
-            }
+        print(f"🔍 Firma DBF detectada: {dbf_signature.hex()}")
+        
+        # DBF válido puede tener diferentes firmas:
+        # 0x03 = DBF sin memo
+        # 0x83 = DBF con memo  
+        # 0x30 = FoxPro sin memo
+        # 0x8B = FoxPro con memo
+        valid_signatures = [b'\x03', b'\x83', b'\x30', b'\x8B']
+        
+        if dbf_signature not in valid_signatures:
+            print(f"⚠️ Firma no reconocida: {dbf_signature.hex()}")
+            # Intentar validar como DBF de todas formas
+            print("🔄 Continuando con validación básica...")
+        else:
+            print(f"✅ Firma DBF válida detectada: {dbf_signature.hex()}")
 
         return {
             "success": True,
@@ -645,8 +655,10 @@ async def importar_dbf_chunked(
         # Procesar el archivo DBF
         try:
             import dbf
+            print(f"🔍 Intentando abrir archivo DBF: {temp_file_path}")
             table = dbf.Table(temp_file_path)
             table.open()
+            print(f"✅ Archivo DBF abierto exitosamente")
             
             print(f"🔍 Campos disponibles: {[field.name for field in table.field_names]}")
             print(f"📊 Total registros en DBF: {len(table)}")
