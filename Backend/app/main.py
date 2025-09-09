@@ -1,8 +1,6 @@
 
 
-print('🚨🚨🚨 LOGS SUPER AGRESIVOS AGREGADOS AL ENDPOINT /reportes-ciudadanos/ 🚨🚨🚨')
-print('🚨🚨🚨 LOGS SUPER AGRESIVOS AGREGADOS AL ENDPOINT /reportes-ciudadanos/ 🚨🚨🚨')
-print('🚨🚨🚨 LOGS SUPER AGRESIVOS AGREGADOS AL ENDPOINT /reportes-ciudadanos/ 🚨🚨🚨')
+# Sistema de Reportes Ciudadanos - Red Ciudadana
 from fastapi import FastAPI, Depends, HTTPException, status, Body, UploadFile, File, Form, Request, Query
 from sqlalchemy import text, and_
 from fastapi.security import OAuth2PasswordRequestForm
@@ -312,6 +310,7 @@ app.add_middleware(
 
 # 🔧 NUEVO: Montar directorio de archivos estáticos
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # 🔧 NUEVO: Endpoint para servir imágenes específicas
 @app.get("/uploads/{filename}")
@@ -323,18 +322,7 @@ async def get_image(filename: str):
     else:
         raise HTTPException(status_code=404, detail="Imagen no encontrada")
 
-print('🔧 CORS SIMPLIFICADO - TODOS LOS MÉTODOS Y HEADERS PERMITIDOS')
-print('🚀 FORZANDO DESPLIEGUE - Último commit: 7555c01ae')
-print('🔥🔥🔥 CORS FIX APLICADO - Último commit: 208bd1d5f 🔥🔥🔥')
-print('🎯 POST /reportes-ciudadanos/ DEBERÍA FUNCIONAR AHORA 🎯')
-print('🔍 DEBUG: Logs detallados agregados para investigar problema de coordenadas')
-print('📊 Ahora veremos exactamente qué datos se reciben y se guardan')
-print('🚨🚨🚨 FORZANDO NUEVO DEPLOY - Último commit: 33f32502b 🚨🚨🚨')
-print('🔥🔥🔥 ESTE DEPLOY DEBE INCLUIR LOGS DE DEBUG 🔥🔥🔥')
-print('⚡⚡⚡ SI NO VES ESTOS MENSAJES, EL DEPLOY NO FUNCIONÓ ⚡⚡⚡')
-print('🚨🚨🚨 CORS PROBLEM DETECTED - FORCING NEW DEPLOY 🚨🚨🚨')
-print('🔥🔥🔥 CORS CONFIGURATION VERIFICATION REQUIRED 🔥🔥🔥')
-print('⚡⚡⚡ DEPLOY MUST INCLUDE CORS FIX ⚡⚡⚡')
+# Configuración de CORS y middleware aplicada
 
 # 🆕 NUEVO: Endpoint de prueba para forzar despliegue
 @app.get("/test-deployment")
@@ -2311,33 +2299,151 @@ async def buscar_asistencia_por_clave(clave_elector: str, id_evento: int, db: Se
 
 @app.post("/admin/upload-logo")
 async def upload_logo(file: UploadFile = File(...), current_user=Depends(get_current_active_user)):
+    """Subir logo del sistema (solo administradores)"""
     if current_user.rol != "admin":
         raise HTTPException(status_code=403, detail="Solo el administrador puede cambiar el logo")
-    os.makedirs("static", exist_ok=True)
-    with open(LOGO_PATH, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-    return {"message": "Logo actualizado"}
+    
+    try:
+        # Validar tipo de archivo
+        if not file.content_type.startswith('image/'):
+            raise HTTPException(status_code=400, detail="Solo se permiten archivos de imagen")
+        
+        # Validar tamaño (máximo 2MB para logo)
+        content = await file.read()
+        file_size = len(content)
+        if file_size > 2 * 1024 * 1024:  # 2MB
+            raise HTTPException(status_code=400, detail="El archivo es demasiado grande (máximo 2MB)")
+        
+        # Crear directorio si no existe
+        os.makedirs("static", exist_ok=True)
+        
+        # Guardar el archivo
+        with open(LOGO_PATH, "wb") as buffer:
+            buffer.write(content)
+        
+        print(f"✅ Logo actualizado: {file.filename} ({file_size} bytes)")
+        return {
+            "success": True,
+            "message": "Logo actualizado exitosamente",
+            "filename": file.filename,
+            "size": file_size
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error al subir logo: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al subir logo: {str(e)}")
 
 @app.post("/upload-foto-reporte")
 async def upload_foto_reportes(file: UploadFile = File(...), current_user=Depends(get_current_active_user)):
     """Subir foto para reportes ciudadanos"""
-    # Crear directorio si no existe
-    import os
-    os.makedirs("static/reportes", exist_ok=True)
-    
-    # Generar nombre único para el archivo
-    import uuid
-    file_extension = file.filename.split('.')[-1]
-    file_name = f"{uuid.uuid4()}.{file_extension}"
-    file_path = f"static/reportes/{file_name}"
-    
-    # Guardar el archivo
-    with open(file_path, "wb") as buffer:
+    try:
+        # Validar tipo de archivo
+        if not file.content_type.startswith('image/'):
+            raise HTTPException(status_code=400, detail="Solo se permiten archivos de imagen")
+        
+        # Validar tamaño (máximo 10MB para reportes)
         content = await file.read()
-        buffer.write(content)
-    
-    # Retornar la URL del archivo
-    return {"url": f"http://localhost:8000/static/reportes/{file_name}"}
+        file_size = len(content)
+        if file_size > 10 * 1024 * 1024:  # 10MB
+            raise HTTPException(status_code=400, detail="El archivo es demasiado grande (máximo 10MB)")
+        
+        # Crear directorio si no existe
+        import os
+        os.makedirs("static/reportes", exist_ok=True)
+        
+        # Generar nombre único para el archivo
+        import uuid
+        file_extension = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
+        file_name = f"{uuid.uuid4()}.{file_extension}"
+        file_path = f"static/reportes/{file_name}"
+        
+        # Guardar el archivo
+        with open(file_path, "wb") as buffer:
+            buffer.write(content)
+        
+        # Obtener la URL base del servidor
+        base_url = os.getenv("BASE_URL", "http://localhost:8000")
+        
+        print(f"✅ Foto de reporte subida: {file_name} ({file_size} bytes)")
+        return {
+            "success": True,
+            "url": f"{base_url}/static/reportes/{file_name}",
+            "filename": file_name,
+            "size": file_size
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error al subir foto de reporte: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al subir foto: {str(e)}")
+
+@app.post("/upload-file")
+async def upload_file(
+    file: UploadFile = File(...),
+    folder: str = Form("general"),
+    current_user: Usuario = Depends(get_current_active_user)
+):
+    """Subir archivo general (imágenes, documentos, etc.)"""
+    try:
+        # Validar tipo de archivo
+        allowed_types = [
+            'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+            'application/pdf', 'text/plain', 'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        ]
+        
+        if file.content_type not in allowed_types:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Tipo de archivo no permitido. Tipos permitidos: {', '.join(allowed_types)}"
+            )
+        
+        # Validar tamaño (máximo 20MB)
+        content = await file.read()
+        file_size = len(content)
+        if file_size > 20 * 1024 * 1024:  # 20MB
+            raise HTTPException(status_code=400, detail="El archivo es demasiado grande (máximo 20MB)")
+        
+        # Crear directorio según la carpeta especificada
+        import os
+        upload_dir = f"uploads/{folder}"
+        os.makedirs(upload_dir, exist_ok=True)
+        
+        # Generar nombre único para el archivo
+        import uuid
+        file_extension = file.filename.split('.')[-1] if '.' in file.filename else 'bin'
+        file_name = f"{uuid.uuid4()}.{file_extension}"
+        file_path = os.path.join(upload_dir, file_name)
+        
+        # Guardar el archivo
+        with open(file_path, "wb") as buffer:
+            buffer.write(content)
+        
+        # Obtener la URL base del servidor
+        base_url = os.getenv("BASE_URL", "http://localhost:8000")
+        
+        print(f"✅ Archivo subido: {file_name} en carpeta {folder} ({file_size} bytes)")
+        return {
+            "success": True,
+            "message": "Archivo subido exitosamente",
+            "data": {
+                "filename": file_name,
+                "original_name": file.filename,
+                "url": f"{base_url}/uploads/{folder}/{file_name}",
+                "size": file_size,
+                "content_type": file.content_type,
+                "folder": folder
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error al subir archivo: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al subir archivo: {str(e)}")
 
 @app.get("/logo")
 def get_logo():
@@ -3068,95 +3174,61 @@ async def like_comentario(comentario_id: int, db: Session = Depends(get_db), cur
 async def create_reporte_ciudadano(reporte: ReporteCiudadanoCreate, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
     """Crear un nuevo reporte ciudadano"""
     
-    # 🚨🚨🚨 LOGS SUPER AGRESIVOS PARA RAILWAY 🚨🚨🚨
-    print("=" * 80)
-    print("🚨🚨🚨 ENDPOINT /reportes-ciudadanos/ EJECUTÁNDOSE 🚨🚨🚨")
-    print("🚨🚨🚨 ENDPOINT /reportes-ciudadanos/ EJECUTÁNDOSE 🚨🚨🚨")
-    print("🚨🚨🚨 ENDPOINT /reportes-ciudadanos/ EJECUTÁNDOSE 🚨🚨🚨")
-    print("=" * 80)
-    
-    # 🔍 DEBUG: Log detallado de los datos recibidos
-    print(f"🚀 CREANDO REPORTE CIUDADANO - Usuario: {current_user.email}")
-    print(f"📋 DATOS RECIBIDOS:")
-    print(f"   - Título: {reporte.titulo}")
-    print(f"   - Descripción: {reporte.descripcion}")
-    print(f"   - Tipo: {reporte.tipo}")
-    print(f"   - Latitud: {reporte.latitud} (tipo: {type(reporte.latitud)})")
-    print(f"   - Longitud: {reporte.longitud} (tipo: {type(reporte.longitud)})")
-    print(f"   - Dirección: {reporte.direccion}")
-    print(f"   - Prioridad: {reporte.prioridad}")
-    print(f"   - Foto URL: {reporte.foto_url}")
-    
-    # Procesar la foto_url si es una URL file://
-    foto_url_processed = reporte.foto_url
-    if reporte.foto_url and reporte.foto_url.startswith('file://'):
-        # Si es una URL file://, asignar una imagen de ejemplo basada en el tipo
-        if 'lámpara' in reporte.titulo.lower() or 'iluminación' in reporte.titulo.lower():
-            foto_url_processed = "http://localhost:8000/static/reportes/ejemplo2.jpg"  # Iluminación
-        elif 'bache' in reporte.titulo.lower() or 'pavimento' in reporte.titulo.lower():
-            foto_url_processed = "http://localhost:8000/static/reportes/ejemplo1.jpg"  # Baches
-        elif 'basura' in reporte.titulo.lower() or 'contenedor' in reporte.titulo.lower():
-            foto_url_processed = "http://localhost:8000/static/reportes/ejemplo3.jpg"  # Basura
-        elif 'árbol' in reporte.titulo.lower() or 'árbol' in reporte.titulo.lower():
-            foto_url_processed = "http://localhost:8000/static/reportes/ejemplo4.jpg"  # Árboles
-        elif 'semaforo' in reporte.titulo.lower() or 'semáforo' in reporte.titulo.lower():
-            foto_url_processed = "http://localhost:8000/static/reportes/ejemplo5.jpg"  # Semáforos
-        else:
-            foto_url_processed = "http://localhost:8000/static/reportes/ejemplo1.jpg"  # Por defecto
-    
-    # 🔍 DEBUG: Log de los datos que se van a guardar
-    print(f"💾 DATOS A GUARDAR EN BASE DE DATOS:")
-    print(f"   - Título: {reporte.titulo}")
-    print(f"   - Descripción: {reporte.descripcion}")
-    print(f"   - Tipo: {reporte.tipo}")
-    print(f"   - Latitud: {reporte.latitud}")
-    print(f"   - Longitud: {reporte.longitud}")
-    print(f"   - Dirección: {reporte.direccion}")
-    print(f"   - Foto URL: {foto_url_processed}")
-    print(f"   - Prioridad: {reporte.prioridad}")
-    print(f"   - Ciudadano ID: {current_user.id}")
-    
-    db_reporte = ReporteCiudadanoModel(
-        titulo=reporte.titulo,
-        descripcion=reporte.descripcion,
-        tipo=reporte.tipo,
-        latitud=reporte.latitud,
-        longitud=reporte.longitud,
-        direccion=reporte.direccion,
-        foto_url=foto_url_processed,
-        prioridad=reporte.prioridad,
-        ciudadano_id=current_user.id
-    )
-    
-    print(f"🔧 OBJETO ReporteCiudadanoModel CREADO:")
-    print(f"   - Latitud: {db_reporte.latitud}")
-    print(f"   - Longitud: {db_reporte.longitud}")
-    
-    db.add(db_reporte)
-    db.commit()
-    db.refresh(db_reporte)
-    
-    print(f"✅ REPORTE GUARDADO EN BASE DE DATOS:")
-    print(f"   - ID: {db_reporte.id}")
-    print(f"   - Latitud: {db_reporte.latitud}")
-    print(f"   - Longitud: {db_reporte.longitud}")
-    print(f"   - Fecha: {db_reporte.fecha_creacion}")
-
-    # 🔧 FIX: Manejar relación ciudadano de forma segura
     try:
-        db_reporte.ciudadano_nombre = db_reporte.ciudadano.nombre if db_reporte.ciudadano else "Ciudadano"
+        # Validar coordenadas
+        if reporte.latitud is not None and (reporte.latitud < -90 or reporte.latitud > 90):
+            raise HTTPException(status_code=400, detail="Latitud debe estar entre -90 y 90")
+        if reporte.longitud is not None and (reporte.longitud < -180 or reporte.longitud > 180):
+            raise HTTPException(status_code=400, detail="Longitud debe estar entre -180 y 180")
+        
+        # Procesar la foto_url si es una URL file://
+        foto_url_processed = reporte.foto_url
+        if reporte.foto_url and reporte.foto_url.startswith('file://'):
+            # Si es una URL file://, asignar una imagen de ejemplo basada en el tipo
+            if 'lámpara' in reporte.titulo.lower() or 'iluminación' in reporte.titulo.lower():
+                foto_url_processed = "http://localhost:8000/static/reportes/ejemplo2.jpg"  # Iluminación
+            elif 'bache' in reporte.titulo.lower() or 'pavimento' in reporte.titulo.lower():
+                foto_url_processed = "http://localhost:8000/static/reportes/ejemplo1.jpg"  # Baches
+            elif 'basura' in reporte.titulo.lower() or 'contenedor' in reporte.titulo.lower():
+                foto_url_processed = "http://localhost:8000/static/reportes/ejemplo3.jpg"  # Basura
+            elif 'árbol' in reporte.titulo.lower() or 'árbol' in reporte.titulo.lower():
+                foto_url_processed = "http://localhost:8000/static/reportes/ejemplo4.jpg"  # Árboles
+            elif 'semaforo' in reporte.titulo.lower() or 'semáforo' in reporte.titulo.lower():
+                foto_url_processed = "http://localhost:8000/static/reportes/ejemplo5.jpg"  # Semáforos
+            else:
+                foto_url_processed = "http://localhost:8000/static/reportes/ejemplo1.jpg"  # Por defecto
+        
+        # Crear el reporte en la base de datos
+        db_reporte = ReporteCiudadanoModel(
+            titulo=reporte.titulo,
+            descripcion=reporte.descripcion,
+            tipo=reporte.tipo,
+            latitud=reporte.latitud,
+            longitud=reporte.longitud,
+            direccion=reporte.direccion,
+            foto_url=foto_url_processed,
+            prioridad=reporte.prioridad,
+            ciudadano_id=current_user.id
+        )
+        
+        db.add(db_reporte)
+        db.commit()
+        db.refresh(db_reporte)
+
+        # Manejar relación ciudadano de forma segura
+        try:
+            db_reporte.ciudadano_nombre = db_reporte.ciudadano.nombre if db_reporte.ciudadano else "Ciudadano"
+        except Exception as e:
+            print(f"⚠️ Error accediendo a ciudadano: {e}")
+            db_reporte.ciudadano_nombre = "Ciudadano"
+
+        print(f"✅ Reporte ciudadano creado exitosamente - ID: {db_reporte.id}")
+        return db_reporte
+        
     except Exception as e:
-        print(f"⚠️ Error accediendo a ciudadano: {e}")
-        db_reporte.ciudadano_nombre = "Ciudadano"
-
-    # 🚨🚨🚨 LOGS SUPER AGRESIVOS AL FINAL 🚨🚨🚨
-    print("=" * 80)
-    print("🚨🚨🚨 REPORTE CIUDADANO CREADO EXITOSAMENTE 🚨🚨🚨")
-    print(f"🚨🚨🚨 ID: {db_reporte.id} - Lat: {db_reporte.latitud} - Lng: {db_reporte.longitud} 🚨🚨🚨")
-    print("🚨🚨🚨 REPORTE CIUDADANO CREADO EXITOSAMENTE 🚨🚨🚨")
-    print("=" * 80)
-
-    return db_reporte
+        print(f"❌ Error al crear reporte ciudadano: {str(e)}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error al crear reporte: {str(e)}")
 
 @app.get("/reportes-ciudadanos/", response_model=List[ReporteCiudadano])
 async def list_reportes_ciudadanos(
@@ -3247,51 +3319,50 @@ async def debug_reportes_ciudadanos(
 ):
     """Endpoint de debug para líderes y ciudadanos - ver sus propios reportes"""
     
-    print("🚨🚨🚨 DEBUG ENDPOINT EJECUTÁNDOSE PARA USUARIO:", current_user.email)
-    print("🚨🚨🚨 ROL:", current_user.rol)
-    
-    # Obtener reportes según el rol del usuario
-    if current_user.rol in ['admin', 'presidente', 'lider_estatal', 'lider_regional', 'lider_municipal']:
-        # Líderes ven todos los reportes activos
-        reportes = db.query(ReporteCiudadanoModel).filter(ReporteCiudadanoModel.activo == True).order_by(ReporteCiudadanoModel.fecha_creacion.desc()).all()
-        print("🚨🚨🚨 LÍDER - VIENDO TODOS LOS REPORTES:", len(reportes))
-    else:
-        # Ciudadanos ven solo sus propios reportes
-        reportes = db.query(ReporteCiudadanoModel).filter(
-            ReporteCiudadanoModel.activo == True,
-            ReporteCiudadanoModel.ciudadano_id == current_user.id
-        ).order_by(ReporteCiudadanoModel.fecha_creacion.desc()).all()
-        print("🚨🚨🚨 CIUDADANO - VIENDO SUS REPORTES:", len(reportes))
-    
-    result = []
-    for reporte in reportes:
-        result.append({
-            "id": reporte.id,
-            "titulo": reporte.titulo,
-            "estado": reporte.estado,
-            "activo": reporte.activo,
-            "ciudadano_id": reporte.ciudadano_id,
-            "ciudadano_nombre": reporte.ciudadano.nombre if reporte.ciudadano else "Sin ciudadano",
-            "fecha_creacion": reporte.fecha_creacion,
-            "tipo": reporte.tipo,
-            "latitud": reporte.latitud,
-            "longitud": reporte.longitud,
-            "direccion": reporte.direccion
-        })
-        print(f"🚨🚨🚨 REPORTE {reporte.id}: Lat {reporte.latitud}, Lng {reporte.longitud}")
-    
-    print("🚨🚨🚨 DEBUG ENDPOINT COMPLETADO - TOTAL REPORTES:", len(result))
-    
-    return {
-        "total_reportes": len(reportes),
-        "usuario_actual": {
-            "id": current_user.id,
-            "nombre": current_user.nombre,
-            "rol": current_user.rol,
-            "email": current_user.email
-        },
-        "reportes": result
-    }
+    try:
+        # Obtener reportes según el rol del usuario
+        if current_user.rol in ['admin', 'presidente', 'lider_estatal', 'lider_regional', 'lider_municipal']:
+            # Líderes ven todos los reportes activos
+            reportes = db.query(ReporteCiudadanoModel).filter(ReporteCiudadanoModel.activo == True).order_by(ReporteCiudadanoModel.fecha_creacion.desc()).all()
+        else:
+            # Ciudadanos ven solo sus propios reportes
+            reportes = db.query(ReporteCiudadanoModel).filter(
+                ReporteCiudadanoModel.activo == True,
+                ReporteCiudadanoModel.ciudadano_id == current_user.id
+            ).order_by(ReporteCiudadanoModel.fecha_creacion.desc()).all()
+        
+        result = []
+        for reporte in reportes:
+            result.append({
+                "id": reporte.id,
+                "titulo": reporte.titulo,
+                "estado": reporte.estado,
+                "activo": reporte.activo,
+                "ciudadano_id": reporte.ciudadano_id,
+                "ciudadano_nombre": reporte.ciudadano.nombre if reporte.ciudadano else "Sin ciudadano",
+                "fecha_creacion": reporte.fecha_creacion,
+                "tipo": reporte.tipo,
+                "latitud": reporte.latitud,
+                "longitud": reporte.longitud,
+                "direccion": reporte.direccion
+            })
+        
+        print(f"✅ Debug reportes completado - Total: {len(result)} para usuario {current_user.email}")
+        
+        return {
+            "total_reportes": len(reportes),
+            "usuario_actual": {
+                "id": current_user.id,
+                "nombre": current_user.nombre,
+                "rol": current_user.rol,
+                "email": current_user.email
+            },
+            "reportes": result
+        }
+        
+    except Exception as e:
+        print(f"❌ Error en debug reportes: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error obteniendo reportes: {str(e)}")
 
 @app.get("/reportes-ciudadanos/{reporte_id}", response_model=ReporteCiudadano)
 async def get_reporte_ciudadano(reporte_id: int, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
@@ -3641,8 +3712,6 @@ async def obtener_reportes_ciudadanos_publicos(
     db: Session = Depends(get_db)
 ):
     """Obtener reportes ciudadanos públicos (sin autenticación)"""
-    print(f"🚀🚀🚀 ENDPOINT PÚBLICO PARA OBTENER REPORTES 🚀🚀🚀")
-    print(f"🔍 DEBUG: Parámetros recibidos - skip: {skip}, limit: {limit}, estado: {estado}, tipo: {tipo}")
     
     try:
         # Obtener solo reportes públicos activos
@@ -3651,29 +3720,21 @@ async def obtener_reportes_ciudadanos_publicos(
             ReporteCiudadanoModel.es_publico == True
         )
         
-        print(f"🔍 DEBUG: Query base construida, total reportes activos: {query.count()}")
-        
         # Filtrar por estado si se especifica
         if estado:
             query = query.filter(ReporteCiudadanoModel.estado == estado)
-            print(f"🔍 DEBUG: Filtro estado aplicado: {estado}")
         
         # Filtrar por tipo si se especifica
         if tipo:
             query = query.filter(ReporteCiudadanoModel.tipo == tipo)
-            print(f"🔍 DEBUG: Filtro tipo aplicado: {tipo}")
         
         reportes = query.order_by(ReporteCiudadanoModel.fecha_creacion.desc()).offset(skip).limit(limit).all()
         
-        print(f"✅✅✅ REPORTES PÚBLICOS OBTENIDOS: {len(reportes)} ✅✅✅")
-        print(f"🔍 DEBUG: Primeros 3 reportes: {[{'id': r.id, 'titulo': r.titulo, 'estado': r.estado} for r in reportes[:3]]}")
-        
+        print(f"✅ Reportes públicos obtenidos: {len(reportes)}")
         return reportes
         
     except Exception as e:
-        print(f"❌❌❌ ERROR AL OBTENER REPORTES PÚBLICOS: {e} ❌❌❌")
-        print(f"❌ DEBUG: Tipo de error: {type(e)}")
-        print(f"❌ DEBUG: Detalles completos: {str(e)}")
+        print(f"❌ Error al obtener reportes públicos: {str(e)}")
         raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 # 🆕 NUEVO: Endpoint OPTIONS para CORS preflight del endpoint problemático
@@ -3696,11 +3757,14 @@ async def crear_reporte_ciudadano_publico(
     db: Session = Depends(get_db)
 ):
     """Crear reporte ciudadano público (sin autenticación)"""
-    print(f"🚀🚀🚀 NUEVO DEPLOY DETECTADO - Endpoint corregido ejecutándose 🚀🚀🚀")
-    print(f"🚀 DEBUG: Recibiendo reporte público - titulo: {titulo}, tipo: {tipo}")
-    print(f"🚀 DEBUG: Datos recibidos - lat: {latitud}, lng: {longitud}, foto: {foto}")
     
     try:
+        # Validar coordenadas si se proporcionan
+        if latitud is not None and (latitud < -90 or latitud > 90):
+            raise HTTPException(status_code=400, detail="Latitud debe estar entre -90 y 90")
+        if longitud is not None and (longitud < -180 or longitud > 180):
+            raise HTTPException(status_code=400, detail="Longitud debe estar entre -180 y 180")
+        
         # Crear el reporte
         reporte_data = {
             "titulo": titulo,
@@ -3714,39 +3778,20 @@ async def crear_reporte_ciudadano_publico(
             "estado": "pendiente",
             "fecha_creacion": datetime.now(),
             "activo": True,
-            "ciudadano_id": None,  # 🔧 EXPLÍCITO: Para reportes públicos
-            "administrador_id": None,  # 🔧 EXPLÍCITO: Sin administrador asignado
-            "observaciones_admin": None,  # 🔧 EXPLÍCITO: Sin observaciones
-            "contacto_email": None  # 🔧 EXPLÍCITO: Sin email de contacto
+            "ciudadano_id": None,  # Para reportes públicos
+            "administrador_id": None,  # Sin administrador asignado
+            "observaciones_admin": None,  # Sin observaciones
+            "contacto_email": None  # Sin email de contacto
         }
-        
-        print(f"🚀 DEBUG: Creando reporte en BD con datos: {reporte_data}")
-        print(f"🚀 DEBUG: ciudadano_id será: {reporte_data['ciudadano_id']}")
-        print(f"🚀 DEBUG: Tipo de ciudadano_id: {type(reporte_data['ciudadano_id'])}")
         
         # Crear el reporte en la base de datos
         db_reporte = ReporteCiudadanoModel(**reporte_data)
-        print(f"🚀 DEBUG: Modelo creado: {db_reporte}")
-        print(f"🚀 DEBUG: ciudadano_id en modelo: {db_reporte.ciudadano_id}")
-        
         db.add(db_reporte)
-        print(f"🚀 DEBUG: Reporte agregado a sesión")
-        
-        try:
-            db.commit()
-            print(f"✅✅✅ COMMIT EXITOSO - ID: {db_reporte.id} ✅✅✅")
-        except Exception as commit_error:
-            print(f"❌❌❌ ERROR EN COMMIT: {commit_error} ❌❌❌")
-            print(f"❌ TIPO DE ERROR: {type(commit_error)}")
-            print(f"❌ DETALLES COMPLETOS: {str(commit_error)}")
-            db.rollback()
-            raise HTTPException(status_code=500, detail=f"Error en commit: {str(commit_error)}")
-        
+        db.commit()
         db.refresh(db_reporte)
         
         # Procesar foto si se proporcionó
         if foto and foto.size > 0:
-            # 🔧 NUEVO: Convertir imagen a base64 para almacenamiento en BD
             import base64
             
             # Leer contenido de la foto
@@ -3756,8 +3801,6 @@ async def crear_reporte_ciudadano_publico(
             # Convertir a base64
             contenido_base64 = base64.b64encode(contenido).decode('utf-8')
             
-            print(f"✅ Foto convertida a base64, tamaño: {len(contenido_base64)} caracteres")
-            
             # Crear registro de foto en la base de datos con base64
             foto_data = {
                 "id_reporte": db_reporte.id,
@@ -3765,7 +3808,7 @@ async def crear_reporte_ciudadano_publico(
                 "tipo": foto.content_type,
                 "tamaño": foto.size,
                 "url": None,  # No usamos URL para archivos base64
-                "contenido_base64": contenido_base64  # 🔧 NUEVO: Almacenar en base64
+                "contenido_base64": contenido_base64
             }
             
             # Crear registro de foto en la base de datos
@@ -3773,16 +3816,20 @@ async def crear_reporte_ciudadano_publico(
             db.add(db_foto)
             db.commit()
             
-            print(f"✅ Registro de foto guardado en BD con base64: {foto_data['nombre_archivo']}")
+            print(f"✅ Foto guardada en base64: {foto_data['nombre_archivo']}")
         
+        print(f"✅ Reporte público creado exitosamente - ID: {db_reporte.id}")
         return {
             "mensaje": "Reporte ciudadano creado exitosamente",
             "id": db_reporte.id,
             "estado": "pendiente"
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
         db.rollback()
+        print(f"❌ Error al crear reporte público: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error al crear reporte: {str(e)}")
 
 @app.get("/reportes-publicos", response_model=List[dict])
