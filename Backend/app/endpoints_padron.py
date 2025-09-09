@@ -660,7 +660,7 @@ async def importar_dbf_chunked(
             table.open()
             print(f"✅ Archivo DBF abierto exitosamente")
             
-            print(f"🔍 Campos disponibles: {[field.name for field in table.field_names]}")
+            print(f"🔍 Campos disponibles: {list(table.field_names)}")
             print(f"📊 Total registros en DBF: {len(table)}")
             
             # Procesar en lotes pequeños
@@ -672,25 +672,25 @@ async def importar_dbf_chunked(
                 
                 for record in batch:
                     try:
-                        # Crear registro del padrón
+                        # Crear registro del padrón usando los campos reales del DBF
                         padron_record = PadronElectoral(
-                            cedula=str(record.get('CEDULA', '')).strip(),
+                            cedula=str(record.get('ELECTOR', '')).strip(),
                             nombre=str(record.get('NOMBRE', '')).strip(),
-                            apellido_paterno=str(record.get('APELLIDO_PATERNO', '')).strip(),
-                            apellido_materno=str(record.get('APELLIDO_MATERNO', '')).strip(),
-                            fecha_nacimiento=record.get('FECHA_NACIMIENTO'),
+                            apellido_paterno=str(record.get('APE_PAT', '')).strip(),
+                            apellido_materno=str(record.get('APE_MAT', '')).strip(),
+                            fecha_nacimiento=record.get('FNAC'),
                             sexo=str(record.get('SEXO', '')).strip(),
-                            estado=str(record.get('ESTADO', '')).strip(),
+                            estado=str(record.get('ENTIDAD', '')).strip(),
                             municipio=str(record.get('MUNICIPIO', '')).strip(),
                             seccion=str(record.get('SECCION', '')).strip(),
                             localidad=str(record.get('LOCALIDAD', '')).strip(),
-                            casilla=str(record.get('CASILLA', '')).strip(),
-                            tipo_casilla=str(record.get('TIPO_CASILLA', '')).strip(),
-                            domicilio=str(record.get('DOMICILIO', '')).strip(),
+                            casilla=str(record.get('MANZANA', '')).strip(),
+                            tipo_casilla=str(record.get('EN_LN', '')).strip(),
+                            domicilio=str(record.get('CALLE', '')).strip(),
                             colonia=str(record.get('COLONIA', '')).strip(),
-                            codigo_postal=str(record.get('CODIGO_POSTAL', '')).strip(),
-                            telefono=str(record.get('TELEFONO', '')).strip(),
-                            email=str(record.get('EMAIL', '')).strip(),
+                            codigo_postal=str(record.get('CODPOSTAL', '')).strip(),
+                            telefono=str(record.get('TIEMPRES', '')).strip(),
+                            email=str(record.get('EMISIONCRE', '')).strip(),
                             activo=True,
                             fecha_importacion=datetime.now()
                         )
