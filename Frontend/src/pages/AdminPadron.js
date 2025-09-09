@@ -103,7 +103,7 @@ const AdminPadron = () => {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
-      timeout: 300000, // 5 minutos de timeout para archivos DBF grandes
+      timeout: 120000, // 2 minutos de timeout para archivos DBF grandes
     }),
     {
       onSuccess: (response) => {
@@ -209,6 +209,7 @@ const AdminPadron = () => {
   const handleUpload = () => {
     if (uploadFile) {
       // Primero probar el archivo
+      console.log('🧪 Iniciando test de archivo DBF:', uploadFile.name, 'Tamaño:', uploadFile.size);
       const formData = new FormData();
       formData.append('file', uploadFile);
       setUploadStatus('uploading');
