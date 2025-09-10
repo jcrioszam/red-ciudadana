@@ -1107,17 +1107,27 @@ async def importar_datos_masivos(
             'EMISIONCRE': 'email'
         }
         
-        # Crear lista de datos para mostrar
+        # Procesar todos los datos
+        datos_completos = []
         datos_muestra = []
         total_registros = len(df)
         
-        for index, row in df.head(10).iterrows():  # Solo primeros 10 para muestra
+        print(f"📊 Procesando {total_registros} registros...")
+        
+        for index, row in df.iterrows():
             registro = {}
             for col_excel, col_bd in column_mapping.items():
                 if col_excel in df.columns:
                     valor = str(row[col_excel]) if pd.notna(row[col_excel]) else ''
                     registro[col_bd] = valor[:100]  # Limitar a 100 caracteres
-            datos_muestra.append(registro)
+            
+            datos_completos.append(registro)
+            
+            # Solo agregar a muestra los primeros 10
+            if index < 10:
+                datos_muestra.append(registro)
+        
+        print(f"✅ Procesados {len(datos_completos)} registros completos")
         
         return {
             "success": True,
@@ -1125,6 +1135,7 @@ async def importar_datos_masivos(
             "total_registros": total_registros,
             "columnas_disponibles": list(df.columns),
             "datos_muestra": datos_muestra,
+            "datos_completos": datos_completos,  # Todos los datos para importar
             "separator": separator
         }
         

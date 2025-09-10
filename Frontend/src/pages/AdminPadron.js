@@ -367,13 +367,13 @@ const AdminPadron = () => {
   };
 
   const handleConfirmarImportacion = () => {
-    if (datosProcesados && datosProcesados.datos_muestra) {
+    if (datosProcesados && datosProcesados.datos_completos) {
       console.log('💾 Confirmando importación');
       setUploadStatus('uploading');
       setUploadMessage('Importando datos a la base de datos...');
       
-      // Convertir datos_muestra a formato completo (simulado)
-      const datosCompletos = datosProcesados.datos_muestra.map(registro => ({
+      // Usar datos_completos del backend
+      const datosCompletos = datosProcesados.datos_completos.map(registro => ({
         cedula: registro.cedula || '',
         nombre: registro.nombre || '',
         apellido_paterno: registro.apellido_paterno || '',
