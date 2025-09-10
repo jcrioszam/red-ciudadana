@@ -48,6 +48,13 @@ const AdminPadron = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadStatus, setUploadStatus] = useState('');
   const [uploadMessage, setUploadMessage] = useState('');
+  
+  // Estados para importación desde Excel
+  const [excelFile, setExcelFile] = useState(null);
+  const [datosTexto, setDatosTexto] = useState('');
+  const [datosProcesados, setDatosProcesados] = useState(null);
+  const [mostrarImportacion, setMostrarImportacion] = useState(false);
+  const [mostrarDatos, setMostrarDatos] = useState(false);
   const [searchParams, setSearchParams] = useState({
     elector: '',
     curp: '',
@@ -283,6 +290,134 @@ const AdminPadron = () => {
     setSearchResults([]);
   };
 
+  // Funciones para importación desde Excel
+  const handleExcelFileSelect = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      const extension = file.name.toLowerCase().split('.').pop();
+      if (['xlsx', 'xls', 'csv'].includes(extension)) {
+        setExcelFile(file);
+        setUploadStatus('');
+        setUploadMessage('');
+      } else {
+        setUploadStatus('error');
+        setUploadMessage('Por favor selecciona un archivo Excel (.xlsx, .xls) o CSV (.csv)');
+      }
+    }
+  };
+
+  const handleExcelUpload = () => {
+    if (excelFile) {
+      console.log('📊 Subiendo archivo Excel:', excelFile.name);
+      const formData = new FormData();
+      formData.append('file', excelFile);
+      setUploadStatus('uploading');
+      setUploadMessage('Procesando archivo Excel...');
+      
+      api.post('/api/padron/importar-excel', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        timeout: 300000, // 5 minutos
+      })
+      .then(response => {
+        console.log('✅ Archivo Excel procesado:', response.data);
+        setUploadStatus('success');
+        setUploadMessage(`Archivo procesado: ${response.data.total_registros} registros encontrados`);
+        setDatosProcesados(response.data);
+        setMostrarDatos(true);
+      })
+      .catch(error => {
+        console.error('❌ Error procesando Excel:', error);
+        setUploadStatus('error');
+        setUploadMessage(`Error procesando archivo: ${error.response?.data?.error || error.message}`);
+      });
+    }
+  };
+
+  const handleDatosTextoChange = (event) => {
+    setDatosTexto(event.target.value);
+  };
+
+  const handleProcesarDatosTexto = () => {
+    if (datosTexto.trim()) {
+      console.log('📋 Procesando datos de texto');
+      setUploadStatus('uploading');
+      setUploadMessage('Procesando datos copiados...');
+      
+      api.post('/api/padron/importar-datos-masivos', datosTexto, {
+        headers: {
+          'Content-Type': 'text/plain',
+        },
+        timeout: 300000, // 5 minutos
+      })
+      .then(response => {
+        console.log('✅ Datos procesados:', response.data);
+        setUploadStatus('success');
+        setUploadMessage(`Datos procesados: ${response.data.total_registros} registros encontrados`);
+        setDatosProcesados(response.data);
+        setMostrarDatos(true);
+      })
+      .catch(error => {
+        console.error('❌ Error procesando datos:', error);
+        setUploadStatus('error');
+        setUploadMessage(`Error procesando datos: ${error.response?.data?.error || error.message}`);
+      });
+    }
+  };
+
+  const handleConfirmarImportacion = () => {
+    if (datosProcesados && datosProcesados.datos_muestra) {
+      console.log('💾 Confirmando importación');
+      setUploadStatus('uploading');
+      setUploadMessage('Importando datos a la base de datos...');
+      
+      // Convertir datos_muestra a formato completo (simulado)
+      const datosCompletos = datosProcesados.datos_muestra.map(registro => ({
+        cedula: registro.cedula || '',
+        nombre: registro.nombre || '',
+        apellido_paterno: registro.apellido_paterno || '',
+        apellido_materno: registro.apellido_materno || '',
+        fecha_nacimiento: registro.fecha_nacimiento || null,
+        sexo: registro.sexo || '',
+        estado: registro.estado || '',
+        municipio: registro.municipio || '',
+        seccion: registro.seccion || '',
+        localidad: registro.localidad || '',
+        casilla: registro.casilla || '',
+        tipo_casilla: registro.tipo_casilla || '',
+        domicilio: registro.domicilio || '',
+        colonia: registro.colonia || '',
+        codigo_postal: registro.codigo_postal || '',
+        telefono: registro.telefono || '',
+        email: registro.email || ''
+      }));
+      
+      api.post('/api/padron/confirmar-importacion', datosCompletos, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        timeout: 600000, // 10 minutos
+      })
+      .then(response => {
+        console.log('✅ Importación completada:', response.data);
+        setUploadStatus('success');
+        setUploadMessage(`Importación completada: ${response.data.total_guardados} registros guardados`);
+        setMostrarDatos(false);
+        setDatosProcesados(null);
+        setDatosTexto('');
+        setExcelFile(null);
+        queryClient.invalidateQueries('estadisticas-padron');
+        queryClient.invalidateQueries('metricas-movilizacion');
+      })
+      .catch(error => {
+        console.error('❌ Error en importación:', error);
+        setUploadStatus('error');
+        setUploadMessage(`Error en importación: ${error.response?.data?.error || error.message}`);
+      });
+    }
+  };
+
   const formatNumber = (num) => {
     return new Intl.NumberFormat('es-MX').format(num);
   };
@@ -506,6 +641,108 @@ const AdminPadron = () => {
           </Card>
         </Grid>
 
+        {/* Importación desde Excel */}
+        <Grid item xs={12}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Importar desde Excel/CSV
+              </Typography>
+              
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Opción 1: Seleccionar archivo Excel o CSV
+                </Typography>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  onChange={handleExcelFileSelect}
+                  style={{ display: 'none' }}
+                />
+                <Button
+                  variant="outlined"
+                  startIcon={<FiUpload />}
+                  onClick={() => {
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = '.xlsx,.xls,.csv';
+                    input.onchange = handleExcelFileSelect;
+                    input.click();
+                  }}
+                  sx={{ mr: 2 }}
+                >
+                  Seleccionar Archivo Excel/CSV
+                </Button>
+                {excelFile && (
+                  <Chip
+                    label={excelFile.name}
+                    onDelete={() => setExcelFile(null)}
+                    color="primary"
+                  />
+                )}
+                {excelFile && (
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={handleExcelUpload}
+                    disabled={uploadStatus === 'uploading'}
+                    startIcon={<FiCheckCircle />}
+                    sx={{ ml: 2 }}
+                  >
+                    Procesar Archivo
+                  </Button>
+                )}
+              </Box>
+
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Opción 2: Copiar y pegar datos desde Excel
+                </Typography>
+                <TextField
+                  fullWidth
+                  multiline
+                  rows={6}
+                  placeholder="Copia y pega aquí los datos desde Excel (incluyendo encabezados)..."
+                  value={datosTexto}
+                  onChange={handleDatosTextoChange}
+                  sx={{ mb: 2 }}
+                />
+                <Button
+                  variant="contained"
+                  color="secondary"
+                  onClick={handleProcesarDatosTexto}
+                  disabled={!datosTexto.trim() || uploadStatus === 'uploading'}
+                  startIcon={<FiSearch />}
+                >
+                  Procesar Datos
+                </Button>
+              </Box>
+
+              {uploadStatus === 'uploading' && (
+                <Box sx={{ mb: 2 }}>
+                  <LinearProgress />
+                  <Typography variant="body2" sx={{ mt: 1 }}>
+                    {uploadMessage || 'Procesando datos...'}
+                  </Typography>
+                </Box>
+              )}
+
+              {uploadStatus === 'success' && (
+                <Alert severity="success" sx={{ mb: 2 }}>
+                  {uploadMessage || '¡Datos procesados exitosamente!'}
+                </Alert>
+              )}
+
+              {uploadStatus === 'error' && (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                  {uploadMessage || 'Error al procesar los datos.'}
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+
         {/* Búsqueda en Padrón */}
         <Grid item xs={12}>
           <Card>
@@ -651,6 +888,76 @@ const AdminPadron = () => {
           </Grid>
         )}
       </Grid>
+
+      {/* Dialog de Datos Procesados */}
+      <Dialog
+        open={mostrarDatos}
+        onClose={() => setMostrarDatos(false)}
+        maxWidth="lg"
+        fullWidth
+      >
+        <DialogTitle>
+          Datos Procesados - Vista Previa
+        </DialogTitle>
+        <DialogContent>
+          {datosProcesados && (
+            <Box>
+              <Typography variant="h6" gutterBottom>
+                Resumen de Importación
+              </Typography>
+              <Box sx={{ mb: 3 }}>
+                <Typography><strong>Total de registros:</strong> {datosProcesados.total_registros}</Typography>
+                <Typography><strong>Columnas detectadas:</strong> {datosProcesados.columnas_disponibles?.join(', ')}</Typography>
+              </Box>
+              
+              <Typography variant="h6" gutterBottom>
+                Muestra de Datos (Primeros 10 registros)
+              </Typography>
+              <TableContainer component={Paper}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Cédula</TableCell>
+                      <TableCell>Nombre</TableCell>
+                      <TableCell>Apellido Paterno</TableCell>
+                      <TableCell>Apellido Materno</TableCell>
+                      <TableCell>Sexo</TableCell>
+                      <TableCell>Estado</TableCell>
+                      <TableCell>Municipio</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {datosProcesados.datos_muestra?.map((registro, index) => (
+                      <TableRow key={index}>
+                        <TableCell>{registro.cedula || '-'}</TableCell>
+                        <TableCell>{registro.nombre || '-'}</TableCell>
+                        <TableCell>{registro.apellido_paterno || '-'}</TableCell>
+                        <TableCell>{registro.apellido_materno || '-'}</TableCell>
+                        <TableCell>{registro.sexo || '-'}</TableCell>
+                        <TableCell>{registro.estado || '-'}</TableCell>
+                        <TableCell>{registro.municipio || '-'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setMostrarDatos(false)}>
+            Cancelar
+          </Button>
+          <Button 
+            onClick={handleConfirmarImportacion}
+            variant="contained"
+            color="primary"
+            disabled={uploadStatus === 'uploading'}
+          >
+            {uploadStatus === 'uploading' ? 'Importando...' : 'Confirmar Importación'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Dialog de Resultados de Búsqueda */}
       <Dialog

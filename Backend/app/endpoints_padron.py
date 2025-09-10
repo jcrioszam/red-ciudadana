@@ -913,3 +913,253 @@ async def limpiar_padron(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error limpiando padrón: {str(e)}"
         )
+
+@router.post("/padron/importar-excel", response_model=dict)
+async def importar_excel(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(require_admin)
+):
+    """Importar datos del padrón desde archivo Excel/CSV"""
+    try:
+        print(f"📊 IMPORTAR EXCEL - Iniciando")
+        print(f"📁 Archivo: {file.filename}, tamaño: {file.size} bytes")
+        
+        if not file.filename:
+            return {
+                "success": False,
+                "error": "No se proporcionó archivo"
+            }
+        
+        # Verificar extensión del archivo
+        file_extension = file.filename.lower().split('.')[-1]
+        if file_extension not in ['xlsx', 'xls', 'csv']:
+            return {
+                "success": False,
+                "error": "El archivo debe ser Excel (.xlsx, .xls) o CSV (.csv)"
+            }
+        
+        # Leer archivo
+        content = await file.read()
+        
+        # Procesar según el tipo de archivo
+        if file_extension == 'csv':
+            df = pd.read_csv(io.StringIO(content.decode('utf-8')))
+        else:  # Excel
+            df = pd.read_excel(io.BytesIO(content))
+        
+        print(f"📊 Datos leídos: {len(df)} filas, {len(df.columns)} columnas")
+        print(f"🔍 Columnas disponibles: {list(df.columns)}")
+        
+        # Mapear columnas automáticamente
+        column_mapping = {
+            'ELECTOR': 'cedula',
+            'NOMBRE': 'nombre', 
+            'APE_PAT': 'apellido_paterno',
+            'APE_MAT': 'apellido_materno',
+            'FNAC': 'fecha_nacimiento',
+            'SEXO': 'sexo',
+            'ENTIDAD': 'estado',
+            'MUNICIPIO': 'municipio',
+            'SECCION': 'seccion',
+            'LOCALIDAD': 'localidad',
+            'MANZANA': 'casilla',
+            'EN_LN': 'tipo_casilla',
+            'CALLE': 'domicilio',
+            'COLONIA': 'colonia',
+            'CODPOSTAL': 'codigo_postal',
+            'TIEMPRES': 'telefono',
+            'EMISIONCRE': 'email'
+        }
+        
+        # Crear lista de datos para mostrar
+        datos_muestra = []
+        total_registros = len(df)
+        
+        for index, row in df.head(10).iterrows():  # Solo primeros 10 para muestra
+            registro = {}
+            for col_excel, col_bd in column_mapping.items():
+                if col_excel in df.columns:
+                    valor = str(row[col_excel]) if pd.notna(row[col_excel]) else ''
+                    registro[col_bd] = valor[:100]  # Limitar a 100 caracteres
+            datos_muestra.append(registro)
+        
+        return {
+            "success": True,
+            "mensaje": "Archivo Excel/CSV leído exitosamente",
+            "total_registros": total_registros,
+            "columnas_disponibles": list(df.columns),
+            "datos_muestra": datos_muestra,
+            "filename": file.filename
+        }
+        
+    except Exception as e:
+        print(f"❌ Error importando Excel: {str(e)}")
+        return {
+            "success": False,
+            "error": f"Error procesando archivo: {str(e)}"
+        }
+
+@router.post("/padron/importar-datos-masivos", response_model=dict)
+async def importar_datos_masivos(
+    datos_texto: str,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(require_admin)
+):
+    """Importar datos del padrón desde texto copiado de Excel"""
+    try:
+        print(f"📋 IMPORTAR DATOS MASIVOS - Iniciando")
+        print(f"📝 Tamaño del texto: {len(datos_texto)} caracteres")
+        
+        if not datos_texto.strip():
+            return {
+                "success": False,
+                "error": "No se proporcionaron datos"
+            }
+        
+        # Detectar separador (tabulación o comas)
+        if '\t' in datos_texto:
+            separator = '\t'
+        elif ',' in datos_texto:
+            separator = ','
+        else:
+            return {
+                "success": False,
+                "error": "No se detectó separador válido (tabulación o comas)"
+            }
+        
+        # Convertir texto a DataFrame
+        lines = datos_texto.strip().split('\n')
+        df = pd.DataFrame([line.split(separator) for line in lines])
+        
+        # Si la primera fila parece ser encabezados, usarla
+        if len(df) > 1:
+            df.columns = df.iloc[0]
+            df = df.drop(df.index[0])
+        
+        print(f"📊 Datos procesados: {len(df)} filas, {len(df.columns)} columnas")
+        print(f"🔍 Columnas: {list(df.columns)}")
+        
+        # Mapear columnas automáticamente
+        column_mapping = {
+            'ELECTOR': 'cedula',
+            'NOMBRE': 'nombre', 
+            'APE_PAT': 'apellido_paterno',
+            'APE_MAT': 'apellido_materno',
+            'FNAC': 'fecha_nacimiento',
+            'SEXO': 'sexo',
+            'ENTIDAD': 'estado',
+            'MUNICIPIO': 'municipio',
+            'SECCION': 'seccion',
+            'LOCALIDAD': 'localidad',
+            'MANZANA': 'casilla',
+            'EN_LN': 'tipo_casilla',
+            'CALLE': 'domicilio',
+            'COLONIA': 'colonia',
+            'CODPOSTAL': 'codigo_postal',
+            'TIEMPRES': 'telefono',
+            'EMISIONCRE': 'email'
+        }
+        
+        # Crear lista de datos para mostrar
+        datos_muestra = []
+        total_registros = len(df)
+        
+        for index, row in df.head(10).iterrows():  # Solo primeros 10 para muestra
+            registro = {}
+            for col_excel, col_bd in column_mapping.items():
+                if col_excel in df.columns:
+                    valor = str(row[col_excel]) if pd.notna(row[col_excel]) else ''
+                    registro[col_bd] = valor[:100]  # Limitar a 100 caracteres
+            datos_muestra.append(registro)
+        
+        return {
+            "success": True,
+            "mensaje": "Datos procesados exitosamente",
+            "total_registros": total_registros,
+            "columnas_disponibles": list(df.columns),
+            "datos_muestra": datos_muestra,
+            "separator": separator
+        }
+        
+    except Exception as e:
+        print(f"❌ Error procesando datos: {str(e)}")
+        return {
+            "success": False,
+            "error": f"Error procesando datos: {str(e)}"
+        }
+
+@router.post("/padron/confirmar-importacion", response_model=dict)
+async def confirmar_importacion(
+    datos: List[dict],
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(require_admin)
+):
+    """Confirmar e importar los datos procesados a la base de datos"""
+    try:
+        print(f"💾 CONFIRMAR IMPORTACIÓN - Iniciando")
+        print(f"📊 Total de registros a importar: {len(datos)}")
+        
+        total_guardados = 0
+        errores = []
+        
+        # Procesar en lotes de 1000
+        batch_size = 1000
+        for i in range(0, len(datos), batch_size):
+            batch = datos[i:i + batch_size]
+            
+            for registro_data in batch:
+                try:
+                    # Crear registro del padrón
+                    padron_record = PadronElectoral(
+                        cedula=str(registro_data.get('cedula', '')).strip(),
+                        nombre=str(registro_data.get('nombre', '')).strip(),
+                        apellido_paterno=str(registro_data.get('apellido_paterno', '')).strip(),
+                        apellido_materno=str(registro_data.get('apellido_materno', '')).strip(),
+                        fecha_nacimiento=registro_data.get('fecha_nacimiento'),
+                        sexo=str(registro_data.get('sexo', '')).strip(),
+                        estado=str(registro_data.get('estado', '')).strip(),
+                        municipio=str(registro_data.get('municipio', '')).strip(),
+                        seccion=str(registro_data.get('seccion', '')).strip(),
+                        localidad=str(registro_data.get('localidad', '')).strip(),
+                        casilla=str(registro_data.get('casilla', '')).strip(),
+                        tipo_casilla=str(registro_data.get('tipo_casilla', '')).strip(),
+                        domicilio=str(registro_data.get('domicilio', '')).strip(),
+                        colonia=str(registro_data.get('colonia', '')).strip(),
+                        codigo_postal=str(registro_data.get('codigo_postal', '')).strip(),
+                        telefono=str(registro_data.get('telefono', '')).strip(),
+                        email=str(registro_data.get('email', '')).strip(),
+                        activo=True,
+                        fecha_creacion=datetime.now()
+                    )
+                    
+                    db.add(padron_record)
+                    total_guardados += 1
+                    
+                except Exception as e:
+                    errores.append(f"Error en registro: {str(e)}")
+                    continue
+            
+            # Commit del lote
+            try:
+                db.commit()
+                print(f"✅ Lote {i//batch_size + 1} guardado: {len(batch)} registros")
+            except Exception as e:
+                db.rollback()
+                errores.append(f"Error guardando lote: {str(e)}")
+        
+        return {
+            "success": True,
+            "mensaje": f"Importación completada: {total_guardados} registros guardados",
+            "total_guardados": total_guardados,
+            "total_procesados": len(datos),
+            "errores": errores[:10] if errores else []  # Solo primeros 10 errores
+        }
+        
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Error en importación: {str(e)}")
+        return {
+            "success": False,
+            "error": f"Error en importación: {str(e)}"
+        }
