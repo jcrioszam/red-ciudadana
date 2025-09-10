@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, func
 from typing import List, Optional
@@ -1043,13 +1043,18 @@ async def importar_excel(
 
 @router.post("/padron/importar-datos-masivos", response_model=dict)
 async def importar_datos_masivos(
-    datos_texto: str,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(require_admin)
 ):
     """Importar datos del padrón desde texto copiado de Excel"""
     try:
         print(f"📋 IMPORTAR DATOS MASIVOS - Iniciando")
+        
+        # Leer el texto del request body
+        datos_texto = await request.body()
+        datos_texto = datos_texto.decode('utf-8')
+        
         print(f"📝 Tamaño del texto: {len(datos_texto)} caracteres")
         
         if not datos_texto.strip():
