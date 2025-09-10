@@ -1169,25 +1169,25 @@ async def confirmar_importacion(
                 try:
                     # Crear registro del padrón
                     padron_record = PadronElectoral(
-                        cedula=str(registro_data.get('cedula', '')).strip(),
+                        consecutivo=registro_data.get('consecutivo', 0),
+                        elector=str(registro_data.get('cedula', '')).strip(),
+                        ape_pat=str(registro_data.get('apellido_paterno', '')).strip(),
+                        ape_mat=str(registro_data.get('apellido_materno', '')).strip(),
                         nombre=str(registro_data.get('nombre', '')).strip(),
-                        apellido_paterno=str(registro_data.get('apellido_paterno', '')).strip(),
-                        apellido_materno=str(registro_data.get('apellido_materno', '')).strip(),
-                        fecha_nacimiento=registro_data.get('fecha_nacimiento'),
+                        fnac=registro_data.get('fecha_nacimiento'),
                         sexo=str(registro_data.get('sexo', '')).strip(),
-                        estado=str(registro_data.get('estado', '')).strip(),
+                        entidad=str(registro_data.get('estado', '')).strip(),
                         municipio=str(registro_data.get('municipio', '')).strip(),
                         seccion=str(registro_data.get('seccion', '')).strip(),
                         localidad=str(registro_data.get('localidad', '')).strip(),
-                        casilla=str(registro_data.get('casilla', '')).strip(),
-                        tipo_casilla=str(registro_data.get('tipo_casilla', '')).strip(),
-                        domicilio=str(registro_data.get('domicilio', '')).strip(),
+                        manzana=str(registro_data.get('casilla', '')).strip(),
+                        en_ln=str(registro_data.get('tipo_casilla', '')).strip(),
+                        calle=str(registro_data.get('domicilio', '')).strip(),
                         colonia=str(registro_data.get('colonia', '')).strip(),
-                        codigo_postal=str(registro_data.get('codigo_postal', '')).strip(),
-                        telefono=str(registro_data.get('telefono', '')).strip(),
-                        email=str(registro_data.get('email', '')).strip(),
-                        activo=True,
-                        fecha_creacion=datetime.now()
+                        codpostal=str(registro_data.get('codigo_postal', '')).strip(),
+                        tiempres=str(registro_data.get('telefono', '')).strip(),
+                        misioncr=str(registro_data.get('email', '')).strip(),
+                        activo=True
                     )
                     
                     db.add(padron_record)
