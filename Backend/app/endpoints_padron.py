@@ -951,7 +951,15 @@ async def importar_excel(
         print(f"📊 Datos leídos: {len(df)} filas, {len(df.columns)} columnas")
         print(f"🔍 Columnas disponibles: {list(df.columns)}")
         
-        # Mapear columnas automáticamente
+        # Verificar si el DataFrame está vacío
+        if df.empty:
+            return {
+                "success": False,
+                "error": "El archivo está vacío o no se pudieron leer los datos",
+                "filename": file.filename
+            }
+        
+        # Mapear columnas automáticamente - versión más flexible
         column_mapping = {
             'ELECTOR': 'cedula',
             'NOMBRE': 'nombre', 
@@ -969,20 +977,53 @@ async def importar_excel(
             'COLONIA': 'colonia',
             'CODPOSTAL': 'codigo_postal',
             'TIEMPRES': 'telefono',
-            'EMISIONCRE': 'email'
+            'EMISIONCRE': 'email',
+            # Mapeos alternativos comunes
+            'Cedula': 'cedula',
+            'Nombre': 'nombre',
+            'Apellido Paterno': 'apellido_paterno',
+            'Apellido Materno': 'apellido_materno',
+            'Fecha Nacimiento': 'fecha_nacimiento',
+            'Sexo': 'sexo',
+            'Estado': 'estado',
+            'Municipio': 'municipio',
+            'Seccion': 'seccion',
+            'Localidad': 'localidad'
         }
         
         # Crear lista de datos para mostrar
         datos_muestra = []
         total_registros = len(df)
         
+        print(f"🔍 Procesando {min(10, total_registros)} registros para muestra...")
+        
         for index, row in df.head(10).iterrows():  # Solo primeros 10 para muestra
             registro = {}
-            for col_excel, col_bd in column_mapping.items():
-                if col_excel in df.columns:
+            print(f"📝 Procesando registro {index + 1}: {dict(row)}")
+            
+            # Mapear todas las columnas disponibles
+            for col_excel in df.columns:
+                # Buscar mapeo exacto
+                col_bd = column_mapping.get(col_excel)
+                if not col_bd:
+                    # Buscar mapeo por similitud (case insensitive)
+                    for key, value in column_mapping.items():
+                        if col_excel.lower() == key.lower():
+                            col_bd = value
+                            break
+                
+                if col_bd:
                     valor = str(row[col_excel]) if pd.notna(row[col_excel]) else ''
                     registro[col_bd] = valor[:100]  # Limitar a 100 caracteres
+                else:
+                    # Si no hay mapeo, usar el nombre original
+                    valor = str(row[col_excel]) if pd.notna(row[col_excel]) else ''
+                    registro[col_excel] = valor[:100]
+            
             datos_muestra.append(registro)
+            print(f"✅ Registro mapeado: {registro}")
+        
+        print(f"📊 Total de registros procesados: {len(datos_muestra)}")
         
         return {
             "success": True,
