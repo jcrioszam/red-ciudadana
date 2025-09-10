@@ -314,7 +314,7 @@ const AdminPadron = () => {
       setUploadStatus('uploading');
       setUploadMessage('Procesando archivo Excel...');
       
-      api.post('/padron/importar-excel', formData, {
+      api.post('/api/padron/importar-excel', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -345,7 +345,7 @@ const AdminPadron = () => {
       setUploadStatus('uploading');
       setUploadMessage('Procesando datos copiados...');
       
-      api.post('/padron/importar-datos-masivos', datosTexto, {
+      api.post('/api/padron/importar-datos-masivos', datosTexto, {
         headers: {
           'Content-Type': 'text/plain',
         },
@@ -393,7 +393,7 @@ const AdminPadron = () => {
         email: registro.email || ''
       }));
       
-      api.post('/padron/confirmar-importacion', datosCompletos, {
+      api.post('/api/padron/confirmar-importacion', datosCompletos, {
         headers: {
           'Content-Type': 'application/json',
         },
