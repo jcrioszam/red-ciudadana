@@ -188,9 +188,9 @@ def create_initial_users():
 def migrate_foto_url_auto():
     """Migrar campo foto_url automáticamente al iniciar"""
     try:
-        database_url = os.getenv('DATABASE_URL_NEON')
+        database_url = os.getenv('DATABASE_URL_NEON_NEON')
         if not database_url:
-            print("❌ DATABASE_URL_NEON no encontrada para migración automática")
+            print("❌ DATABASE_URL_NEON_NEON no encontrada para migración automática")
             return False
         
         print("🔧 Iniciando migración automática de foto_url...")
