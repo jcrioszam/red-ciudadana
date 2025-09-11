@@ -1146,6 +1146,97 @@ async def importar_datos_masivos(
             "error": f"Error procesando datos: {str(e)}"
         }
 
+@router.post("/padron/importar-directo", response_model=dict)
+async def importar_padron_directo(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(require_admin)
+):
+    """Importar padrón directamente a la base de datos"""
+    try:
+        print(f"🚀 IMPORTACIÓN DIRECTA - Iniciando")
+        print(f"📁 Archivo: {file.filename}, tamaño: {file.size} bytes")
+        
+        if not file.filename:
+            return {
+                "success": False,
+                "error": "No se proporcionó archivo"
+            }
+        
+        file_extension = file.filename.lower().split('.')[-1]
+        if file_extension not in ['xlsx', 'xls']:
+            return {
+                "success": False,
+                "error": "El archivo debe ser Excel (.xlsx, .xls)"
+            }
+        
+        # Guardar archivo temporalmente
+        import tempfile
+        import subprocess
+        import os
+        
+        with tempfile.NamedTemporaryFile(delete=False, suffix=f".{file_extension}") as tmp_file:
+            content = await file.read()
+            tmp_file.write(content)
+            tmp_file_path = tmp_file.name
+        
+        print(f"📁 Archivo guardado temporalmente: {tmp_file_path}")
+        
+        # Ejecutar script de importación directa
+        script_path = "/app/importar_padron_directo.py"
+        cmd = ["python", script_path, tmp_file_path]
+        
+        print(f"🚀 Ejecutando comando: {' '.join(cmd)}")
+        
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=3600  # 1 hora timeout
+            )
+            
+            print(f"📊 Código de salida: {result.returncode}")
+            print(f"📝 Salida: {result.stdout}")
+            if result.stderr:
+                print(f"❌ Errores: {result.stderr}")
+            
+            # Limpiar archivo temporal
+            os.unlink(tmp_file_path)
+            
+            if result.returncode == 0:
+                return {
+                    "success": True,
+                    "mensaje": "Importación directa completada exitosamente",
+                    "output": result.stdout
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": f"Error en importación directa: {result.stderr}",
+                    "output": result.stdout
+                }
+                
+        except subprocess.TimeoutExpired:
+            os.unlink(tmp_file_path)
+            return {
+                "success": False,
+                "error": "Timeout en la importación directa"
+            }
+        except Exception as e:
+            os.unlink(tmp_file_path)
+            return {
+                "success": False,
+                "error": f"Error ejecutando importación directa: {str(e)}"
+            }
+        
+    except Exception as e:
+        print(f"❌ Error en importación directa: {str(e)}")
+        return {
+            "success": False,
+            "error": f"Error en importación directa: {str(e)}"
+        }
+
 @router.post("/padron/confirmar-importacion", response_model=dict)
 async def confirmar_importacion(
     datos: List[dict],

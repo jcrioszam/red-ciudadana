@@ -1,0 +1,6 @@
+Force deploy - Fix padrón importación
+Fecha: 2024-12-28
+Cambios: Corregido mapeo de campos en endpoint confirmar-importacion
+- Cambiado 'cedula' por 'elector' en PadronElectoral
+- Corregido mapeo de todos los campos del Excel
+- Agregado manejo de errores mejorado
