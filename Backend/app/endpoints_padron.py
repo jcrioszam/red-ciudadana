@@ -1146,6 +1146,89 @@ async def importar_datos_masivos(
             "error": f"Error procesando datos: {str(e)}"
         }
 
+@router.post("/padron/guardar-datos-tabla", response_model=dict)
+async def guardar_datos_tabla(
+    datos: List[dict],
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(require_admin)
+):
+    """Guardar datos desde la tabla directa"""
+    try:
+        print(f"💾 GUARDAR DATOS TABLA - Iniciando")
+        print(f"📊 Total de registros a guardar: {len(datos)}")
+        
+        total_guardados = 0
+        errores = []
+        
+        # Procesar en lotes de 1000
+        batch_size = 1000
+        for i in range(0, len(datos), batch_size):
+            batch = datos[i:i + batch_size]
+            
+            for registro_data in batch:
+                try:
+                    # Crear registro del padrón
+                    padron_record = PadronElectoral(
+                        consecutivo=int(registro_data.get('consecutivo', 0)),
+                        elector=str(registro_data.get('elector', '')).strip(),
+                        fol_nac=str(registro_data.get('fol_nac', '')).strip() if registro_data.get('fol_nac') else None,
+                        ocr=str(registro_data.get('ocr', '')).strip() if registro_data.get('ocr') else None,
+                        ape_pat=str(registro_data.get('ape_pat', '')).strip(),
+                        ape_mat=str(registro_data.get('ape_mat', '')).strip(),
+                        nombre=str(registro_data.get('nombre', '')).strip(),
+                        fnac=registro_data.get('fnac') if registro_data.get('fnac') else None,
+                        edad=int(registro_data.get('edad', 0)) if registro_data.get('edad') else None,
+                        sexo=str(registro_data.get('sexo', '')).strip(),
+                        curp=str(registro_data.get('curp', '')).strip() if registro_data.get('curp') else None,
+                        ocupacion=str(registro_data.get('ocupacion', '')).strip() if registro_data.get('ocupacion') else None,
+                        calle=str(registro_data.get('calle', '')).strip() if registro_data.get('calle') else None,
+                        num_ext=str(registro_data.get('num_ext', '')).strip() if registro_data.get('num_ext') else None,
+                        num_int=str(registro_data.get('num_int', '')).strip() if registro_data.get('num_int') else None,
+                        colonia=str(registro_data.get('colonia', '')).strip() if registro_data.get('colonia') else None,
+                        codpostal=str(registro_data.get('codpostal', '')).strip() if registro_data.get('codpostal') else None,
+                        tiempres=str(registro_data.get('tiempres', '')).strip() if registro_data.get('tiempres') else None,
+                        entidad=str(registro_data.get('entidad', '')).strip() if registro_data.get('entidad') else None,
+                        distrito=str(registro_data.get('distrito', '')).strip() if registro_data.get('distrito') else None,
+                        municipio=str(registro_data.get('municipio', '')).strip() if registro_data.get('municipio') else None,
+                        seccion=str(registro_data.get('seccion', '')).strip() if registro_data.get('seccion') else None,
+                        localidad=str(registro_data.get('localidad', '')).strip() if registro_data.get('localidad') else None,
+                        manzana=str(registro_data.get('manzana', '')).strip() if registro_data.get('manzana') else None,
+                        en_ln=str(registro_data.get('en_ln', '')).strip() if registro_data.get('en_ln') else None,
+                        misioncr=str(registro_data.get('misioncr', '')).strip() if registro_data.get('misioncr') else None,
+                        activo=True
+                    )
+                    
+                    db.add(padron_record)
+                    total_guardados += 1
+                    
+                except Exception as e:
+                    errores.append(f"Error en registro: {str(e)}")
+                    continue
+            
+            # Commit del lote
+            try:
+                db.commit()
+                print(f"✅ Lote {i//batch_size + 1} guardado: {len(batch)} registros")
+            except Exception as e:
+                db.rollback()
+                errores.append(f"Error guardando lote: {str(e)}")
+        
+        return {
+            "success": True,
+            "mensaje": f"Guardado completado: {total_guardados} registros guardados",
+            "total_guardados": total_guardados,
+            "total_procesados": len(datos),
+            "errores": errores[:10] if errores else []
+        }
+        
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Error guardando datos: {str(e)}")
+        return {
+            "success": False,
+            "error": f"Error guardando datos: {str(e)}"
+        }
+
 @router.post("/padron/importar-directo", response_model=dict)
 async def importar_padron_directo(
     file: UploadFile = File(...),
