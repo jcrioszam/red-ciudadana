@@ -28,6 +28,7 @@ import {
   IconButton,
   Tooltip
 } from '@mui/material';
+import TablaPadronEditable from '../components/TablaPadronEditable';
 import {
   FiUpload,
   FiSearch,
@@ -55,6 +56,7 @@ const AdminPadron = () => {
   const [datosProcesados, setDatosProcesados] = useState(null);
   const [mostrarImportacion, setMostrarImportacion] = useState(false);
   const [mostrarDatos, setMostrarDatos] = useState(false);
+  const [mostrarTablaEditable, setMostrarTablaEditable] = useState(false);
   const [searchParams, setSearchParams] = useState({
     elector: '',
     curp: '',
@@ -718,6 +720,26 @@ const AdminPadron = () => {
                   Procesar Datos
                 </Button>
               </Box>
+              
+              {/* Nueva opción: Tabla Editable */}
+              <Box sx={{ mt: 3, p: 2, border: '2px dashed #e0e0e0', borderRadius: 2 }}>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Opción 3: Tabla Editable (Recomendado)
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2, fontSize: '0.875rem' }}>
+                  Copia y pega datos desde Excel directamente en una tabla editable. 
+                  Puedes editar cualquier celda antes de guardar.
+                </Typography>
+                <Button
+                  variant="contained"
+                  color="success"
+                  startIcon={<FiUsers />}
+                  onClick={() => setMostrarTablaEditable(true)}
+                  sx={{ mr: 2 }}
+                >
+                  📊 Abrir Tabla Editable
+                </Button>
+              </Box>
 
               {uploadStatus === 'uploading' && (
                 <Box sx={{ mb: 2 }}>
@@ -1019,6 +1041,11 @@ const AdminPadron = () => {
           </Button>
         </DialogActions>
       </Dialog>
+      
+      {/* Modal de Tabla Editable */}
+      {mostrarTablaEditable && (
+        <TablaPadronEditable onClose={() => setMostrarTablaEditable(false)} />
+      )}
     </Box>
   );
 };
