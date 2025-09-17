@@ -1,4 +1,4 @@
-
+ 
 
 # Sistema de Reportes Ciudadanos - Red Ciudadana
 from fastapi import FastAPI, Depends, HTTPException, status, Body, UploadFile, File, Form, Request, Query
@@ -188,9 +188,9 @@ def create_initial_users():
 def migrate_foto_url_auto():
     """Migrar campo foto_url automáticamente al iniciar"""
     try:
-        database_url = os.getenv('DATABASE_URL_NEON_NEON_NEON')
+        database_url = os.getenv('DATABASE_URL')
         if not database_url:
-            print("❌ DATABASE_URL_NEON_NEON_NEON no encontrada para migración automática")
+            print("❌ DATABASE_URL no encontrada para migración automática")
             return False
         
         print("🔧 Iniciando migración automática de foto_url...")
@@ -327,6 +327,24 @@ async def get_image(filename: str):
         raise HTTPException(status_code=404, detail="Imagen no encontrada")
 
 # Configuración de CORS y middleware aplicada
+
+# 🔎 Diagnóstico: probar bcrypt/passlib
+@app.get("/test-bcrypt")
+async def test_bcrypt():
+    try:
+        sample_hash = get_password_hash("test1234")
+        return {"status": "ok", "hash_sample": sample_hash[:20] + "..."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"bcrypt_error: {str(e)}")
+
+# 🔎 Diagnóstico: probar conectividad básica a la BD
+@app.get("/test-db")
+async def test_db(db: Session = Depends(get_db)):
+    try:
+        db.execute(text("SELECT 1"))
+        return {"status": "ok", "db": "reachable"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"db_error: {str(e)}")
 
 # 🆕 NUEVO: Endpoint de prueba para forzar despliegue
 @app.get("/test-deployment")
@@ -521,24 +539,40 @@ async def create_user(user: UsuarioCreate, db: Session = Depends(get_db)):
     db_user = db.query(UsuarioModel).filter(UsuarioModel.email == user.email).first()
     if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")
-    
-    # Crear nuevo usuario
-    hashed_password = get_password_hash(user.password)
-    db_user = UsuarioModel(
-        nombre=user.nombre,
-        telefono=user.telefono,
-        direccion=user.direccion,
-        edad=user.edad,
-        sexo=user.sexo,
-        email=user.email,
-        password_hash=hashed_password,
-        rol=user.rol,
-        id_lider_superior=user.id_lider_superior
-    )
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
-    return db_user
+
+    # Validar líder superior si se envía
+    if user.id_lider_superior is not None:
+        lider = db.query(UsuarioModel).filter(UsuarioModel.id == user.id_lider_superior, UsuarioModel.activo == True).first()
+        if not lider:
+            raise HTTPException(status_code=400, detail="Líder superior no existe o está inactivo")
+
+    try:
+        # Crear nuevo usuario
+        hashed_password = get_password_hash(user.password)
+        db_user = UsuarioModel(
+            username=user.username,
+            nombre=user.nombre,
+            telefono=user.telefono,
+            direccion=user.direccion,
+            edad=user.edad,
+            sexo=user.sexo,
+            email=user.email,
+            password_hash=hashed_password,
+            rol=user.rol,
+            id_lider_superior=user.id_lider_superior
+        )
+        db.add(db_user)
+        db.commit()
+        db.refresh(db_user)
+        return db_user
+    except Exception as e:
+        # Intentar revertir transacción por si falló
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        # Devolver detalle del error para diagnóstico
+        raise HTTPException(status_code=500, detail=f"Error creando usuario: {str(e)}")
 
 @app.get("/")
 async def root():

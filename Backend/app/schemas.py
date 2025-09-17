@@ -4,6 +4,7 @@ from datetime import datetime
 
 # Schemas para Usuarios
 class UsuarioBase(BaseModel):
+    username: str
     nombre: str
     telefono: Optional[str] = None
     direccion: Optional[str] = None

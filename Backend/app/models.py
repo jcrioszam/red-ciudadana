@@ -7,6 +7,7 @@ class Usuario(Base):
     __tablename__ = "usuarios"
 
     id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(50), nullable=False, unique=True, index=True)
     nombre = Column(String(100), nullable=False)
     telefono = Column(String(20))
     direccion = Column(Text)
