@@ -14,6 +14,8 @@ class UsuarioBase(BaseModel):
     rol: str
 
 class UsuarioCreate(UsuarioBase):
+    # Permitir username opcional en creación; si falta, el backend lo generará
+    username: Optional[str] = None
     password: str
     id_lider_superior: Optional[int] = None
 

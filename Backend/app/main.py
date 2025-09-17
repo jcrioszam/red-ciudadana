@@ -547,10 +547,22 @@ async def create_user(user: UsuarioCreate, db: Session = Depends(get_db)):
             raise HTTPException(status_code=400, detail="Líder superior no existe o está inactivo")
 
     try:
+        # Generar username si no viene
+        generated_username = None
+        if not user.username or not user.username.strip():
+            base = (user.email.split("@")[0] if user.email else "usuario").lower()
+            candidate = base
+            suffix = 1
+            # Asegurar unicidad
+            while db.query(UsuarioModel).filter(UsuarioModel.username == candidate).first() is not None:
+                suffix += 1
+                candidate = f"{base}{suffix}"
+            generated_username = candidate
+
         # Crear nuevo usuario
         hashed_password = get_password_hash(user.password)
         db_user = UsuarioModel(
-            username=user.username,
+            username=(user.username or generated_username),
             nombre=user.nombre,
             telefono=user.telefono,
             direccion=user.direccion,
