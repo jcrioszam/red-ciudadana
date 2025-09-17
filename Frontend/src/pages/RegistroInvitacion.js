@@ -45,7 +45,7 @@ const RegistroInvitacion = () => {
           setInvitacion(null);
         });
     }
-  }, [query]);
+  }, []); // Solo ejecutar una vez al montar el componente
 
   const handleChange = e => {
     setForm({ ...form, [e.target.name]: e.target.value });

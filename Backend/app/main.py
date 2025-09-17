@@ -306,7 +306,13 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Permitir todos los orígenes
+    allow_origins=[
+        "https://red-ciudadana.vercel.app",
+        "https://red-ciudadana-574v-iakbeuaab-juan-carlos-projects-ba06dd79.vercel.app",
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "*"  # Temporal para debug
+    ],
     allow_credentials=False,  # False para evitar problemas con credenciales
     allow_methods=["*"],  # Permitir todos los métodos
     allow_headers=["*"],  # Permitir todos los headers
@@ -1992,22 +1998,38 @@ async def registro_invitacion(data: InvitacionRegistro, db: Session = Depends(ge
     if db_user:
         raise HTTPException(status_code=400, detail="Email ya registrado")
     # Crear usuario con datos del token
-    hashed_password = get_password_hash(data.password)
-    db_user = UsuarioModel(
-        nombre=data.nombre,
-        telefono=data.telefono,
-        direccion=data.direccion,
-        edad=data.edad,
-        sexo=data.sexo,
-        email=data.email,
-        password_hash=hashed_password,
-        rol=payload["rol"],
-        id_lider_superior=payload["id_lider_superior"]
-    )
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
-    return db_user
+    try:
+        # Generar username a partir del email si no se proporciona en data
+        base = (data.email.split("@")[0] if data.email else "usuario").lower()
+        candidate = base
+        suffix = 1
+        while db.query(UsuarioModel).filter(UsuarioModel.username == candidate).first() is not None:
+            suffix += 1
+            candidate = f"{base}{suffix}"
+
+        hashed_password = get_password_hash(data.password)
+        db_user = UsuarioModel(
+            username=candidate,
+            nombre=data.nombre,
+            telefono=data.telefono,
+            direccion=data.direccion,
+            edad=data.edad,
+            sexo=data.sexo,
+            email=data.email,
+            password_hash=hashed_password,
+            rol=payload["rol"],
+            id_lider_superior=payload["id_lider_superior"]
+        )
+        db.add(db_user)
+        db.commit()
+        db.refresh(db_user)
+        return db_user
+    except Exception as e:
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise HTTPException(status_code=500, detail=f"Error registrando usuario por invitación: {str(e)}")
 
 class InvitacionDecode(BaseModel):
     token: str
