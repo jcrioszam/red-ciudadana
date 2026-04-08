@@ -4,6 +4,7 @@ import { Surface, Text, ActivityIndicator, Card, Title, Paragraph, Button, Chip,
 import { useAuth } from '../../src/contexts/AuthContext';
 import { FontAwesome5, MaterialIcons, Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, Callout } from 'react-native-maps';
+import { api } from '../../src/api';
 
 export default function DashboardScreen() {
   const { token, logout } = useAuth();
@@ -42,120 +43,57 @@ export default function DashboardScreen() {
     try {
       setLoading(true);
       setError(null);
-      
-      // Cargar datos de personas
-      const personasRes = await fetch('http://192.168.2.150:8000/reportes/personas', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      
-      if (personasRes.status === 401) {
-        Alert.alert('Sesión Expirada', 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.', [
-          { text: 'OK', onPress: () => logout() }
-        ]);
-        return;
-      }
-      
-      if (!personasRes.ok) {
-        const text = await personasRes.text();
-        setError(`Error ${personasRes.status}: ${text}`);
-        setLoading(false);
-        return;
-      }
-      
-      const personasData = await personasRes.json();
+
+      // Cargar todos los datos en paralelo para mayor velocidad
+      const [personasData, asistenciasData, movilizacionData, reportesData] = await Promise.all([
+        api.get('/reportes/personas'),
+        api.get('/reportes/asistencias-tiempo-real').catch(() => null),
+        api.get('/reportes/movilizacion-vehiculos').catch(() => null),
+        api.get('/reportes-ciudadanos').catch(() => null),
+      ]);
+
       setRawData(personasData);
-      
-      // Adaptar a la estructura recibida
       setGlobalStats({
         personas: personasData.total_personas || 0,
-        eventos: personasData.total_eventos || 0,
+        eventos: 0,
         lideres: personasData?.personas_por_lider ? Object.keys(personasData.personas_por_lider).length : 0,
         secciones: personasData?.personas_por_seccion ? Object.keys(personasData.personas_por_seccion).length : 0,
-        reportes: 0, // Se cargará por separado
-        movilizaciones: 0, // Se cargará por separado
+        reportes: reportesData?.length || 0,
+        movilizaciones: movilizacionData?.resumen_global?.total_asignaciones || 0,
       });
-      
-      // Rankings: convertir objetos a arrays ordenados
+
       const topSecciones = personasData.personas_por_seccion
         ? Object.entries(personasData.personas_por_seccion)
             .map(([seccion, total]) => ({ seccion, total: Number(total) }))
             .sort((a, b) => b.total - a.total)
         : [];
       setTopSecciones(topSecciones);
-      
+
       const topLideres = personasData.personas_por_lider
         ? Object.entries(personasData.personas_por_lider)
             .map(([nombre, total]) => ({ nombre, total: Number(total) }))
             .sort((a, b) => b.total - a.total)
         : [];
       setTopLideres(topLideres);
-      
-      // Cargar datos de asistencias
-      const asistenciasRes = await fetch('http://192.168.2.150:8000/reportes/asistencias-tiempo-real', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      
-      if (asistenciasRes.ok) {
-        const asistenciasData = await asistenciasRes.json();
-        setAsistenciasData(asistenciasData);
-      }
-      
-      // Cargar datos de movilización por vehículos
-      const movilizacionRes = await fetch('http://192.168.2.150:8000/reportes/movilizacion-vehiculos', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      
-      if (movilizacionRes.ok) {
-        const movilizacionData = await movilizacionRes.json();
-        setMovilizacionData(movilizacionData);
-        setGlobalStats(prev => ({
-          ...prev,
-          movilizaciones: movilizacionData.resumen_global?.total_asignaciones || 0
-        }));
-      }
 
-      // Cargar datos de reportes ciudadanos
-      const reportesRes = await fetch('http://192.168.2.150:8000/reportes-ciudadanos', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      
-      if (reportesRes.ok) {
-        const reportesData = await reportesRes.json();
+      if (asistenciasData) setAsistenciasData(asistenciasData);
+      if (movilizacionData) setMovilizacionData(movilizacionData);
+      if (reportesData) {
         setReportesData(reportesData);
-        setGlobalStats(prev => ({
-          ...prev,
-          reportes: reportesData.length || 0
-        }));
-        
-        // Actualizar el centro del mapa basado en los reportes
-        if (reportesData.length > 0) {
-          const validReportes = reportesData.filter((r: any) => r.latitud && r.longitud);
-          if (validReportes.length > 0) {
-            const latitudes = validReportes.map((r: any) => r.latitud);
-            const longitudes = validReportes.map((r: any) => r.longitud);
-            
-            const centerLat = latitudes.reduce((a: number, b: number) => a + b) / latitudes.length;
-            const centerLng = longitudes.reduce((a: number, b: number) => a + b) / longitudes.length;
-            
-            const latDelta = Math.max(...latitudes) - Math.min(...latitudes);
-            const lngDelta = Math.max(...longitudes) - Math.min(...longitudes);
-            const maxDelta = Math.max(latDelta, lngDelta);
-            
-            let zoomDelta = 0.01;
-            if (maxDelta > 0.01) {
-              zoomDelta = maxDelta * 1.5;
-            }
-            
-            setMapRegion({
-              latitude: centerLat,
-              longitude: centerLng,
-              latitudeDelta: zoomDelta,
-              longitudeDelta: zoomDelta,
-            });
-          }
+        const validReportes = reportesData.filter((r: any) => r.latitud && r.longitud);
+        if (validReportes.length > 0) {
+          const lats = validReportes.map((r: any) => r.latitud);
+          const lngs = validReportes.map((r: any) => r.longitud);
+          const centerLat = lats.reduce((a: number, b: number) => a + b) / lats.length;
+          const centerLng = lngs.reduce((a: number, b: number) => a + b) / lngs.length;
+          const maxDelta = Math.max(Math.max(...lats) - Math.min(...lats), Math.max(...lngs) - Math.min(...lngs));
+          setMapRegion({
+            latitude: centerLat, longitude: centerLng,
+            latitudeDelta: maxDelta > 0.01 ? maxDelta * 1.5 : 0.01,
+            longitudeDelta: maxDelta > 0.01 ? maxDelta * 1.5 : 0.01,
+          });
         }
       }
-      
       setLoading(false);
     } catch (e) {
       setError('Error de conexión o backend: ' + e);

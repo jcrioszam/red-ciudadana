@@ -1,31 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import { FiUser, FiLogOut, FiChevronDown, FiChevronUp } from 'react-icons/fi';
+import { useNavigate } from 'react-router-dom';
+import { FiUser, FiLogOut, FiChevronDown, FiChevronUp, FiBell } from 'react-icons/fi';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function Header() {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
-  // Detectar si es móvil
   useEffect(() => {
-    const checkIsMobile = () => {
-      setIsMobile(window.innerWidth <= 768);
-    };
-    
-    checkIsMobile();
-    window.addEventListener('resize', checkIsMobile);
-    
-    return () => window.removeEventListener('resize', checkIsMobile);
+    const check = () => setIsMobile(window.innerWidth <= 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
   }, []);
 
   const handleLogout = () => {
     logout();
     setShowProfileMenu(false);
+    navigate('/login');
   };
 
-  const toggleProfileMenu = () => {
-    setShowProfileMenu(!showProfileMenu);
+  const handleVerPerfil = () => {
+    setShowProfileMenu(false);
+    navigate('/perfil');
   };
 
   return (
@@ -33,182 +32,153 @@ export default function Header() {
       style={{
         position: 'fixed',
         top: 0,
-        left: isMobile ? 0 : 220, // En móvil no hay sidebar
+        left: isMobile ? 0 : 220,
         right: 0,
-        height: isMobile ? 60 : 70, // Altura reducida en móvil
+        height: isMobile ? 60 : 64,
         backgroundColor: '#fff',
-        borderBottom: '1px solid #e0e0e0',
+        borderBottom: '1px solid #e8eaf0',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: isMobile ? '0 16px' : '0 24px', // Padding reducido en móvil
-        zIndex: 999,
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+        padding: isMobile ? '0 16px 0 60px' : '0 24px',
+        zIndex: 998,
+        boxShadow: '0 1px 4px rgba(0,0,0,0.07)',
         transition: 'left 0.3s ease-in-out'
       }}
     >
       {/* Logo y título */}
-      <div style={{ 
-        display: 'flex', 
-        alignItems: 'center', 
-        gap: isMobile ? 12 : 16 
-      }}>
-        <div
-          style={{
-            width: isMobile ? 32 : 40,
-            height: isMobile ? 32 : 40,
-            backgroundColor: '#1a237e',
-            borderRadius: 8,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#fff',
-            fontWeight: 'bold',
-            fontSize: isMobile ? 14 : 18
-          }}
-        >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{
+          width: isMobile ? 30 : 36,
+          height: isMobile ? 30 : 36,
+          backgroundColor: '#1a237e',
+          borderRadius: 8,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: '#fff', fontWeight: 700, fontSize: isMobile ? 12 : 15,
+          letterSpacing: 0.5, flexShrink: 0
+        }}>
           RC
         </div>
-        <div style={{ display: isMobile ? 'none' : 'block' }}> {/* Ocultar título en móvil */}
-          <div style={{ fontSize: 18, fontWeight: 'bold', color: '#1a237e' }}>
+        <div>
+          <div style={{ fontSize: isMobile ? 15 : 17, fontWeight: 700, color: '#1a237e', lineHeight: 1.2 }}>
             Red Ciudadana
           </div>
-          <div style={{ fontSize: 12, color: '#666' }}>
-            Sistema de Gestión
-          </div>
+          {!isMobile && (
+            <div style={{ fontSize: 11, color: '#888' }}>Sistema de Gestión</div>
+          )}
         </div>
-        {/* Título simplificado para móvil */}
-        {isMobile && (
-          <div style={{ fontSize: 16, fontWeight: 'bold', color: '#1a237e' }}>
-            Red Ciudadana
-          </div>
-        )}
       </div>
 
-      {/* Perfil del usuario */}
-      <div style={{ position: 'relative' }}>
+      {/* Acciones del lado derecho */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {/* Campana de notificaciones */}
         <button
-          onClick={toggleProfileMenu}
+          onClick={() => navigate('/reportes-ciudadanos')}
+          title="Reportes Ciudadanos"
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: isMobile ? 8 : 12,
-            padding: isMobile ? '6px 12px' : '8px 16px',
-            backgroundColor: '#f5f5f5',
-            border: '1px solid #e0e0e0',
-            borderRadius: 8,
-            cursor: 'pointer',
-            transition: 'all 0.2s',
-            minWidth: isMobile ? 140 : 180
+            background: 'none', border: 'none', cursor: 'pointer',
+            padding: 8, borderRadius: 8, color: '#555',
+            display: 'flex', alignItems: 'center',
+            transition: 'background 0.15s'
           }}
-          onMouseEnter={() => !isMobile && setShowProfileMenu(true)}
+          onMouseEnter={e => e.currentTarget.style.background = '#f5f5f5'}
+          onMouseLeave={e => e.currentTarget.style.background = 'none'}
         >
-          <div
-            style={{
-              width: isMobile ? 28 : 32,
-              height: isMobile ? 28 : 32,
-              backgroundColor: '#1a237e',
-              borderRadius: '50%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#fff',
-              fontSize: isMobile ? 12 : 14,
-              fontWeight: 'bold'
-            }}
-          >
-            {user?.nombre?.charAt(0)?.toUpperCase() || 'U'}
-          </div>
-          <div style={{ 
-            textAlign: 'left', 
-            flex: 1,
-            display: isMobile ? 'none' : 'block' // Ocultar texto en móvil
-          }}>
-            <div style={{ fontSize: 14, fontWeight: 'bold', color: '#333' }}>
-              {user?.nombre || 'Usuario'}
-            </div>
-            <div style={{ fontSize: 12, color: '#666' }}>
-              {user?.rol || 'Rol'}
-            </div>
-          </div>
-          <span style={{ color: '#666' }}>
-            {showProfileMenu ? <FiChevronUp size={16} /> : <FiChevronDown size={16} />}
-          </span>
+          <FiBell size={isMobile ? 18 : 20} />
         </button>
 
-        {/* Menú desplegable del perfil */}
-        {showProfileMenu && (
-          <div
+        {/* Perfil */}
+        <div style={{ position: 'relative' }}>
+          <button
+            onClick={() => setShowProfileMenu(!showProfileMenu)}
             style={{
-              position: 'absolute',
-              top: '100%',
-              right: 0,
-              marginTop: 8,
-              backgroundColor: '#fff',
+              display: 'flex', alignItems: 'center',
+              gap: isMobile ? 6 : 10,
+              padding: isMobile ? '5px 10px' : '6px 14px',
+              backgroundColor: '#f5f6fa',
               border: '1px solid #e0e0e0',
-              borderRadius: 8,
-              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-              minWidth: isMobile ? 160 : 200,
-              zIndex: 1000
+              borderRadius: 8, cursor: 'pointer',
+              transition: 'background 0.15s'
             }}
-            onMouseLeave={() => !isMobile && setShowProfileMenu(false)}
+            onMouseEnter={e => { e.currentTarget.style.background = '#eef0f8'; if (!isMobile) setShowProfileMenu(true); }}
+            onMouseLeave={e => e.currentTarget.style.background = '#f5f6fa'}
           >
-            <div style={{ padding: '8px 0' }}>
-              <div
-                style={{
-                  padding: '12px 16px',
-                  borderBottom: '1px solid #f0f0f0',
-                  fontSize: 14,
-                  color: '#666'
-                }}
-              >
-                <strong>Perfil</strong>
+            <div style={{
+              width: isMobile ? 26 : 30, height: isMobile ? 26 : 30,
+              backgroundColor: '#1a237e', borderRadius: '50%',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: '#fff', fontSize: isMobile ? 11 : 13, fontWeight: 700
+            }}>
+              {user?.nombre?.charAt(0)?.toUpperCase() || 'U'}
+            </div>
+            {!isMobile && (
+              <div style={{ textAlign: 'left' }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#222', lineHeight: 1.2 }}>
+                  {user?.nombre || 'Usuario'}
+                </div>
+                <div style={{ fontSize: 11, color: '#888', textTransform: 'capitalize' }}>
+                  {user?.rol?.replace(/_/g, ' ') || 'Rol'}
+                </div>
+              </div>
+            )}
+            <span style={{ color: '#888', marginLeft: 2 }}>
+              {showProfileMenu ? <FiChevronUp size={14} /> : <FiChevronDown size={14} />}
+            </span>
+          </button>
+
+          {/* Dropdown */}
+          {showProfileMenu && (
+            <div
+              onMouseLeave={() => !isMobile && setShowProfileMenu(false)}
+              style={{
+                position: 'absolute', top: 'calc(100% + 6px)', right: 0,
+                backgroundColor: '#fff',
+                border: '1px solid #e0e0e0',
+                borderRadius: 10,
+                boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                minWidth: isMobile ? 160 : 200,
+                zIndex: 1000, overflow: 'hidden'
+              }}
+            >
+              <div style={{ padding: '10px 16px 8px', borderBottom: '1px solid #f0f0f0' }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#222' }}>{user?.nombre}</div>
+                <div style={{ fontSize: 11, color: '#888', textTransform: 'capitalize' }}>
+                  {user?.rol?.replace(/_/g, ' ')}
+                </div>
               </div>
               <button
-                onClick={() => {/* Navegar al perfil */}}
+                onClick={handleVerPerfil}
                 style={{
-                  width: '100%',
-                  padding: '12px 16px',
-                  border: 'none',
-                  backgroundColor: 'transparent',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 12,
-                  cursor: 'pointer',
-                  fontSize: 14,
-                  color: '#333',
-                  transition: 'background-color 0.2s'
+                  width: '100%', padding: '11px 16px',
+                  border: 'none', backgroundColor: 'transparent',
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  cursor: 'pointer', fontSize: 13, color: '#333',
+                  transition: 'background 0.15s'
                 }}
-                onMouseEnter={(e) => e.target.style.backgroundColor = '#f5f5f5'}
-                onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                onMouseEnter={e => e.currentTarget.style.background = '#f5f5f5'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
               >
-                <FiUser size={16} />
+                <FiUser size={15} />
                 Ver Perfil
               </button>
               <button
                 onClick={handleLogout}
                 style={{
-                  width: '100%',
-                  padding: '12px 16px',
-                  border: 'none',
-                  backgroundColor: 'transparent',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 12,
-                  cursor: 'pointer',
-                  fontSize: 14,
-                  color: '#d32f2f',
-                  transition: 'background-color 0.2s'
+                  width: '100%', padding: '11px 16px',
+                  border: 'none', backgroundColor: 'transparent',
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  cursor: 'pointer', fontSize: 13, color: '#d32f2f',
+                  transition: 'background 0.15s'
                 }}
-                onMouseEnter={(e) => e.target.style.backgroundColor = '#ffebee'}
-                onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                onMouseEnter={e => e.currentTarget.style.background = '#fff5f5'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
               >
-                <FiLogOut size={16} />
+                <FiLogOut size={15} />
                 Cerrar Sesión
               </button>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </header>
   );

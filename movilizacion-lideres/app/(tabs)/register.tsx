@@ -4,6 +4,7 @@ import { Surface, Text, Button, TextInput, HelperText, List } from 'react-native
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import { useAuth } from '../../src/contexts/AuthContext';
+import { api } from '../../src/api';
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -35,13 +36,8 @@ export default function RegisterScreen() {
     const fetchUserId = async () => {
       if (token) {
         try {
-          const res = await fetch('http://192.168.1.24:8000/users/me/', {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (res.ok) {
-            const data = await res.json();
-            setIdLider(data.id?.toString() ?? null);
-          }
+          const data = await api.get('/users/me/');
+          setIdLider(data.id?.toString() ?? null);
         } catch {
           setIdLider(null);
         }
@@ -85,47 +81,35 @@ export default function RegisterScreen() {
       return;
     }
     try {
-      const response = await fetch('http://192.168.1.24:8000/personas', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          nombre: name,
-          telefono: phone,
-          edad: age,
-          sexo: sex,
-          direccion: address,
-          clave_elector: claveElector,
-          curp: curp,
-          num_emision: numEmision,
-          seccion_electoral: seccion,
-          distrito: distrito,
-          municipio: municipio,
-          estado: estado,
-          colonia: colonia,
-          codigo_postal: codigoPostal,
-          latitud: latitud,
-          longitud: longitud,
-          acepta_politica: aceptaPolitica,
-          id_lider_responsable: idLider,
-        }),
+      await api.post('/personas', {
+        nombre: name,
+        telefono: phone,
+        edad: age,
+        sexo: sex,
+        direccion: address,
+        clave_elector: claveElector,
+        curp: curp,
+        num_emision: numEmision,
+        seccion_electoral: seccion,
+        distrito: distrito,
+        municipio: municipio,
+        estado: estado,
+        colonia: colonia,
+        codigo_postal: codigoPostal,
+        latitud: latitud,
+        longitud: longitud,
+        acepta_politica: aceptaPolitica,
+        id_lider_responsable: idLider,
       });
       setLoading(false);
-      if (response.ok) {
-        setSuccess(true);
-        setName(''); setPhone(''); setAge(''); setSex(''); setAddress('');
-        setClaveElector(''); setCurp(''); setNumEmision(''); setSeccion('');
-        setDistrito(''); setMunicipio(''); setEstado(''); setColonia('');
-        setCodigoPostal(''); setLatitud(''); setLongitud(''); setAceptaPolitica(false);
-      } else {
-        const errorText = await response.text();
-        setError('Error al registrar persona: ' + errorText);
-      }
-    } catch (e) {
+      setSuccess(true);
+      setName(''); setPhone(''); setAge(''); setSex(''); setAddress('');
+      setClaveElector(''); setCurp(''); setNumEmision(''); setSeccion('');
+      setDistrito(''); setMunicipio(''); setEstado(''); setColonia('');
+      setCodigoPostal(''); setLatitud(''); setLongitud(''); setAceptaPolitica(false);
+    } catch (e: any) {
       setLoading(false);
-      setError('Error de red');
+      setError('Error al registrar persona: ' + (e?.message || 'Error de red'));
     }
   };
 

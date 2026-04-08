@@ -1,62 +1,43 @@
 import axios from "axios";
 
-// Configuración de URL del backend
-let baseURL;
-if (process.env.NODE_ENV === 'production') {
-  // En producción, usar la variable de entorno o fallback a Railway
-  baseURL = process.env.REACT_APP_API_URL || 'https://red-ciudadana-production.up.railway.app';
-  console.log('🔍 REACT_APP_API_URL del environment:', process.env.REACT_APP_API_URL);
-  console.log('🔐 URL de producción:', baseURL);
-} else {
-  // En desarrollo, usar localhost
-  baseURL = 'http://localhost:8000';
-  console.log('🔧 URL de desarrollo:', baseURL);
-}
+const isDev = process.env.NODE_ENV !== 'production';
 
-console.log(`API usando baseURL: ${baseURL}`);
+const baseURL = process.env.NODE_ENV === 'production'
+  ? (process.env.REACT_APP_API_URL || 'https://red-ciudadana-production.up.railway.app')
+  : 'http://localhost:8000';
 
 const api = axios.create({
-  baseURL: baseURL,
-  timeout: 120000, // 2 minutos para cold start muy lento
+  baseURL,
+  timeout: 120000, // 2 minutos para cold start de Railway
 });
 
-// Interceptor REQUEST para debug y FORZAR HTTPS SOLO en producción
+// Interceptor REQUEST: añade token y fuerza HTTPS en producción
 api.interceptors.request.use(
   (config) => {
-    console.log('🚀 API REQUEST:', config.method?.toUpperCase(), config.url, 'BASE:', config.baseURL);
-    
-    // Verificar si hay token en localStorage y agregarlo si no está en headers
     const token = localStorage.getItem('token');
     if (token && !config.headers.Authorization) {
       config.headers.Authorization = `Bearer ${token}`;
-      console.log('🔑 Token agregado al request:', config.url);
     }
-    
-    // 🚨 FORZAR HTTPS SOLO en producción (Railway)
-    if (process.env.NODE_ENV === 'production' && config.baseURL && config.baseURL.startsWith('http://')) {
+
+    if (!isDev && config.baseURL?.startsWith('http://')) {
       config.baseURL = config.baseURL.replace('http://', 'https://');
-      console.warn('🔒 INTERCEPTOR: FORZANDO HTTPS en producción:', config.baseURL);
     }
-    
-    // Verificar Railway URL específicamente
-    if (config.baseURL && config.baseURL.includes('railway.app') && !config.baseURL.startsWith('https://')) {
+    if (config.baseURL?.includes('railway.app') && !config.baseURL.startsWith('https://')) {
       config.baseURL = 'https://red-ciudadana-production.up.railway.app';
-      console.warn('🚨 INTERCEPTOR: FORZANDO Railway HTTPS:', config.baseURL);
     }
-    
+
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-// Interceptor RESPONSE para debug y forzar HTTPS
+// Interceptor RESPONSE: solo registra errores
 api.interceptors.response.use(
-  (response) => {
-    console.log('✅ API RESPONSE:', response.config.method?.toUpperCase(), response.config.url, 'STATUS:', response.status);
-    return response;
-  },
+  (response) => response,
   (error) => {
-    console.error('❌ API ERROR:', error.config?.method?.toUpperCase(), error.config?.url, 'ERROR:', error.message);
+    if (isDev) {
+      console.error('API Error:', error.config?.method?.toUpperCase(), error.config?.url, error.message);
+    }
     if (error.code === 'ECONNABORTED') {
       console.error('Timeout - El servidor tardó demasiado en responder');
     }
@@ -64,9 +45,9 @@ api.interceptors.response.use(
   }
 );
 
-// NUCLEAR OPTION: Clear cache headers
+// Deshabilitar caché
 api.defaults.headers.common['Cache-Control'] = 'no-cache, no-store, must-revalidate';
 api.defaults.headers.common['Pragma'] = 'no-cache';
 api.defaults.headers.common['Expires'] = '0';
 
-export default api; 
+export default api;

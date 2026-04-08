@@ -1,104 +1,121 @@
 import React from 'react';
 import { useQuery } from 'react-query';
-import { 
-  FiUsers, 
-  FiUserCheck, 
-  FiCalendar, 
-  FiMapPin,
-  FiTrendingUp,
-  FiActivity,
-  FiUser,
-  FiBarChart,
-  FiPlus,
-  FiGitBranch,
-  FiCheckCircle,
-  FiXCircle,
-  FiRefreshCw,
-  FiTruck
+import {
+  FiUsers, FiUserCheck, FiCalendar, FiMapPin, FiTrendingUp, FiActivity,
+  FiUser, FiBarChart, FiRefreshCw, FiTruck, FiCheckCircle, FiGitBranch,
+  FiPlus, FiFileText
 } from 'react-icons/fi';
+import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
 import EstructuraJerarquica from '../components/EstructuraJerarquica';
 import DashboardCiudadano from './DashboardCiudadano';
 
+// ── Tarjeta de métrica ────────────────────────────────────────────────────────
+function StatCard({ icon, label, value, accent, sub }) {
+  return (
+    <div style={{
+      background: '#fff',
+      borderRadius: 14,
+      padding: '20px 24px',
+      boxShadow: '0 1px 4px rgba(0,0,0,0.07)',
+      border: '1px solid #f0f0f5',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 16,
+      borderLeft: `4px solid ${accent}`
+    }}>
+      <div style={{
+        width: 48, height: 48, borderRadius: 12,
+        background: accent + '18',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color: accent, fontSize: 22, flexShrink: 0
+      }}>
+        {icon}
+      </div>
+      <div>
+        <p style={{ margin: 0, fontSize: 13, color: '#888', fontWeight: 500 }}>{label}</p>
+        <p style={{ margin: '2px 0 0', fontSize: 28, fontWeight: 700, color: '#1a1a2e', lineHeight: 1 }}>
+          {typeof value === 'number' ? value.toLocaleString('es-MX') : value}
+        </p>
+        {sub && <p style={{ margin: '4px 0 0', fontSize: 12, color: '#aaa' }}>{sub}</p>}
+      </div>
+    </div>
+  );
+}
+
+// ── Botón de acción rápida ────────────────────────────────────────────────────
+function QuickAction({ icon, label, to, color }) {
+  const navigate = useNavigate();
+  return (
+    <button
+      onClick={() => navigate(to)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '10px 18px',
+        background: color + '12',
+        border: `1px solid ${color}30`,
+        borderRadius: 10, cursor: 'pointer',
+        color, fontWeight: 600, fontSize: 13,
+        transition: 'background 0.15s'
+      }}
+      onMouseEnter={e => e.currentTarget.style.background = color + '22'}
+      onMouseLeave={e => e.currentTarget.style.background = color + '12'}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 const Dashboard = () => {
-  const { user, isAuthenticated, loading, logout } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
-  // Obtener configuración de permisos del usuario actual
   const { data: configuracionPerfil } = useQuery(
     ['configuracion-perfil-usuario', user?.rol],
     async () => {
       if (!user?.rol) return null;
       try {
-        const response = await api.get('/perfiles/mi-configuracion');
-        return response.data;
-      } catch (error) {
-        console.error('Error al obtener configuración del perfil:', error);
-        return null;
-      }
+        const r = await api.get('/perfiles/mi-configuracion');
+        return r.data;
+      } catch { return null; }
     },
-    {
-      enabled: !!user?.rol,
-      staleTime: 5 * 60 * 1000, // 5 minutos
-    }
+    { enabled: !!user?.rol, staleTime: 5 * 60 * 1000 }
   );
 
-  // Obtener configuración del dashboard para el rol del usuario
   const { data: configuracionDashboard, refetch: refetchDashboard } = useQuery(
     ['mi-configuracion-dashboard', user?.rol],
     async () => {
       if (!user?.rol) return null;
       try {
-        const response = await api.get('/perfiles/mi-configuracion-dashboard');
-        console.log('🔍 Configuración del dashboard para', user.rol, ':', response.data);
-        return response.data; // Devolver configuración del usuario actual
-      } catch (error) {
-        console.error('Error al obtener configuración del dashboard:', error);
-        return { widgets: [] };
-      }
+        const r = await api.get('/perfiles/mi-configuracion-dashboard');
+        return r.data;
+      } catch { return { widgets: [] }; }
     },
-    {
-      enabled: !!user?.rol,
-      staleTime: 0, // Siempre obtener datos frescos
-      refetchOnWindowFocus: true, // Actualizar al enfocar la ventana
-      refetchOnMount: true, // Actualizar al montar el componente
-    }
+    { enabled: !!user?.rol, staleTime: 0, refetchOnWindowFocus: true, refetchOnMount: true }
   );
 
-  // Obtener datos de reportes usando React Query
-  const { data: reportePersonas, isLoading: loadingPersonas, refetch: refetchPersonas } = useQuery('reportePersonas', async () => {
-    const response = await api.get('/reportes/personas');
-    return response.data;
+  const { data: reportePersonas, isLoading: lP, refetch: rP } = useQuery('reportePersonas', async () => {
+    const r = await api.get('/reportes/personas'); return r.data;
+  });
+  const { data: reporteEventos, isLoading: lE, refetch: rE } = useQuery('reporteEventos', async () => {
+    const r = await api.get('/reportes/eventos?historicos=false'); return r.data;
+  });
+  const { data: reporteEventosHistoricos, isLoading: lEH, refetch: rEH } = useQuery('reporteEventosHistoricos', async () => {
+    const r = await api.get('/reportes/eventos-historicos'); return r.data;
+  });
+  const { data: asistenciasTiempoReal, isLoading: lA, refetch: rA } = useQuery('asistenciasTiempoReal', async () => {
+    const r = await api.get('/reportes/asistencias-tiempo-real'); return r.data;
+  });
+  const { data: movilizacionVehiculos, isLoading: lM, refetch: rM } = useQuery('movilizacionVehiculos', async () => {
+    const r = await api.get('/reportes/movilizacion-vehiculos'); return r.data;
+  });
+  const { data: usuarios, isLoading: lU } = useQuery('usuarios', async () => {
+    const r = await api.get('/users/'); return r.data;
   });
 
-  const { data: reporteEventos, isLoading: loadingEventos, refetch: refetchEventos } = useQuery('reporteEventos', async () => {
-    const response = await api.get('/reportes/eventos?historicos=false');
-    return response.data;
-  });
-
-  const { data: reporteEventosHistoricos, isLoading: loadingEventosHistoricos, refetch: refetchEventosHistoricos } = useQuery('reporteEventosHistoricos', async () => {
-    const response = await api.get('/reportes/eventos-historicos');
-    return response.data;
-  });
-
-  const { data: asistenciasTiempoReal, isLoading: loadingAsistencias, refetch: refetchAsistencias } = useQuery('asistenciasTiempoReal', async () => {
-    const response = await api.get('/reportes/asistencias-tiempo-real');
-    return response.data;
-  });
-
-  const { data: movilizacionVehiculos, isLoading: loadingMovilizacion, refetch: refetchMovilizacion } = useQuery('movilizacionVehiculos', async () => {
-    const response = await api.get('/reportes/movilizacion-vehiculos');
-    return response.data;
-  });
-
-  const { data: usuarios, isLoading: loadingUsuarios } = useQuery('usuarios', async () => {
-    const response = await api.get('/users/');
-    return response.data;
-  });
-
-  // Calcular estadísticas
   const stats = {
     totalPersonas: reportePersonas?.total_personas || 0,
     totalEventos: reporteEventos?.total_eventos || 0,
@@ -106,211 +123,160 @@ const Dashboard = () => {
     lideresActivos: usuarios ? usuarios.filter(u => u.activo && u.rol.includes('lider')).length : 0,
   };
 
-  const isLoading = loadingPersonas || loadingEventos || loadingEventosHistoricos || loadingUsuarios || loadingAsistencias || loadingMovilizacion;
+  const isLoading = lP || lE || lEH || lU || lA || lM;
 
-  // Función para refrescar todos los datos
-  const handleRefresh = () => {
-    refetchPersonas();
-    refetchEventos();
-    refetchEventosHistoricos();
-    refetchAsistencias();
-    refetchMovilizacion();
-    refetchDashboard(); // Actualizar también la configuración del dashboard
-  };
+  const handleRefresh = () => { rP(); rE(); rEH(); rA(); rM(); refetchDashboard(); };
 
-  // Función para obtener color según porcentaje de asistencia
-  const getAsistenciaColor = (porcentaje) => {
-    if (porcentaje >= 80) return 'text-green-600';
-    if (porcentaje >= 60) return 'text-yellow-600';
-    return 'text-red-600';
-  };
+  const getAsistenciaColor = (p) => p >= 80 ? 'text-green-600' : p >= 60 ? 'text-yellow-600' : 'text-red-600';
+  const getAsistenciaIcon = (p) => p >= 80
+    ? <FiTrendingUp className="text-green-600" />
+    : p >= 60
+    ? <FiActivity className="text-yellow-600" />
+    : <FiTrendingUp className="text-red-600 transform rotate-180" />;
 
-  // Función para obtener icono según porcentaje de asistencia
-  const getAsistenciaIcon = (porcentaje) => {
-    if (porcentaje >= 80) return <FiTrendingUp className="text-green-600" />;
-    if (porcentaje >= 60) return <FiActivity className="text-yellow-600" />;
-    return <FiTrendingUp className="text-red-600 transform rotate-180" />;
-  };
+  const formatDate = (s) => new Date(s).toLocaleDateString('es-ES', {
+    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+  });
 
-  // Función para formatear fecha
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('es-ES', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  // Función para verificar si el usuario puede ver una sección específica
   const puedeVerSeccion = (seccion) => {
+    if (user?.rol === 'admin') return true;
     if (!configuracionPerfil?.configuracion?.opciones_web) return false;
-    
-    const opcionesPermitidas = configuracionPerfil.configuracion.opciones_web;
-    
-    // Mapeo de secciones a permisos requeridos
-    const mapeoSecciones = {
-      'usuarios': 'usuarios',
-      'personas': 'personas',
-      'eventos': 'eventos',
-      'eventos-historicos': 'eventos-historicos',
-      'movilizacion': 'movilizacion',
-      'reportes': 'reportes',
-      'estructura-red': 'estructura-red',
-      'checkin': 'checkin',
-      'seguimiento': 'seguimiento'
+    const opts = configuracionPerfil.configuracion.opciones_web;
+    const mapPerm = {
+      'usuarios': 'usuarios', 'personas': 'personas', 'eventos': 'eventos',
+      'eventos-historicos': 'eventos-historicos', 'movilizacion': 'movilizacion',
+      'reportes': 'reportes', 'estructura-red': 'estructura-red',
+      'checkin': 'checkin', 'seguimiento': 'seguimiento'
     };
-    
-    const permisoRequerido = mapeoSecciones[seccion];
-    const tienePermiso = permisoRequerido ? opcionesPermitidas.includes(permisoRequerido) : false;
-    
-    // Verificar también si el widget está habilitado en la configuración del dashboard PARA EL ROL ESPECÍFICO
-    const widgetsHabilitados = configuracionDashboard?.widgets || [];
-    
-    console.log(`🔍 Verificando sección '${seccion}' para rol '${user?.rol}':`);
-    console.log(`  - Permisos del perfil:`, opcionesPermitidas);
-    console.log(`  - Permiso requerido: ${permisoRequerido}`);
-    console.log(`  - Tiene permiso: ${tienePermiso}`);
-    console.log(`  - Configuración del dashboard:`, configuracionDashboard);
-    console.log(`  - Widgets habilitados:`, widgetsHabilitados);
-    
-    const mapeoWidgets = {
-      'usuarios': 'lideres-activos',
-      'personas': 'total-personas',
-      'eventos': 'total-eventos',
-      'eventos-historicos': 'eventos-historicos',
-      'movilizacion': 'movilizacion-vehiculos',
-      'estructura-red': 'estructura-red',
+    const permiso = mapPerm[seccion];
+    if (!permiso || !opts.includes(permiso)) return false;
+    const widgets = configuracionDashboard?.widgets || [];
+    const mapWidget = {
+      'usuarios': 'lideres-activos', 'personas': 'total-personas',
+      'eventos': 'total-eventos', 'eventos-historicos': 'eventos-historicos',
+      'movilizacion': 'movilizacion-vehiculos', 'estructura-red': 'estructura-red',
       'seguimiento': 'asistencias-tiempo-real'
     };
-    
-    const widgetRequerido = mapeoWidgets[seccion];
-    const widgetHabilitado = widgetRequerido ? widgetsHabilitados.includes(widgetRequerido) : true;
-    
-    console.log(`  - Widget requerido: ${widgetRequerido}`);
-    console.log(`  - Widget habilitado: ${widgetHabilitado}`);
-    console.log(`  - Resultado final: ${tienePermiso && widgetHabilitado}`);
-    
-    return tienePermiso && widgetHabilitado;
+    const w = mapWidget[seccion];
+    return w ? widgets.includes(w) : true;
   };
 
-  // Si el usuario es ciudadano, mostrar el dashboard específico
-  console.log('Dashboard - User role:', user?.rol);
-  console.log('Dashboard - User object:', user);
-  
-  if (user?.rol === 'ciudadano') {
-    console.log('Dashboard - Rendering DashboardCiudadano');
-    return <DashboardCiudadano />;
-  }
+  if (user?.rol === 'ciudadano') return <DashboardCiudadano />;
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Encabezado */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-secondary-900">
             Bienvenido, {user?.nombre}
           </h1>
-          <p className="text-secondary-600">
-            Aquí tienes un resumen de la actividad reciente
-          </p>
+          <p className="text-secondary-600 text-sm">Resumen de actividad — {new Date().toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
         </div>
-        <button
-          onClick={handleRefresh}
-          className="btn-secondary flex items-center space-x-2"
-        >
+        <button onClick={handleRefresh} className="btn-secondary flex items-center space-x-2">
           <FiRefreshCw className="h-4 w-4" />
           <span>Actualizar</span>
         </button>
       </div>
 
-      {/* Loading State */}
+      {/* Acciones Rápidas */}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        {puedeVerSeccion('personas') && (
+          <QuickAction icon={<FiPlus size={15} />} label="Nueva Persona" to="/personas" color="#2563eb" />
+        )}
+        {puedeVerSeccion('eventos') && (
+          <QuickAction icon={<FiCalendar size={15} />} label="Nuevo Evento" to="/eventos" color="#16a34a" />
+        )}
+        {puedeVerSeccion('reportes') && (
+          <QuickAction icon={<FiBarChart size={15} />} label="Ver Reportes" to="/reportes" color="#7c3aed" />
+        )}
+        {puedeVerSeccion('usuarios') && (
+          <QuickAction icon={<FiUsers size={15} />} label="Gestionar Usuarios" to="/usuarios" color="#ea580c" />
+        )}
+        <QuickAction icon={<FiFileText size={15} />} label="Noticias" to="/noticias" color="#0891b2" />
+      </div>
+
+      {/* Loading */}
       {isLoading && (
-        <div className="flex items-center justify-center h-64">
+        <div className="flex items-center justify-center h-48">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
         </div>
       )}
 
-      {/* Estadísticas - Solo mostrar si tiene permisos */}
+      {/* Cards de estadísticas */}
       {!isLoading && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {/* Total Personas - Solo si puede ver personas */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
           {puedeVerSeccion('personas') && (
-            <div className="card">
-              <div className="flex items-center">
-                <div className="p-3 rounded-lg bg-blue-500">
-                  <FiUser className="h-6 w-6 text-white" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-secondary-600">Total Personas</p>
-                  <p className="text-2xl font-bold text-secondary-900">{stats.totalPersonas}</p>
-                </div>
-              </div>
-              <div className="mt-4 flex items-center">
-                <span className="text-sm text-secondary-500">Registradas en el sistema</span>
-              </div>
-            </div>
+            <StatCard icon={<FiUserCheck />} label="Total Personas" value={stats.totalPersonas}
+              accent="#2563eb" sub="Registradas en el sistema" />
           )}
-          
-          {/* Total Eventos - Solo si puede ver eventos */}
           {puedeVerSeccion('eventos') && (
-            <div className="card">
-              <div className="flex items-center">
-                <div className="p-3 rounded-lg bg-green-500">
-                  <FiBarChart className="h-6 w-6 text-white" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-secondary-600">Total Eventos</p>
-                  <p className="text-2xl font-bold text-secondary-900">{stats.totalEventos}</p>
-                </div>
-              </div>
-              <div className="mt-4 flex items-center">
-                <span className="text-sm text-secondary-500">Eventos organizados</span>
-              </div>
-            </div>
+            <StatCard icon={<FiCalendar />} label="Eventos Activos" value={stats.totalEventos}
+              accent="#16a34a" sub="Eventos organizados" />
           )}
-          
-          {/* Líderes Activos - Solo si puede ver usuarios */}
           {puedeVerSeccion('usuarios') && (
-            <div className="card">
-              <div className="flex items-center">
-                <div className="p-3 rounded-lg bg-purple-500">
-                  <FiUserCheck className="h-6 w-6 text-white" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-secondary-600">Líderes Activos</p>
-                  <p className="text-2xl font-bold text-secondary-900">{stats.lideresActivos}</p>
-                </div>
-              </div>
-              <div className="mt-4 flex items-center">
-                <span className="text-sm text-secondary-500">Líderes en actividad</span>
-              </div>
-            </div>
+            <StatCard icon={<FiUsers />} label="Líderes Activos" value={stats.lideresActivos}
+              accent="#7c3aed" sub="Líderes en actividad" />
           )}
-          
-          {/* Secciones Cubiertas - Solo si puede ver estructura-red */}
           {puedeVerSeccion('estructura-red') && (
-            <div className="card">
-              <div className="flex items-center">
-                <div className="p-3 rounded-lg bg-orange-500">
-                  <FiMapPin className="h-6 w-6 text-white" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-secondary-600">Secciones Cubiertas</p>
-                  <p className="text-2xl font-bold text-secondary-900">{stats.seccionesCubiertas}</p>
-                </div>
-              </div>
-              <div className="mt-4 flex items-center">
-                <span className="text-sm text-secondary-500">Secciones electorales</span>
-              </div>
-            </div>
+            <StatCard icon={<FiGitBranch />} label="Secciones Cubiertas" value={stats.seccionesCubiertas}
+              accent="#ea580c" sub="Secciones electorales" />
           )}
         </div>
       )}
 
-      {/* Reporte de Movilización por Vehículos - Solo si puede ver movilización */}
+      {/* Rankings */}
+      {!isLoading && reportePersonas && puedeVerSeccion('personas') && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="card">
+            <h3 className="text-lg font-semibold text-secondary-900 mb-4">Top Secciones Electorales</h3>
+            {Object.keys(reportePersonas.personas_por_seccion || {}).length > 0 ? (
+              <div className="space-y-1">
+                {Object.entries(reportePersonas.personas_por_seccion)
+                  .sort(([, a], [, b]) => b - a)
+                  .slice(0, 10)
+                  .map(([seccion, total], i) => (
+                    <div key={seccion} style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      padding: '8px 10px', borderRadius: 8,
+                      background: i % 2 === 0 ? '#f8f9ff' : 'transparent'
+                    }}>
+                      <span className="font-medium text-sm">{seccion}</span>
+                      <span style={{ color: '#2563eb', fontWeight: 700, fontSize: 13 }}>{total.toLocaleString('es-MX')} personas</span>
+                    </div>
+                  ))}
+              </div>
+            ) : (
+              <p className="text-gray-500 text-center py-4 text-sm">Sin datos aún</p>
+            )}
+          </div>
+
+          <div className="card">
+            <h3 className="text-lg font-semibold text-secondary-900 mb-4">Top Líderes por Personas</h3>
+            {Object.keys(reportePersonas.personas_por_lider || {}).length > 0 ? (
+              <div className="space-y-1">
+                {Object.entries(reportePersonas.personas_por_lider)
+                  .sort(([, a], [, b]) => b - a)
+                  .slice(0, 10)
+                  .map(([nombre, total], i) => (
+                    <div key={nombre} style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      padding: '8px 10px', borderRadius: 8,
+                      background: i % 2 === 0 ? '#f8f9ff' : 'transparent'
+                    }}>
+                      <span className="font-medium text-sm">{nombre}</span>
+                      <span style={{ color: '#16a34a', fontWeight: 700, fontSize: 13 }}>{total.toLocaleString('es-MX')} personas</span>
+                    </div>
+                  ))}
+              </div>
+            ) : (
+              <p className="text-gray-500 text-center py-4 text-sm">Sin datos aún</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Movilización por vehículos */}
       {!isLoading && movilizacionVehiculos && puedeVerSeccion('movilizacion') && (
         <div className="card">
           <div className="flex items-center justify-between mb-6">
@@ -318,89 +284,53 @@ const Dashboard = () => {
               <FiTruck className="h-6 w-6 text-blue-600" />
               <h2 className="text-xl font-bold text-secondary-900">Reporte de Movilización por Vehículos</h2>
             </div>
-            <button
-              onClick={refetchMovilizacion}
-              className="btn-secondary text-sm flex items-center space-x-1"
-            >
-              <FiRefreshCw className="h-3 w-3" />
-              <span>Actualizar</span>
+            <button onClick={rM} className="btn-secondary text-sm flex items-center space-x-1">
+              <FiRefreshCw className="h-3 w-3" /><span>Actualizar</span>
             </button>
           </div>
 
-          {/* Resumen Global de Movilización */}
           {movilizacionVehiculos.resumen_global && (
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <div className="text-sm text-blue-600 font-medium">Total Vehículos</div>
-                <div className="text-2xl font-bold text-blue-900">{movilizacionVehiculos.resumen_global.total_vehiculos}</div>
-              </div>
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <div className="text-sm text-green-600 font-medium">Total Asignaciones</div>
-                <div className="text-2xl font-bold text-green-900">{movilizacionVehiculos.resumen_global.total_asignaciones}</div>
-              </div>
-              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                <div className="text-sm text-purple-600 font-medium">Total Asistencias</div>
-                <div className="text-2xl font-bold text-purple-900">{movilizacionVehiculos.resumen_global.total_asistencias}</div>
-              </div>
-              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                <div className="text-sm text-orange-600 font-medium">Promedio Asistencia</div>
-                <div className="text-2xl font-bold text-orange-900">{movilizacionVehiculos.resumen_global.promedio_asistencia}%</div>
-              </div>
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                <div className="text-sm text-red-600 font-medium">Promedio Movilización</div>
-                <div className="text-2xl font-bold text-red-900">{movilizacionVehiculos.resumen_global.promedio_movilizacion}%</div>
-              </div>
+              {[
+                { label: 'Total Vehículos', val: movilizacionVehiculos.resumen_global.total_vehiculos, color: 'blue' },
+                { label: 'Total Asignaciones', val: movilizacionVehiculos.resumen_global.total_asignaciones, color: 'green' },
+                { label: 'Total Asistencias', val: movilizacionVehiculos.resumen_global.total_asistencias, color: 'purple' },
+                { label: 'Promedio Asistencia', val: movilizacionVehiculos.resumen_global.promedio_asistencia + '%', color: 'orange' },
+                { label: 'Promedio Movilización', val: movilizacionVehiculos.resumen_global.promedio_movilizacion + '%', color: 'red' },
+              ].map(({ label, val, color }) => (
+                <div key={label} className={`bg-${color}-50 border border-${color}-200 rounded-lg p-4`}>
+                  <div className={`text-sm text-${color}-600 font-medium`}>{label}</div>
+                  <div className={`text-2xl font-bold text-${color}-900`}>{val}</div>
+                </div>
+              ))}
             </div>
           )}
 
-          {/* Top Vehículos */}
-          {movilizacionVehiculos.top_vehiculos && movilizacionVehiculos.top_vehiculos.length > 0 && (
+          {movilizacionVehiculos.top_vehiculos?.length > 0 && (
             <div className="mb-6">
               <h3 className="text-lg font-semibold text-secondary-900 mb-4">Top Vehículos por Rendimiento</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {movilizacionVehiculos.top_vehiculos.map((vehiculo, index) => (
-                  <div key={vehiculo.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                {movilizacionVehiculos.top_vehiculos.map((v, i) => (
+                  <div key={v.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                     <div className="flex items-center justify-between mb-2">
-                                             <div className="flex items-center space-x-2">
-                         <FiTruck className="h-5 w-5 text-blue-600" />
-                         <span className="font-semibold text-secondary-900">{vehiculo.tipo}</span>
-                       </div>
-                      <span className="text-sm text-gray-500">#{index + 1}</span>
+                      <div className="flex items-center space-x-2">
+                        <FiTruck className="h-5 w-5 text-blue-600" />
+                        <span className="font-semibold text-secondary-900">{v.tipo}</span>
+                      </div>
+                      <span className="text-sm text-gray-500">#{i + 1}</span>
                     </div>
-                    {vehiculo.placas && (
-                      <p className="text-sm text-gray-600 mb-2">Placas: {vehiculo.placas}</p>
-                    )}
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div>
-                        <span className="text-gray-600">Asignados:</span>
-                        <span className="font-semibold ml-1">{vehiculo.total_asignados}</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-600">Asistencias:</span>
-                        <span className="font-semibold ml-1">{vehiculo.total_asistencias}</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-600">Movilizados:</span>
-                        <span className="font-semibold ml-1">{vehiculo.movilizados}</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-600">Capacidad:</span>
-                        <span className="font-semibold ml-1">{vehiculo.capacidad}</span>
-                      </div>
+                    {v.placas && <p className="text-sm text-gray-600 mb-2">Placas: {v.placas}</p>}
+                    <div className="grid grid-cols-2 gap-2 text-sm mb-3">
+                      <div><span className="text-gray-600">Asignados:</span><span className="font-semibold ml-1">{v.total_asignados}</span></div>
+                      <div><span className="text-gray-600">Asistencias:</span><span className="font-semibold ml-1">{v.total_asistencias}</span></div>
                     </div>
-                    <div className="mt-3">
-                      <div className="flex justify-between text-sm text-gray-600 mb-1">
-                        <span>Asistencia</span>
-                        <span>{vehiculo.porcentaje_asistencia}%</span>
+                    <div>
+                      <div className="flex justify-between text-xs text-gray-500 mb-1">
+                        <span>Asistencia</span><span>{v.porcentaje_asistencia}%</span>
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div 
-                          className={`h-2 rounded-full transition-all duration-300 ${
-                            vehiculo.porcentaje_asistencia >= 80 ? 'bg-green-500' :
-                            vehiculo.porcentaje_asistencia >= 60 ? 'bg-yellow-500' : 'bg-red-500'
-                          }`}
-                          style={{ width: `${vehiculo.porcentaje_asistencia}%` }}
-                        ></div>
+                      <div className="w-full bg-gray-200 rounded-full h-1.5">
+                        <div className={`h-1.5 rounded-full ${v.porcentaje_asistencia >= 80 ? 'bg-green-500' : v.porcentaje_asistencia >= 60 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                          style={{ width: `${v.porcentaje_asistencia}%` }} />
                       </div>
                     </div>
                   </div>
@@ -408,88 +338,22 @@ const Dashboard = () => {
               </div>
             </div>
           )}
-
-          {/* Lista Completa de Vehículos */}
-          {movilizacionVehiculos.estadisticas_vehiculos && movilizacionVehiculos.estadisticas_vehiculos.length > 0 && (
-            <div>
-              <h3 className="text-lg font-semibold text-secondary-900 mb-4">Estadísticas por Vehículo</h3>
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vehículo</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Placas</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Asignados</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Asistencias</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Movilizados</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">% Asistencia</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">% Movilización</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {movilizacionVehiculos.estadisticas_vehiculos.map((vehiculo) => (
-                      <tr key={vehiculo.id} className="hover:bg-gray-50">
-                                                 <td className="px-6 py-4 whitespace-nowrap">
-                           <div className="flex items-center">
-                             <FiTruck className="h-4 w-4 text-blue-600 mr-2" />
-                             <div>
-                               <div className="text-sm font-medium text-gray-900">{vehiculo.tipo}</div>
-                               {vehiculo.descripcion && (
-                                 <div className="text-sm text-gray-500">{vehiculo.descripcion}</div>
-                               )}
-                             </div>
-                           </div>
-                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {vehiculo.placas || 'N/A'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {vehiculo.total_asignados}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {vehiculo.total_asistencias}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {vehiculo.movilizados}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`text-sm font-medium ${getAsistenciaColor(vehiculo.porcentaje_asistencia)}`}>
-                            {vehiculo.porcentaje_asistencia}%
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="text-sm font-medium text-blue-600">
-                            {vehiculo.porcentaje_movilizacion}%
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
         </div>
       )}
 
-      {/* Reporte de Asistencias en Tiempo Real - Solo si puede ver seguimiento */}
+      {/* Asistencias en tiempo real */}
       {!isLoading && asistenciasTiempoReal && puedeVerSeccion('seguimiento') && (
         <div className="card">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-3">
               <FiActivity className="h-6 w-6 text-blue-600" />
-              <h2 className="text-xl font-bold text-secondary-900">Reporte de Asistencias en Tiempo Real</h2>
+              <h2 className="text-xl font-bold text-secondary-900">Asistencias en Tiempo Real</h2>
             </div>
-            <button
-              onClick={refetchAsistencias}
-              className="btn-secondary text-sm flex items-center space-x-1"
-            >
-              <FiRefreshCw className="h-3 w-3" />
-              <span>Actualizar</span>
+            <button onClick={rA} className="btn-secondary text-sm flex items-center space-x-1">
+              <FiRefreshCw className="h-3 w-3" /><span>Actualizar</span>
             </button>
           </div>
 
-          {/* Resumen Global */}
           {asistenciasTiempoReal.resumen_global && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -507,76 +371,38 @@ const Dashboard = () => {
             </div>
           )}
 
-          {/* Lista de Eventos */}
-          {asistenciasTiempoReal.eventos && asistenciasTiempoReal.eventos.length > 0 ? (
+          {asistenciasTiempoReal.eventos?.length > 0 ? (
             <div className="space-y-4">
-              {asistenciasTiempoReal.eventos.map((evento) => (
-                <div key={evento.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-secondary-900">{evento.nombre}</h3>
-                      <p className="text-sm text-secondary-600">{formatDate(evento.fecha)}</p>
-                      <p className="text-xs text-blue-600 font-medium">{evento.tipo}</p>
+              {asistenciasTiempoReal.eventos.map(ev => (
+                <div key={ev.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h3 className="text-base font-semibold text-secondary-900">{ev.nombre}</h3>
+                      <p className="text-xs text-secondary-500">{formatDate(ev.fecha)} · <span className="text-blue-600">{ev.tipo}</span></p>
                     </div>
                     <div className="flex items-center space-x-2">
-                      {getAsistenciaIcon(evento.porcentaje_asistencia)}
-                      <span className={`text-lg font-bold ${getAsistenciaColor(evento.porcentaje_asistencia)}`}>
-                        {evento.porcentaje_asistencia}%
-                      </span>
+                      {getAsistenciaIcon(ev.porcentaje_asistencia)}
+                      <span className={`text-lg font-bold ${getAsistenciaColor(ev.porcentaje_asistencia)}`}>{ev.porcentaje_asistencia}%</span>
                     </div>
                   </div>
-
-                  {/* Estadísticas del evento */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                    <div className="text-center">
-                      <div className="text-sm text-secondary-600">Asignados</div>
-                      <div className="text-lg font-bold text-secondary-900">{evento.total_asignados}</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-sm text-secondary-600">Presentes</div>
-                      <div className="text-lg font-bold text-green-600">{evento.total_asistencias}</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-sm text-secondary-600">Movilizados</div>
-                      <div className="text-lg font-bold text-blue-600">{evento.movilizados} ({evento.porcentaje_movilizacion}%)</div>
-                    </div>
+                  <div className="grid grid-cols-3 gap-4 text-center mb-3">
+                    <div><p className="text-xs text-gray-500">Asignados</p><p className="font-bold">{ev.total_asignados}</p></div>
+                    <div><p className="text-xs text-gray-500">Presentes</p><p className="font-bold text-green-600">{ev.total_asistencias}</p></div>
+                    <div><p className="text-xs text-gray-500">Movilizados</p><p className="font-bold text-blue-600">{ev.movilizados} ({ev.porcentaje_movilizacion}%)</p></div>
                   </div>
-
-                  {/* Barra de progreso */}
-                  <div className="mb-4">
-                    <div className="flex justify-between text-sm text-secondary-600 mb-1">
-                      <span>Progreso de asistencia</span>
-                      <span>{evento.porcentaje_asistencia}%</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div 
-                        className={`h-2 rounded-full transition-all duration-300 ${
-                          evento.porcentaje_asistencia >= 80 ? 'bg-green-500' :
-                          evento.porcentaje_asistencia >= 60 ? 'bg-yellow-500' : 'bg-red-500'
-                        }`}
-                        style={{ width: `${evento.porcentaje_asistencia}%` }}
-                      ></div>
-                    </div>
+                  <div className="w-full bg-gray-200 rounded-full h-1.5">
+                    <div className={`h-1.5 rounded-full ${ev.porcentaje_asistencia >= 80 ? 'bg-green-500' : ev.porcentaje_asistencia >= 60 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                      style={{ width: `${ev.porcentaje_asistencia}%` }} />
                   </div>
-
-                  {/* Últimas asistencias */}
-                  {evento.ultimas_asistencias && evento.ultimas_asistencias.length > 0 && (
-                    <div className="border-t pt-4">
-                      <h4 className="text-sm font-semibold text-secondary-700 mb-2">Últimas asistencias:</h4>
+                  {ev.ultimas_asistencias?.length > 0 && (
+                    <div className="border-t mt-3 pt-3">
+                      <h4 className="text-xs font-semibold text-gray-600 mb-2">Últimas asistencias:</h4>
                       <div className="space-y-1">
-                        {evento.ultimas_asistencias.map((asistencia, idx) => (
-                          <div key={idx} className="flex items-center space-x-2 text-sm">
-                            {asistencia.movilizado ? (
-                              <FiCheckCircle className="text-green-600 h-4 w-4" />
-                            ) : (
-                              <FiUser className="text-blue-600 h-4 w-4" />
-                            )}
-                            <span className="text-secondary-600">
-                              {asistencia.hora_checkin ? formatDate(asistencia.hora_checkin) : 'Sin hora registrada'}
-                            </span>
-                            {asistencia.movilizado && (
-                              <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">Movilizado</span>
-                            )}
+                        {ev.ultimas_asistencias.map((a, idx) => (
+                          <div key={idx} className="flex items-center space-x-2 text-xs text-gray-500">
+                            {a.movilizado ? <FiCheckCircle className="text-green-500 h-3 w-3" /> : <FiUser className="text-blue-500 h-3 w-3" />}
+                            <span>{a.hora_checkin ? formatDate(a.hora_checkin) : 'Sin hora'}</span>
+                            {a.movilizado && <span className="bg-green-100 text-green-700 px-1.5 py-0.5 rounded text-xs">Movilizado</span>}
                           </div>
                         ))}
                       </div>
@@ -587,16 +413,14 @@ const Dashboard = () => {
             </div>
           ) : (
             <div className="text-center py-8">
-              <FiCalendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500">No hay eventos activos con asistencias registradas</p>
+              <FiCalendar className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-400 text-sm">No hay eventos activos con asistencias registradas</p>
             </div>
           )}
         </div>
       )}
 
-
-
-      {/* Reporte de Eventos Históricos - Solo si puede ver eventos-historicos */}
+      {/* Eventos históricos */}
       {!isLoading && reporteEventosHistoricos && puedeVerSeccion('eventos-historicos') && (
         <div className="card">
           <div className="flex items-center justify-between mb-6">
@@ -604,175 +428,69 @@ const Dashboard = () => {
               <FiCalendar className="h-6 w-6 text-blue-600" />
               <h2 className="text-xl font-bold text-secondary-900">Reporte de Eventos Históricos</h2>
             </div>
-            <button
-              onClick={refetchEventosHistoricos}
-              className="btn-secondary text-sm flex items-center space-x-1"
-            >
-              <FiRefreshCw className="h-3 w-3" />
-              <span>Actualizar</span>
+            <button onClick={rEH} className="btn-secondary text-sm flex items-center space-x-1">
+              <FiRefreshCw className="h-3 w-3" /><span>Actualizar</span>
             </button>
           </div>
 
-                     {/* Resumen Global */}
-           {reporteEventosHistoricos.resumen && (
-             <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
-               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                 <div className="text-sm text-blue-600 font-medium">Total Eventos</div>
-                 <div className="text-2xl font-bold text-blue-900">{reporteEventosHistoricos.total_eventos}</div>
-               </div>
-               <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                 <div className="text-sm text-green-600 font-medium">Total Asignados</div>
-                 <div className="text-2xl font-bold text-green-900">{reporteEventosHistoricos.resumen.total_asignados}</div>
-               </div>
-               <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                 <div className="text-sm text-purple-600 font-medium">Total Asistencias</div>
-                 <div className="text-2xl font-bold text-purple-900">{reporteEventosHistoricos.resumen.total_asistencias}</div>
-               </div>
-               <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                 <div className="text-sm text-orange-600 font-medium">Promedio Asistencia</div>
-                 <div className="text-2xl font-bold text-orange-900">{reporteEventosHistoricos.resumen.promedio_asistencia}%</div>
-               </div>
-               <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                 <div className="text-sm text-red-600 font-medium">Promedio Movilización</div>
-                 <div className="text-2xl font-bold text-red-900">{reporteEventosHistoricos.resumen.promedio_movilizacion}%</div>
-               </div>
-             </div>
-           )}
+          {reporteEventosHistoricos.resumen && (
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+              {[
+                { label: 'Total Eventos', val: reporteEventosHistoricos.total_eventos, color: 'blue' },
+                { label: 'Total Asignados', val: reporteEventosHistoricos.resumen.total_asignados, color: 'green' },
+                { label: 'Total Asistencias', val: reporteEventosHistoricos.resumen.total_asistencias, color: 'purple' },
+                { label: 'Prom. Asistencia', val: reporteEventosHistoricos.resumen.promedio_asistencia + '%', color: 'orange' },
+                { label: 'Prom. Movilización', val: reporteEventosHistoricos.resumen.promedio_movilizacion + '%', color: 'red' },
+              ].map(({ label, val, color }) => (
+                <div key={label} className={`bg-${color}-50 border border-${color}-200 rounded-lg p-3`}>
+                  <div className={`text-xs text-${color}-600 font-medium`}>{label}</div>
+                  <div className={`text-xl font-bold text-${color}-900`}>{val}</div>
+                </div>
+              ))}
+            </div>
+          )}
 
-           {/* Lista de Eventos */}
-           {reporteEventosHistoricos.eventos_detallados && reporteEventosHistoricos.eventos_detallados.length > 0 ? (
-                         <div className="space-y-4">
-               {reporteEventosHistoricos.eventos_detallados.map((evento) => (
-                <div key={evento.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-secondary-900">{evento.nombre}</h3>
-                      <p className="text-sm text-secondary-600">{formatDate(evento.fecha)}</p>
-                      <p className="text-xs text-blue-600 font-medium">{evento.tipo}</p>
+          {reporteEventosHistoricos.eventos_detallados?.length > 0 ? (
+            <div className="space-y-3">
+              {reporteEventosHistoricos.eventos_detallados.map(ev => (
+                <div key={ev.id} className="border border-gray-100 rounded-lg p-4 hover:shadow-sm transition-shadow">
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <h3 className="text-sm font-semibold text-secondary-900">{ev.nombre}</h3>
+                      <p className="text-xs text-gray-400">{formatDate(ev.fecha)} · {ev.tipo}</p>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      {getAsistenciaIcon(evento.porcentaje_asistencia)}
-                      <span className={`text-lg font-bold ${getAsistenciaColor(evento.porcentaje_asistencia)}`}>
-                        {evento.porcentaje_asistencia}%
-                      </span>
+                    <div className="flex items-center gap-2">
+                      {getAsistenciaIcon(ev.porcentaje_asistencia)}
+                      <span className={`font-bold ${getAsistenciaColor(ev.porcentaje_asistencia)}`}>{ev.porcentaje_asistencia}%</span>
                     </div>
                   </div>
-
-                  {/* Estadísticas del evento */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                    <div className="text-center">
-                      <div className="text-sm text-secondary-600">Asignados</div>
-                      <div className="text-lg font-bold text-secondary-900">{evento.total_asignados}</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-sm text-secondary-600">Presentes</div>
-                      <div className="text-lg font-bold text-green-600">{evento.asistencias_confirmadas}</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-sm text-secondary-600">Movilizados</div>
-                      <div className="text-lg font-bold text-blue-600">{evento.movilizados} ({evento.porcentaje_movilizacion}%)</div>
-                    </div>
+                  <div className="grid grid-cols-3 gap-3 text-center text-xs mb-2">
+                    <div><p className="text-gray-400">Asignados</p><p className="font-bold text-sm">{ev.total_asignados}</p></div>
+                    <div><p className="text-gray-400">Presentes</p><p className="font-bold text-sm text-green-600">{ev.asistencias_confirmadas}</p></div>
+                    <div><p className="text-gray-400">Movilizados</p><p className="font-bold text-sm text-blue-600">{ev.movilizados} ({ev.porcentaje_movilizacion}%)</p></div>
                   </div>
-
-                  {/* Barra de progreso */}
-                  <div className="mb-4">
-                    <div className="flex justify-between text-sm text-secondary-600 mb-1">
-                      <span>Progreso de asistencia</span>
-                      <span>{evento.porcentaje_asistencia}%</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div 
-                        className={`h-2 rounded-full transition-all duration-300 ${
-                          evento.porcentaje_asistencia >= 80 ? 'bg-green-500' :
-                          evento.porcentaje_asistencia >= 60 ? 'bg-yellow-500' : 'bg-red-500'
-                        }`}
-                        style={{ width: `${evento.porcentaje_asistencia}%` }}
-                      ></div>
-                    </div>
+                  <div className="w-full bg-gray-100 rounded-full h-1.5">
+                    <div className={`h-1.5 rounded-full ${ev.porcentaje_asistencia >= 80 ? 'bg-green-500' : ev.porcentaje_asistencia >= 60 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                      style={{ width: `${ev.porcentaje_asistencia}%` }} />
                   </div>
-
-                  {/* Últimas asistencias */}
-                  {evento.ultimas_asistencias && evento.ultimas_asistencias.length > 0 && (
-                    <div className="border-t pt-4">
-                      <h4 className="text-sm font-semibold text-secondary-700 mb-2">Últimas asistencias:</h4>
-                      <div className="space-y-1">
-                        {evento.ultimas_asistencias.map((asistencia, idx) => (
-                          <div key={idx} className="flex items-center space-x-2 text-sm">
-                            {asistencia.movilizado ? (
-                              <FiCheckCircle className="text-green-600 h-4 w-4" />
-                            ) : (
-                              <FiUser className="text-blue-600 h-4 w-4" />
-                            )}
-                            <span className="text-secondary-600">
-                              {asistencia.hora_checkin ? formatDate(asistencia.hora_checkin) : 'Sin hora registrada'}
-                            </span>
-                            {asistencia.movilizado && (
-                              <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">Movilizado</span>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
               ))}
             </div>
           ) : (
             <div className="text-center py-8">
-              <FiCalendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500">No hay eventos históricos registrados</p>
+              <FiCalendar className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-400 text-sm">No hay eventos históricos registrados</p>
             </div>
           )}
         </div>
       )}
 
-      {/* Rankings - Solo si puede ver personas */}
-      {!isLoading && reportePersonas && puedeVerSeccion('personas') && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="card">
-            <h3 className="text-lg font-semibold text-secondary-900 mb-4">Top Secciones Electorales</h3>
-            {reportePersonas.personas_por_seccion && Object.keys(reportePersonas.personas_por_seccion).length > 0 ? (
-              <div className="space-y-2">
-                {Object.entries(reportePersonas.personas_por_seccion)
-                  .sort(([,a], [,b]) => b - a)
-                  .slice(0, 10)
-                  .map(([seccion, total]) => (
-                    <div key={seccion} className="flex justify-between items-center p-2 hover:bg-gray-50 rounded">
-                      <span className="font-medium">{seccion}</span>
-                      <span className="text-blue-600 font-bold">{total} personas</span>
-                    </div>
-                  ))}
-              </div>
-            ) : (
-              <p className="text-gray-500 text-center py-4">No hay secciones con personas registradas</p>
-            )}
-          </div>
-
-          <div className="card">
-            <h3 className="text-lg font-semibold text-secondary-900 mb-4">Top Líderes por Personas</h3>
-            {reportePersonas.personas_por_lider && Object.keys(reportePersonas.personas_por_lider).length > 0 ? (
-              <div className="space-y-2">
-                {Object.entries(reportePersonas.personas_por_lider)
-                  .sort(([,a], [,b]) => b - a)
-                  .slice(0, 10)
-                  .map(([nombre, total]) => (
-                    <div key={nombre} className="flex justify-between items-center p-2 hover:bg-gray-50 rounded">
-                      <span className="font-medium">{nombre}</span>
-                      <span className="text-green-600 font-bold">{total} personas</span>
-                    </div>
-                  ))}
-              </div>
-            ) : (
-              <p className="text-gray-500 text-center py-4">No hay líderes con personas registradas</p>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Estructura Jerárquica - Solo si puede ver estructura-red */}
+      {/* Estructura jerárquica */}
       {!isLoading && puedeVerSeccion('estructura-red') && (
         <div className="card">
-          <h3 className="text-lg font-semibold text-secondary-900 mb-4">Estructura de la Red</h3>
+          <h3 className="text-lg font-semibold text-secondary-900 mb-4 flex items-center gap-2">
+            <FiGitBranch className="text-blue-600" /> Estructura de la Red
+          </h3>
           <EstructuraJerarquica />
         </div>
       )}
@@ -780,4 +498,4 @@ const Dashboard = () => {
   );
 };
 
-export default Dashboard; 
+export default Dashboard;

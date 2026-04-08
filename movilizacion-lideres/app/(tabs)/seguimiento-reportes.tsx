@@ -4,9 +4,10 @@ import { Surface, Text, ActivityIndicator, Card, Button, Chip, Divider, FAB } fr
 import { useAuth } from '../../src/contexts/AuthContext';
 import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import MapView, { Marker, Callout } from 'react-native-maps';
+import { api } from '../../src/api';
 
 export default function SeguimientoReportesScreen() {
-  const { token, logout } = useAuth();
+  const { token } = useAuth();
   const [reportesData, setReportesData] = useState<any>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -31,25 +32,7 @@ export default function SeguimientoReportesScreen() {
       setLoading(true);
       setError(null);
       
-      const response = await fetch('http://192.168.2.150:8000/reportes-ciudadanos', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      
-      if (response.status === 401) {
-        Alert.alert('Sesión Expirada', 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.', [
-          { text: 'OK', onPress: () => logout() }
-        ]);
-        return;
-      }
-      
-      if (!response.ok) {
-        const text = await response.text();
-        setError(`Error ${response.status}: ${text}`);
-        setLoading(false);
-        return;
-      }
-      
-      const data = await response.json();
+      const data = await api.get('/reportes-ciudadanos');
       setReportesData(data);
       
       // Actualizar el centro del mapa basado en los reportes

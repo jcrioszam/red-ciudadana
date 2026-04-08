@@ -29,20 +29,7 @@ const ReportesCiudadanos = () => {
   const loadReportes = async () => {
     try {
       setLoading(true);
-      console.log('🔄 Cargando reportes ciudadanos...');
-      
-      let params = '';
-      
-      console.log('📡 Endpoint:', `/reportes-ciudadanos${params}`);
-      
-      if (!api || !api.get) {
-        console.error('❌ API no está disponible');
-        Alert.alert('Error', 'Error de configuración de la API');
-        return;
-      }
-      
-      const response = await api.get(`/reportes-ciudadanos${params}`);
-      console.log('✅ Reportes cargados:', response);
+      const response = await api.get('/reportes-ciudadanos');
       setReportes(response || []);
     } catch (error) {
       console.error('❌ Error al cargar reportes:', error);

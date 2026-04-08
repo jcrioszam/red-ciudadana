@@ -3,6 +3,7 @@ import { View, StyleSheet, ScrollView, Dimensions, Alert } from 'react-native';
 import { Surface, Text, ActivityIndicator, Card, Title, Paragraph, Button, Chip } from 'react-native-paper';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { FontAwesome5, MaterialIcons } from '@expo/vector-icons';
+import { api } from '../../src/api';
 
 interface EventoHistorico {
   id: number;
@@ -32,7 +33,7 @@ interface ReporteHistoricos {
 }
 
 export default function EventosHistoricosScreen() {
-  const { token, logout } = useAuth();
+  const { token } = useAuth();
   const [data, setData] = useState<ReporteHistoricos | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -48,25 +49,7 @@ export default function EventosHistoricosScreen() {
       setLoading(true);
       setError(null);
       
-      const response = await fetch('http://192.168.2.150:8000/reportes/eventos-historicos', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      
-      if (response.status === 401) {
-        Alert.alert('Sesión Expirada', 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.', [
-          { text: 'OK', onPress: () => logout() }
-        ]);
-        return;
-      }
-      
-      if (!response.ok) {
-        const text = await response.text();
-        setError(`Error ${response.status}: ${text}`);
-        setLoading(false);
-        return;
-      }
-      
-      const responseData = await response.json();
+      const responseData = await api.get('/reportes/eventos-historicos');
       setData(responseData);
       setLoading(false);
     } catch (e) {

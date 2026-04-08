@@ -4,9 +4,10 @@ import { Surface, Text, ActivityIndicator, Card, Button, Chip, FAB } from 'react
 import { useAuth } from '../../src/contexts/AuthContext';
 import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import MapView, { Marker, Callout } from 'react-native-maps';
+import { api } from '../../src/api';
 
 export default function DashboardCiudadanosScreen() {
-  const { token, logout } = useAuth();
+  const { token } = useAuth();
   const [reportesData, setReportesData] = useState<any>([]);
   const [noticiasData, setNoticiasData] = useState<any>([]);
   const [loading, setLoading] = useState(true);
@@ -77,35 +78,19 @@ export default function DashboardCiudadanosScreen() {
       setLoading(true);
       setError(null);
       
-      // Cargar reportes ciudadanos
-      const reportesResponse = await fetch('http://192.168.2.150:8000/reportes-ciudadanos', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      
-      if (reportesResponse.status === 401) {
-        Alert.alert('Sesión Expirada', 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.', [
-          { text: 'OK', onPress: () => logout() }
-        ]);
-        return;
-      }
-      
-      if (reportesResponse.ok) {
-        const reportesData = await reportesResponse.json();
-        setReportesData(reportesData);
-        
-        // Actualizar el centro del mapa basado en los reportes
-        const newMapRegion = calculateMapCenter(reportesData);
+      // Cargar reportes y noticias en paralelo
+      const [reportesResult, noticiasResult] = await Promise.all([
+        api.get('/reportes-ciudadanos').catch(() => null),
+        api.get('/noticias').catch(() => null),
+      ]);
+
+      if (reportesResult) {
+        setReportesData(reportesResult);
+        const newMapRegion = calculateMapCenter(reportesResult);
         setMapRegion(newMapRegion);
       }
-      
-      // Cargar noticias
-      const noticiasResponse = await fetch('http://192.168.2.150:8000/noticias', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      
-      if (noticiasResponse.ok) {
-        const noticiasData = await noticiasResponse.json();
-        setNoticiasData(noticiasData);
+      if (noticiasResult) {
+        setNoticiasData(noticiasResult);
       }
       
       setLoading(false);

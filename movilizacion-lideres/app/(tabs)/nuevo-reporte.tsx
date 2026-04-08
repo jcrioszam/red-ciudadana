@@ -25,25 +25,11 @@ const NuevoReporte = () => {
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
 
   const handleNext = () => {
-    console.log('🔄 Botón siguiente presionado');
-    console.log('📊 Paso actual:', currentStep);
-    if (currentStep < 3) {
-      const nextStep = currentStep + 1;
-      console.log('🎯 Intentando avanzar al paso:', nextStep);
-      setCurrentStep(nextStep);
-      console.log('✅ Paso actualizado a:', nextStep);
-    }
+    if (currentStep < 3) setCurrentStep(currentStep + 1);
   };
 
   const handlePrev = () => {
-    console.log('🔄 Botón anterior presionado');
-    console.log('📊 Paso actual:', currentStep);
-    if (currentStep > 1) {
-      const prevStep = currentStep - 1;
-      console.log('🎯 Intentando retroceder al paso:', prevStep);
-      setCurrentStep(prevStep);
-      console.log('✅ Paso actualizado a:', prevStep);
-    }
+    if (currentStep > 1) setCurrentStep(currentStep - 1);
   };
 
   const getCurrentLocation = async () => {
@@ -65,7 +51,6 @@ const NuevoReporte = () => {
       const { latitude, longitude } = location.coords;
       setCoordinates({ latitud: latitude, longitud: longitude });
       
-      console.log('📍 Ubicación obtenida:', { latitude, longitude });
       Alert.alert('✅ Ubicación Obtenida', 'Tu ubicación actual ha sido capturada');
       
     } catch (error) {
@@ -84,8 +69,6 @@ const NuevoReporte = () => {
   };
 
   const renderStep = () => {
-    console.log('🎨 Renderizando paso:', currentStep);
-    
     switch (currentStep) {
       case 1:
         return (

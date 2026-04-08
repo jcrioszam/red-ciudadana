@@ -3,6 +3,7 @@ import { View, StyleSheet, ScrollView } from 'react-native';
 import { Surface, Text, ActivityIndicator } from 'react-native-paper';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { MaterialIcons } from '@expo/vector-icons';
+import { api } from '../../src/api';
 
 // Tipos
 
@@ -70,15 +71,7 @@ export default function EstructuraRedScreen() {
       setLoading(true);
       setError('');
       try {
-        const response = await fetch('http://192.168.2.150:8000/reportes/estructura-jerarquica', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!response.ok) {
-          setError('Error al obtener la estructura de la red');
-          setLoading(false);
-          return;
-        }
-        const data = await response.json();
+        const data = await api.get('/reportes/estructura-jerarquica');
         setEstructura(data);
       } catch (e) {
         setError('Error de conexión');

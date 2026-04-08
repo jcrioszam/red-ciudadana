@@ -1,33 +1,20 @@
 // Configuración del servidor
+// Para producción: define EXPO_PUBLIC_API_URL en tu archivo .env
+// Ejemplo: EXPO_PUBLIC_API_URL=https://red-ciudadana-production.up.railway.app
 export const SERVER_CONFIG = {
-  // Cambia esta IP por la IP de tu servidor
-  BASE_URL: 'http://192.168.2.174:8000',
-  
-  // Configuración de timeout para las peticiones
-  TIMEOUT: 10000, // 10 segundos
-  
-  // Configuración de reintentos
+  BASE_URL: process.env.EXPO_PUBLIC_API_URL || 'http://192.168.2.174:8000',
+  TIMEOUT: 10000,
   MAX_RETRIES: 3,
-  
-  // Configuración de logging
-  DEBUG: true, // Cambiar a false en producción
+  DEBUG: process.env.NODE_ENV !== 'production',
 };
 
-// Función para obtener la URL completa
-export const getFullUrl = (endpoint) => {
-  return `${SERVER_CONFIG.BASE_URL}${endpoint}`;
-};
+export const getFullUrl = (endpoint) => `${SERVER_CONFIG.BASE_URL}${endpoint}`;
 
-// Función para verificar conectividad
 export const checkConnectivity = async () => {
   try {
-    const response = await fetch(`${SERVER_CONFIG.BASE_URL}/health`, {
-      method: 'GET',
-      timeout: 5000,
-    });
+    const response = await fetch(`${SERVER_CONFIG.BASE_URL}/health`, { method: 'GET' });
     return response.ok;
-  } catch (error) {
-    console.error('❌ Error de conectividad:', error);
+  } catch {
     return false;
   }
-}; 
+};

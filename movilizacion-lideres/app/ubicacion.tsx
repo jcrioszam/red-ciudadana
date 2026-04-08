@@ -11,13 +11,8 @@ export default function UbicacionScreen() {
   // Roles permitidos para ver seguimiento
   const allowedRoles = ['admin', 'presidente', 'lider_estatal', 'lider_municipal', 'lider_zona'];
   
-  // Debug logs
-  console.log('UbicacionScreen: user.rol', user?.rol);
-  console.log('UbicacionScreen: allowedRoles.includes(user?.rol)', allowedRoles.includes(user?.rol));
-  
   // Verificar si el usuario tiene permisos
   if (!allowedRoles.includes(user?.rol)) {
-    console.log('UbicacionScreen: Acceso Restringido');
     return (
       <View style={styles.container}>
         <View style={styles.header}>
@@ -27,8 +22,6 @@ export default function UbicacionScreen() {
       </View>
     );
   }
-
-  console.log('UbicacionScreen: Renderizando contenido principal');
 
   // Manejar inicio/parada del seguimiento
   const handleTrackingToggle = () => {

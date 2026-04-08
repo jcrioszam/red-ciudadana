@@ -77,8 +77,6 @@ export default function PaseLista() {
     }
 
     const searchTerm = searchQuery.toLowerCase().trim();
-    console.log('Búsqueda dinámica con término:', searchTerm);
-    
     const filtered = personas.filter(persona => {
       // Buscar en nombre
       if (persona.nombre?.toLowerCase().includes(searchTerm)) return true;
@@ -101,26 +99,19 @@ export default function PaseLista() {
       return false;
     });
 
-    console.log('Personas filtradas:', filtered?.length || 0);
     setFilteredPersonas(filtered);
   }, [searchQuery, personas]);
 
   const loadInitialData = async () => {
     try {
-      console.log('🔍 Cargando datos iniciales...');
-      
       const [eventosData, lideresData] = await Promise.all([
         api.get('/eventos/?activos=true'),
         api.get('/usuarios/?rol=lider')
       ]);
 
-      console.log('✅ Eventos cargados:', eventosData);
-      console.log('✅ Líderes cargados:', lideresData);
-      
       setEventos(eventosData || []);
       setLideres(lideresData || []);
     } catch (err) {
-      console.error('❌ Error al cargar datos iniciales:', err);
       Alert.alert(
         'Error de Conexión', 
         'No se pudieron cargar los datos. Verifica tu conexión a internet.',
@@ -131,23 +122,16 @@ export default function PaseLista() {
 
   const loadEventoData = async (eventoId: number) => {
     try {
-      console.log(`🔍 Cargando datos del evento: ${eventoId}`);
-      
       const [vehiculosData, personasData, asignacionesData] = await Promise.all([
         api.get('/vehiculos/'),
         api.get('/personas/'),
         api.get(`/movilizaciones/?evento_id=${eventoId}`)
       ]);
 
-      console.log('✅ Vehículos cargados:', vehiculosData);
-      console.log('✅ Personas cargadas:', personasData);
-      console.log('✅ Asignaciones cargadas:', asignacionesData);
-      
       setVehiculos(vehiculosData || []);
       setPersonas(personasData || []);
       setAsignaciones(asignacionesData || []);
     } catch (err) {
-      console.error('❌ Error al cargar datos del evento:', err);
       Alert.alert(
         'Error de Conexión', 
         'No se pudieron cargar los datos del evento. Verifica tu conexión a internet.',
@@ -163,85 +147,25 @@ export default function PaseLista() {
 
   const handleMarcarAsistencia = async (asignacionId: number) => {
     try {
-      console.log('=== INICIANDO CHECKIN ===');
-      console.log('Asignación ID:', asignacionId);
-      console.log('Token:', token ? 'Presente' : 'Ausente');
-      console.log('URL:', `http://192.168.2.150:8000/movilizaciones/${asignacionId}/checkin`);
-      
-      const response = await api.post(`/movilizaciones/${asignacionId}/checkin`);
+      await api.post(`/movilizaciones/${asignacionId}/checkin`);
+      Alert.alert('Éxito', 'Asistencia marcada correctamente');
 
-      console.log('Respuesta del servidor:');
-      console.log('- Status:', response.status);
-      console.log('- Status Text:', response.statusText);
-
-      if (response.status === 401) {
-        console.log('❌ Token expirado - Redirigiendo al login');
-        Alert.alert(
-          'Sesión Expirada', 
-          'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.',
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                // Limpiar token y redirigir al login
-                logout();
-              }
-            }
-          ]
-        );
-        return;
+      // Recargar asignaciones
+      if (selectedEvento) {
+        const nuevasAsignaciones = await api.get(`/movilizaciones/?evento_id=${selectedEvento.id}`);
+        setAsignaciones(nuevasAsignaciones || []);
       }
-
-      if (response.ok) {
-        const responseData = response.data;
-        console.log('✅ Checkin exitoso - Datos de respuesta:', responseData);
-        
-        Alert.alert('Éxito', 'Asistencia marcada correctamente');
-        
-        // Recargar asignaciones
-        if (selectedEvento) {
-          console.log('🔄 Recargando asignaciones después del checkin...');
-          const asignacionesRes = await api.get(`/movilizaciones/?evento_id=${selectedEvento.id}`);
-          
-          if (asignacionesRes.ok) {
-            const nuevasAsignaciones = asignacionesRes.data;
-            console.log('✅ Nuevas asignaciones cargadas:', nuevasAsignaciones);
-            
-            // Verificar el estado actualizado
-            const conAsistencia = nuevasAsignaciones.filter((a: any) => a.asistio);
-            const sinAsistencia = nuevasAsignaciones.filter((a: any) => !a.asistio);
-                  console.log('📊 Después del checkin - Con asistencia:', conAsistencia?.length || 0);
-      console.log('📊 Después del checkin - Sin asistencia:', sinAsistencia?.length || 0);
-            
-            setAsignaciones(nuevasAsignaciones);
-          } else {
-            console.log('❌ Error al recargar asignaciones:', asignacionesRes.status);
-          }
-        }
-      } else {
-        const errorText = response.data?.detail || response.statusText;
-        console.log('❌ Error en checkin:');
-        console.log('- Status:', response.status);
-        console.log('- Error Text:', errorText);
-        
-        Alert.alert('Error', errorText || 'No se pudo marcar la asistencia');
-      }
-    } catch (err) {
-      console.log('💥 Excepción en marcar asistencia:', err);
-      Alert.alert('Error', 'Error de conexión');
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'No se pudo marcar la asistencia');
     }
   };
 
   const handleAdvancedSearch = async () => {
-    // Esta función ya no es necesaria con búsqueda dinámica
-    // Pero la mantenemos por si acaso
-    console.log('Búsqueda dinámica activa - no se necesita botón de buscar');
+    // Búsqueda dinámica activa vía filteredPersonas
   };
 
   const performLocalSearch = (query: string): Persona[] => {
     const searchTerm = query.toLowerCase().trim();
-    console.log('Realizando búsqueda local con término:', searchTerm);
-    
     return personas.filter(persona => {
       // Buscar en nombre
       if (persona.nombre?.toLowerCase().includes(searchTerm)) return true;
@@ -271,18 +195,14 @@ export default function PaseLista() {
       return;
     }
 
-    console.log('Buscando asignación para persona ID:', personaId);
-    
     // Buscar si la persona está asignada al evento
     const asignacion = asignaciones.find(a => a.id_persona === personaId);
-    
+
     if (!asignacion) {
-      console.log('No se encontró asignación para persona:', personaId);
       Alert.alert('Error', 'Esta persona no está asignada a este evento');
       return;
     }
 
-    console.log('Asignación encontrada:', asignacion);
     await handleMarcarAsistencia(asignacion.id);
   };
 

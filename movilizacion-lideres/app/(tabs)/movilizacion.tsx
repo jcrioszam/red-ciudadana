@@ -55,15 +55,11 @@ export default function MovilizacionScreen() {
     
     const loadData = async () => {
       try {
-        console.log('🔍 Cargando eventos y personas...');
         const [eventosData, personasData] = await Promise.all([
           api.get('/eventos/?activos=true'),
           api.get('/personas/')
         ]);
-        
-        console.log('✅ Eventos cargados:', eventosData);
-        console.log('✅ Personas cargadas:', personasData);
-        
+
         setEventos(eventosData || []);
         setPersonas(personasData || []);
       } catch (error) {
@@ -85,37 +81,13 @@ export default function MovilizacionScreen() {
     
     const loadVehiculosData = async () => {
       try {
-        console.log(`🔍 Cargando vehículos y asignaciones para evento ${selectedEvento.id}...`);
-        console.log('🔍 INICIO DE loadVehiculosData - VERSION CORREGIDA');
-        
-        // Llamar a vehículos
-        console.log('🔍 Llamando a /vehiculos/...');
-        let vehiculosData;
-        try {
-          vehiculosData = await api.get('/vehiculos/');
-          console.log('✅ Vehículos cargados exitosamente:', vehiculosData);
-        } catch (error) {
-          console.error('❌ Error al cargar vehículos:', error);
-          vehiculosData = [];
-        }
-        
-        // Llamar a asignaciones
-        console.log('🔍 Llamando a /movilizaciones/...');
-        let asignacionesData;
-        try {
-          asignacionesData = await api.get(`/movilizaciones/?evento_id=${selectedEvento.id}`);
-          console.log('✅ Asignaciones cargadas exitosamente:', asignacionesData);
-        } catch (error) {
-          console.error('❌ Error al cargar asignaciones:', error);
-          asignacionesData = [];
-        }
-        
+        const [vehiculosData, asignacionesData] = await Promise.all([
+          api.get('/vehiculos/').catch(() => []),
+          api.get(`/movilizaciones/?evento_id=${selectedEvento.id}`).catch(() => []),
+        ]);
+
         // Filtrar solo vehículos activos
         const vehiculosActivos = vehiculosData?.filter((v: any) => v.activo) || [];
-        console.log('✅ Vehículos activos:', vehiculosActivos);
-        console.log('🔍 Tipo de datos vehiculosData:', typeof vehiculosData);
-        console.log('🔍 Es array:', Array.isArray(vehiculosData));
-        console.log('🔍 Longitud vehiculosData:', vehiculosData?.length);
         
         setVehiculos(vehiculosActivos);
         setAsignaciones(asignacionesData || []);
@@ -151,20 +123,15 @@ export default function MovilizacionScreen() {
     setAsignarLoading(true);
     setAlerta('');
     try {
-      console.log('🔍 Asignando personas...');
       await api.post('/movilizaciones/masivo', {
         id_evento: selectedEvento.id,
         id_vehiculo: vehiculoSeleccionado.id,
         ids_persona: personasSeleccionadas,
       });
-      
-      // Refrescar asignaciones
-      console.log('🔄 Refrescando asignaciones...');
       const asignacionesData = await api.get(`/movilizaciones/?evento_id=${selectedEvento.id}`);
       setAsignaciones(asignacionesData || []);
       setPersonasSeleccionadas([]);
       setShowAsignarModal(false);
-      console.log('✅ Personas asignadas exitosamente');
     } catch (err) {
       console.error('❌ Error al asignar personas:', err);
       setAlerta('Error al asignar personas');
@@ -179,11 +146,9 @@ export default function MovilizacionScreen() {
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Quitar', style: 'destructive', onPress: async () => {
         try {
-          console.log(`🔍 Quitando asignación ${asignacionId}...`);
           await api.delete(`/movilizaciones/${asignacionId}`);
           const asignacionesData = await api.get(`/movilizaciones/?evento_id=${selectedEvento.id}`);
           setAsignaciones(asignacionesData || []);
-          console.log('✅ Persona quitada exitosamente');
         } catch (error) {
           console.error('❌ Error al quitar persona:', error);
           Alert.alert('Error', 'No se pudo quitar a la persona');
@@ -196,11 +161,9 @@ export default function MovilizacionScreen() {
   const handleMarcarAsistencia = async (asignacionId: number) => {
     if (!selectedEvento) return;
     try {
-      console.log(`🔍 Marcando asistencia para asignación ${asignacionId}...`);
       await api.post(`/movilizaciones/${asignacionId}/checkin`);
       const asignacionesData = await api.get(`/movilizaciones/?evento_id=${selectedEvento.id}`);
       setAsignaciones(asignacionesData || []);
-      console.log('✅ Asistencia marcada exitosamente');
     } catch (err) {
       console.error('❌ Error al marcar asistencia:', err);
       Alert.alert('Error', 'No se pudo marcar la asistencia');

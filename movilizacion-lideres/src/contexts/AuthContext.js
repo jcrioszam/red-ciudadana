@@ -35,7 +35,7 @@ export const AuthProvider = ({ children }) => {
           setUser(JSON.parse(userData));
         } catch (error) {
           // Si el token expiró, limpiar la sesión
-          console.log('Token expirado, limpiando sesión');
+          // Token expirado - limpiar sesión
           await clearSession();
         }
       }

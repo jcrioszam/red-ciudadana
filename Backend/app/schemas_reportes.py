@@ -65,18 +65,27 @@ class ReporteCiudadanoUpdate(BaseModel):
             raise ValueError(f"Prioridad inválida. Prioridades válidas: {prioridades_validas}")
         return v
 
-class ReporteCiudadano(ReporteCiudadanoBase):
+class ReporteCiudadano(BaseModel):
     id: int
+    titulo: str
+    descripcion: str
+    tipo: str  # no validation on read — DB may have legacy values
+    latitud: float | None = None
+    longitud: float | None = None
+    direccion: str | None = None
+    foto_url: str | None = None
+    prioridad: str | None = None
     estado: str
     fecha_creacion: datetime
-    fecha_actualizacion: datetime
+    fecha_actualizacion: datetime | None = None
     fecha_resolucion: datetime | None = None
-    ciudadano_id: int
+    ciudadano_id: int | None = None
     administrador_id: int | None = None
     observaciones_admin: str | None = None
+    es_publico: bool | None = True
     activo: bool
     ciudadano_nombre: str | None = None
     administrador_nombre: str | None = None
 
     class Config:
-        from_attributes = True 
+        from_attributes = True

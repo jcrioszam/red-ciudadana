@@ -27,7 +27,6 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     setError('');
     setLoading(true);
-    console.log('Valor de identificador antes de login:', identificador);
     if (!identificador || !password) {
       setError('Completa todos los campos');
       setLoading(false);

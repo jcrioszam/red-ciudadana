@@ -4,6 +4,7 @@ import { Surface, Text, Button, HelperText, ActivityIndicator, List } from 'reac
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { Picker } from '@react-native-picker/picker';
+import { api } from '../../src/api';
 
 export default function ReassignScreen() {
   const router = useRouter();
@@ -23,13 +24,9 @@ export default function ReassignScreen() {
     // Cargar líderes al abrir la pantalla
     if (token) {
       setLoading(true);
-      fetch('http://192.168.1.24:8000/users/?rol=lider', {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-        .then(res => res.json())
+      api.get('/users/?rol=lider')
         .then(data => {
           setLideres(Array.isArray(data) ? data : []);
-          console.log('Líderes cargados:', data);
           setLoading(false);
         })
         .catch(() => {
@@ -43,10 +40,7 @@ export default function ReassignScreen() {
   useEffect(() => {
     if (token && selectedLider) {
       setLoading(true);
-      fetch(`http://192.168.1.24:8000/personas/buscar/?id_lider_responsable=${selectedLider}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-        .then(res => res.json())
+      api.get(`/personas/buscar/?id_lider_responsable=${selectedLider}`)
         .then(data => {
           setPersonas(Array.isArray(data) ? data : []);
           setLoading(false);
@@ -66,26 +60,13 @@ export default function ReassignScreen() {
     const { lider_responsable, ...rest } = selectedPerson;
     const body = { ...rest, id_lider_responsable: Number(newLider) };
     try {
-      const res = await fetch(`http://192.168.1.24:8000/personas/${selectedPerson.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(body),
-      });
-      if (res.ok) {
-        setSuccess(true);
-        setSelectedPerson(null);
-        setNewLider(null);
-        setLoading(false);
-      } else {
-        const errorText = await res.text();
-        setError('Error al reasignar: ' + errorText);
-        setLoading(false);
-      }
-    } catch (e) {
-      setError('Error de red');
+      await api.put(`/personas/${selectedPerson.id}`, body);
+      setSuccess(true);
+      setSelectedPerson(null);
+      setNewLider(null);
+      setLoading(false);
+    } catch (e: any) {
+      setError('Error al reasignar: ' + (e?.message || 'Error de red'));
       setLoading(false);
     }
   };
