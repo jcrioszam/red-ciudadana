@@ -27,7 +27,11 @@ async def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
 ):
-    user = authenticate_user(db, form_data.username, form_data.password)
+    try:
+        user = authenticate_user(db, form_data.username, form_data.password)
+    except Exception as e:
+        logger.error(f"Error en authenticate_user: {type(e).__name__}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
     if not user:
         logger.warning(f"Authentication failed for: {form_data.username}")
         raise HTTPException(
