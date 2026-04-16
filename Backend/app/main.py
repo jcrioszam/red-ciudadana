@@ -43,12 +43,14 @@ def verificar_y_crear_columnas():
         ("reportes_ciudadanos", "colonia",     "ALTER TABLE reportes_ciudadanos ADD COLUMN colonia TEXT"),
         ("reportes_ciudadanos", "calle",       "ALTER TABLE reportes_ciudadanos ADD COLUMN calle TEXT"),
         ("reportes_ciudadanos", "subtipo",     "ALTER TABLE reportes_ciudadanos ADD COLUMN subtipo TEXT"),
-        ("reportes_ciudadanos", "resuelto_en", "ALTER TABLE reportes_ciudadanos ADD COLUMN resuelto_en DATETIME"),
+        ("reportes_ciudadanos", "resuelto_en", "ALTER TABLE reportes_ciudadanos ADD COLUMN resuelto_en TIMESTAMP"),
+        ("usuarios", "opciones_app_usuario",  "ALTER TABLE usuarios ADD COLUMN opciones_app_usuario TEXT"),
     ]:
         db = SessionLocal()
         try:
             db.execute(text(f"SELECT {col} FROM {tabla} LIMIT 1"))
         except Exception:
+            db.rollback()
             try:
                 db.execute(text(ddl))
                 db.commit()
