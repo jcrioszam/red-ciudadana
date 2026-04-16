@@ -222,6 +222,14 @@ async def create_persona(
     db.add(db_persona)
     db.commit()
     db.refresh(db_persona)
+
+    # Detectar duplicados en segundo plano (no bloquea el registro)
+    try:
+        from .duplicados import registrar_duplicados
+        registrar_duplicados(db_persona, db)
+    except Exception as e:
+        logger.warning(f"Error detectando duplicados para persona {db_persona.id}: {e}")
+
     return db_persona
 
 
@@ -259,6 +267,77 @@ async def deactivate_persona(
     db.commit()
     db.refresh(persona)
     return persona
+
+
+@router.get("/con-lider-info/")
+async def list_personas_con_lider_info(
+    skip: int = 0,
+    limit: int = 500,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_active_user)
+):
+    """Lista personas incluyendo si su líder responsable está activo o no."""
+    query = db.query(PersonaModel).filter(PersonaModel.activo == True)
+    if current_user.rol == "admin":
+        personas = query.offset(skip).limit(limit).all()
+    elif current_user.rol in ["lider_estatal", "lider_regional", "lider_municipal", "lider_zona", "lider"]:
+        ids = _get_subordinate_ids(current_user.id, db)
+        personas = query.filter(PersonaModel.id_lider_responsable.in_(ids)).offset(skip).limit(limit).all()
+    else:
+        personas = query.filter(PersonaModel.id_lider_responsable == current_user.id).offset(skip).limit(limit).all()
+
+    resultado = []
+    for p in personas:
+        lider = db.query(UsuarioModel).filter(UsuarioModel.id == p.id_lider_responsable).first()
+        resultado.append({
+            "id": p.id,
+            "nombre": p.nombre,
+            "telefono": p.telefono,
+            "clave_elector": p.clave_elector,
+            "seccion_electoral": p.seccion_electoral,
+            "colonia": p.colonia,
+            "municipio": p.municipio,
+            "estado": p.estado,
+            "fecha_registro": p.fecha_registro.isoformat() if p.fecha_registro else None,
+            "id_lider_responsable": p.id_lider_responsable,
+            "lider_nombre": lider.nombre if lider else "Sin asignar",
+            "lider_username": lider.username if lider else None,
+            "lider_rol": lider.rol if lider else None,
+            "lider_activo": lider.activo if lider else False,
+            "activo": p.activo,
+        })
+    return resultado
+
+
+@router.put("/{persona_id}/reubicar")
+async def reubicar_persona(
+    persona_id: int,
+    nuevo_lider_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_active_user)
+):
+    """Reasigna una persona a un nuevo líder responsable."""
+    if current_user.rol not in ["admin", "presidente", "lider_estatal"]:
+        raise HTTPException(status_code=403, detail="Solo admin o líderes superiores pueden reubicar personas")
+
+    persona = db.query(PersonaModel).filter(PersonaModel.id == persona_id, PersonaModel.activo == True).first()
+    if not persona:
+        raise HTTPException(status_code=404, detail="Persona no encontrada")
+
+    nuevo_lider = db.query(UsuarioModel).filter(UsuarioModel.id == nuevo_lider_id, UsuarioModel.activo == True).first()
+    if not nuevo_lider:
+        raise HTTPException(status_code=404, detail="Nuevo líder no encontrado o está inactivo")
+
+    lider_anterior = persona.id_lider_responsable
+    persona.id_lider_responsable = nuevo_lider_id
+    db.commit()
+    return {
+        "ok": True,
+        "persona_id": persona_id,
+        "lider_anterior": lider_anterior,
+        "nuevo_lider_id": nuevo_lider_id,
+        "nuevo_lider_nombre": nuevo_lider.nombre,
+    }
 
 
 @router.post("/geocodificar", response_model=GeocodificarResponse)

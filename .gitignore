@@ -70,3 +70,38 @@ Thumbs.db
 
 # Render files
 .render/
+
+# Secrets / credenciales locales
+neon_config.json
+railway_nuevo_config.json
+*.json.bak
+
+# Scripts de diagnóstico y migración temporal
+diagnosticar_*.py
+configurar_*.py
+probar_*.py
+verificar_*.py
+arreglar_*.py
+crear_nueva_bd*.py
+crear_excel_prueba.py
+crear_usuario_directo.py
+migrar_a_supabase.py
+modificar_codigo_neon.py
+monitorear_servidor.py
+obtener_url_bd.py
+recrear_tablas.py
+solucion_rapida.py
+reanudar_importacion.py
+esperar_servidor.py
+encontrar_host_externo.py
+importar_arreglado.py
+importar_con_token_renovado.py
+importar_datos_simple.py
+importar_excel_masivo.py
+importar_lotes_pequenos.py
+
+# Uploads (archivos de usuarios)
+Backend/uploads/
+
+# Claude
+.claude/

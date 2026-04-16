@@ -78,11 +78,15 @@ async def create_user(user: UsuarioCreate, db: Session = Depends(get_db)):
 async def list_users(
     skip: int = 0,
     limit: int = 100,
+    activo: Optional[bool] = None,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_active_user)
 ):
     if current_user.rol == "admin":
-        users = db.query(UsuarioModel).offset(skip).limit(limit).all()
+        query = db.query(UsuarioModel)
+        if activo is not None:
+            query = query.filter(UsuarioModel.activo == activo)
+        users = query.offset(skip).limit(limit).all()
     elif current_user.rol in ["presidente", "lider_estatal", "lider_regional", "lider_municipal", "lider_zona", "lider"]:
         def get_subordinates(user_id):
             subs = db.query(UsuarioModel).filter(

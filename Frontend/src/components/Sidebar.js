@@ -4,7 +4,8 @@ import { useQuery } from 'react-query';
 import {
   FiHome, FiUsers, FiUserCheck, FiCalendar, FiBarChart, FiGitBranch, FiCheckSquare,
   FiClock, FiShield, FiMapPin, FiFileText, FiAlertTriangle, FiMap, FiSettings, FiMenu,
-  FiX, FiDatabase, FiChevronDown, FiChevronRight, FiDownload, FiTrash2, FiActivity, FiServer
+  FiX, FiDatabase, FiChevronDown, FiChevronRight, FiDownload, FiTrash2, FiActivity, FiServer,
+  FiDollarSign, FiCopy, FiSmartphone
 } from 'react-icons/fi';
 import api from '../api';
 import { useAuth } from '../contexts/AuthContext';
@@ -21,6 +22,7 @@ const menu = [
   { to: '/checkin', label: 'Check-in', icon: <FiCheckSquare /> },
   { to: '/seguimiento', label: 'Seguimiento', icon: <FiMapPin /> },
   { to: '/noticias', label: 'Noticias', icon: <FiFileText /> },
+  { to: '/admin-reportes-alerta', label: 'Gestión Reportes 🚨', icon: <FiAlertTriangle /> },
   { to: '/reportes-ciudadanos', label: 'Reportes Ciudadanos', icon: <FiAlertTriangle /> },
   { to: '/mapa-reportes', label: 'Mapa de Reportes', icon: <FiMap /> },
   { to: '/seguimiento-reportes', label: 'Seguimiento Reportes', icon: <FiAlertTriangle /> },
@@ -30,6 +32,9 @@ const menu = [
   { to: '/admin-tipos-reporte', label: 'Tipos de Reporte', icon: <FiSettings /> },
   { to: '/admin-noticias', label: 'Administrar Noticias', icon: <FiFileText /> },
   { to: '/admin-padron', label: 'Padrón Electoral', icon: <FiUsers /> },
+  { to: '/admin-incentivos', label: 'Incentivos', icon: <FiDollarSign /> },
+  { to: '/admin-duplicados', label: 'Duplicados', icon: <FiCopy /> },
+  { to: '/admin-opciones-app', label: 'Opciones App', icon: <FiSmartphone /> },
   {
     to: '/admin-database',
     label: 'Administración BD',
@@ -49,13 +54,17 @@ const menu = [
 const mapeoPermisos = {
   'eventos-historicos': 'eventos-historicos',
   'estructura-red': 'estructura-red',
+  'admin-reportes-alerta': 'reportes_ciudadanos',
   'reportes-ciudadanos': 'reportes_ciudadanos',
   'mapa-reportes': 'reportes_ciudadanos',
   'seguimiento-reportes': 'seguimiento_reportes',
   'admin-perfiles': 'admin-perfiles',
   'admin-dashboard': 'admin-perfiles',
   'admin-tipos-reporte': 'admin-perfiles',
-  'admin-noticias': 'admin-perfiles'
+  'admin-noticias': 'admin-perfiles',
+  'admin-incentivos': 'admin-incentivos',
+  'admin-duplicados': 'admin-duplicados',
+  'admin-opciones-app': 'admin-perfiles'
 };
 
 export default function Sidebar() {

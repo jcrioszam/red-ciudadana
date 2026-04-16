@@ -25,12 +25,16 @@ import ReportesCiudadanosPublico from './pages/ReportesCiudadanosPublico';
 import ListaReportesPublica from './pages/ListaReportesPublica';
 import MapaReportesPublico from './pages/MapaReportesPublico';
 import SeguimientoReportes from './pages/SeguimientoReportes';
-import MapaReportes from './pages/MapaReportes';
 import Layout from './components/Layout';
 import AdminDatabase from './components/AdminDatabase';
 import AdminTiposReporte from './components/AdminTiposReporte';
 import AdminNoticias from './components/AdminNoticias';
 import AdminPadron from './pages/AdminPadron';
+import AlertaCiudadanaMapa from './pages/AlertaCiudadanaMapa';
+import AdminReportesAlerta from './pages/AdminReportesAlerta';
+import AdminIncentivos from './pages/AdminIncentivos';
+import AdminDuplicados from './pages/AdminDuplicados';
+import AdminOpcionesApp from './pages/AdminOpcionesApp';
 
 const queryClient = new QueryClient();
 
@@ -67,11 +71,12 @@ function App() {
           <Routes>
             {/* Rutas públicas */}
             <Route path="/" element={<Home />} />
-            <Route path="/reportes-publico" element={<ReportesCiudadanosPublico />} />
+            <Route path="/alerta" element={<AlertaCiudadanaMapa />} />
+            <Route path="/reportes-publico" element={<AlertaCiudadanaMapa />} />
             <Route path="/reportes-ciudadanos" element={<ReportesCiudadanos />} />
             <Route path="/lista-reportes" element={<ListaReportesPublica />} />
             <Route path="/mapa-reportes-publico" element={<MapaReportesPublico />} />
-            <Route path="/mapa-reportes" element={<MapaReportes />} />
+            <Route path="/mapa-reportes" element={<AlertaCiudadanaMapa />} />
             
             {/* Rutas de autenticación */}
             <Route path="/login" element={<Login />} />
@@ -97,10 +102,14 @@ function App() {
               <Route path="/seguimiento" element={<Seguimiento />} />
               <Route path="/noticias" element={<Noticias />} />
               <Route path="/reportes-ciudadanos-admin" element={<ReportesCiudadanos />} />
-              <Route path="/mapa-reportes-admin" element={<MapaReportes />} />
+              <Route path="/mapa-reportes-admin" element={<AlertaCiudadanaMapa />} />
               <Route path="/seguimiento-reportes" element={<SeguimientoReportes />} />
+              <Route path="/admin-reportes-alerta" element={<AdminReportesAlerta />} />
               <Route path="/admin-database" element={<AdminDatabase />} />
               <Route path="/admin-padron" element={<AdminPadron />} />
+              <Route path="/admin-incentivos" element={<AdminIncentivos />} />
+              <Route path="/admin-duplicados" element={<AdminDuplicados />} />
+              <Route path="/admin-opciones-app" element={<AdminOpcionesApp />} />
               {/* Rutas del submenú de Administración BD */}
               <Route path="/admin/database/stats" element={<AdminDatabase />} />
               <Route path="/admin/database/optimize" element={<AdminDatabase />} />

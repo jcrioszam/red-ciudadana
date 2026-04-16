@@ -179,3 +179,4 @@ code {
 .main-content {
   @apply flex-1 p-6 bg-secondary-50 min-h-screen;
 } 
+@keyframes slideUp { from { opacity: 0; transform: translateY(24px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }

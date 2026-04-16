@@ -16,9 +16,15 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [publicMode, setPublicModeState] = useState(false);
+  const [publicModeLoaded, setPublicModeLoaded] = useState(false);
 
   useEffect(() => {
     loadUser();
+    AsyncStorage.getItem('publicMode').then(v => {
+      setPublicModeState(v === 'true');
+      setPublicModeLoaded(true);
+    });
   }, []);
 
   const loadUser = async () => {
@@ -92,6 +98,16 @@ export const AuthProvider = ({ children }) => {
     await clearSession();
   };
 
+  const enterPublicMode = async () => {
+    await AsyncStorage.setItem('publicMode', 'true');
+    setPublicModeState(true);
+  };
+
+  const exitPublicMode = async () => {
+    await AsyncStorage.removeItem('publicMode');
+    setPublicModeState(false);
+  };
+
   const value = {
     user,
     token,
@@ -99,6 +115,10 @@ export const AuthProvider = ({ children }) => {
     login,
     logout,
     isAuthenticated: !!user,
+    publicMode,
+    publicModeLoaded,
+    enterPublicMode,
+    exitPublicMode,
   };
 
   return (

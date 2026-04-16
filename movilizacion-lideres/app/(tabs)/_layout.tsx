@@ -1,12 +1,8 @@
 import { Stack } from 'expo-router';
-import React from 'react';
 import { View } from 'react-native';
-import { useAuth } from '../../src/contexts/AuthContext';
-import DynamicBottomMenu from '../../components/DynamicBottomMenu';
+import BottomTabBar from '../../components/BottomTabBar';
 
-export default function TabLayout() {
-  const { user } = useAuth();
-
+export default function PrivateLayout() {
   return (
     <View style={{ flex: 1 }}>
       <Stack screenOptions={{ headerShown: false }}>
@@ -24,10 +20,11 @@ export default function TabLayout() {
         <Stack.Screen name="nuevo-reporte" />
         <Stack.Screen name="seguimiento-reportes" />
         <Stack.Screen name="dashboard-ciudadanos" />
+        <Stack.Screen name="ubicacion" />
+        <Stack.Screen name="mapa" />
+        <Stack.Screen name="movilizador-seguimiento" />
       </Stack>
-      
-      {/* Menú dinámico inferior */}
-      <DynamicBottomMenu />
+      <BottomTabBar />
     </View>
   );
 }

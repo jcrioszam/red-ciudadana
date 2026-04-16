@@ -32,11 +32,9 @@ const RegistroInvitacion = () => {
     if (t) {
       api.post('/invitaciones/decode', { token: t })
         .then(res => {
-          console.log('Respuesta del decode:', res.data);
           if (res.data && typeof res.data === 'object' && res.data.rol && res.data.nombre_lider) {
             setInvitacion(res.data);
           } else {
-            console.error('Respuesta inválida del decode:', res.data);
             setInvitacion(null);
           }
         })

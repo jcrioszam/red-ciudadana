@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import { Outlet } from 'react-router-dom';
-import DebugPanel from './DebugPanel';
 
 export default function Layout() {
   const [isMobile, setIsMobile] = useState(false);
@@ -21,7 +20,6 @@ export default function Layout() {
 
   return (
     <>
-      <DebugPanel />
       <div style={{ display: 'flex', minHeight: '100vh' }}>
         <Sidebar />
         <div style={{ 

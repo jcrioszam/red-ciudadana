@@ -99,7 +99,7 @@ async def obtener_configuracion_perfil(
     configuraciones_por_defecto = {
         "admin": {
             "opciones_web": ["dashboard", "usuarios", "personas", "eventos", "eventos-historicos", "movilizacion", "reportes", "estructura-red", "checkin", "perfil", "admin-perfiles", "admin-database", "seguimiento", "noticias", "reportes_ciudadanos", "seguimiento_reportes"],
-            "opciones_app": ["register", "perfil", "eventos-historicos", "dashboard", "seguimiento", "movilizador-seguimiento", "noticias", "reportes_ciudadanos"]
+            "opciones_app": ["dashboard", "register", "reassign", "pase-lista", "movilizacion", "estructura-red", "eventos-historicos", "reportes", "noticias", "reportes_ciudadanos", "seguimiento_reportes", "seguimiento", "perfil"]
         },
         "presidente": {
             "opciones_web": ["dashboard", "personas", "eventos", "eventos-historicos", "movilizacion", "reportes", "estructura-red", "checkin", "perfil", "seguimiento", "noticias", "reportes_ciudadanos"],
@@ -146,7 +146,22 @@ async def obtener_mi_configuracion(
     db: Session = Depends(get_db)
 ):
     """Obtener la configuración de permisos del usuario actual"""
-    # Buscar configuración en la base de datos
+    # 1. Primero: override personal del usuario (opciones_app_usuario)
+    if current_user.opciones_app_usuario:
+        opciones_app_personales = json.loads(current_user.opciones_app_usuario)
+        # Obtener opciones_web del rol
+        config_rol = db.query(ConfiguracionPerfilModel).filter(ConfiguracionPerfilModel.rol == current_user.rol).first()
+        opciones_web = json.loads(config_rol.opciones_web) if config_rol else []
+        return {
+            "rol": current_user.rol,
+            "configuracion": {
+                "opciones_web": opciones_web,
+                "opciones_app": opciones_app_personales,
+                "es_override_usuario": True
+            }
+        }
+
+    # 2. Segundo: configuración guardada por rol en BD
     configuracion_db = db.query(ConfiguracionPerfilModel).filter(ConfiguracionPerfilModel.rol == current_user.rol).first()
 
     if configuracion_db:
@@ -162,7 +177,7 @@ async def obtener_mi_configuracion(
     configuraciones_por_defecto = {
         "admin": {
             "opciones_web": ["dashboard", "usuarios", "personas", "eventos", "eventos-historicos", "movilizacion", "reportes", "estructura-red", "checkin", "perfil", "admin-perfiles", "admin-database", "seguimiento", "noticias", "reportes_ciudadanos", "seguimiento_reportes"],
-            "opciones_app": ["register", "perfil", "eventos-historicos", "dashboard", "seguimiento", "movilizador-seguimiento", "noticias", "reportes_ciudadanos"]
+            "opciones_app": ["dashboard", "register", "reassign", "pase-lista", "movilizacion", "estructura-red", "eventos-historicos", "reportes", "noticias", "reportes_ciudadanos", "seguimiento_reportes", "seguimiento", "perfil"]
         },
         "presidente": {
             "opciones_web": ["dashboard", "personas", "eventos", "eventos-historicos", "movilizacion", "reportes", "estructura-red", "checkin", "perfil", "seguimiento", "noticias", "reportes_ciudadanos"],
@@ -450,3 +465,113 @@ async def obtener_mi_configuracion_dashboard(
     except Exception as e:
         logger.error(f"Error al obtener configuración del dashboard para {current_user.rol}: {e}")
         raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+
+# ── Opciones app por usuario (override personal) ──────────────────────────────
+
+TODAS_OPCIONES_APP = [
+    {"id": "dashboard",          "label": "Dashboard"},
+    {"id": "register",           "label": "Registrar persona"},
+    {"id": "reassign",           "label": "Reasignar"},
+    {"id": "pase-lista",         "label": "Check-in / Pase de lista"},
+    {"id": "movilizacion",       "label": "Movilización"},
+    {"id": "estructura-red",     "label": "Estructura de Red"},
+    {"id": "eventos-historicos", "label": "Eventos Históricos"},
+    {"id": "reportes",           "label": "Reportes estadísticos"},
+    {"id": "noticias",           "label": "Noticias"},
+    {"id": "reportes_ciudadanos","label": "Reportes ciudadanos"},
+    {"id": "seguimiento_reportes","label": "Seguimiento reportes"},
+    {"id": "seguimiento",        "label": "Ubicación en tiempo real"},
+    {"id": "perfil",             "label": "Perfil"},
+]
+
+
+@router.get("/perfiles/opciones-app-disponibles")
+async def obtener_opciones_app_disponibles(
+    current_user: Usuario = Depends(get_current_active_user)
+):
+    """Devuelve la lista de todas las opciones de app posibles"""
+    return {"opciones": TODAS_OPCIONES_APP}
+
+
+@router.get("/perfiles/usuario/{usuario_id}/opciones-app")
+async def obtener_opciones_app_usuario(
+    usuario_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_active_user)
+):
+    """Obtener las opciones de app configuradas para un usuario específico"""
+    if current_user.rol != "admin":
+        raise HTTPException(status_code=403, detail="Solo administradores")
+
+    usuario = db.query(UsuarioModel).filter(UsuarioModel.id == usuario_id).first()
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    # Si tiene override personal, devolverlo; si no, devolver el del rol
+    if usuario.opciones_app_usuario:
+        opciones = json.loads(usuario.opciones_app_usuario)
+        es_override = True
+    else:
+        config_rol = db.query(ConfiguracionPerfilModel).filter(ConfiguracionPerfilModel.rol == usuario.rol).first()
+        if config_rol:
+            opciones = json.loads(config_rol.opciones_app)
+        else:
+            opciones = ["dashboard", "perfil"]
+        es_override = False
+
+    return {
+        "usuario_id": usuario_id,
+        "nombre": usuario.nombre,
+        "rol": usuario.rol,
+        "opciones_app": opciones,
+        "es_override_personal": es_override
+    }
+
+
+@router.put("/perfiles/usuario/{usuario_id}/opciones-app")
+async def actualizar_opciones_app_usuario(
+    usuario_id: int,
+    body: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_active_user)
+):
+    """Establecer opciones de app personalizadas para un usuario"""
+    if current_user.rol != "admin":
+        raise HTTPException(status_code=403, detail="Solo administradores")
+
+    usuario = db.query(UsuarioModel).filter(UsuarioModel.id == usuario_id).first()
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    opciones = body.get("opciones_app")
+    if opciones is None:
+        raise HTTPException(status_code=400, detail="Falta campo opciones_app")
+
+    if opciones == []:
+        # Lista vacía = resetear al default del rol
+        usuario.opciones_app_usuario = None
+    else:
+        usuario.opciones_app_usuario = json.dumps(opciones)
+
+    db.commit()
+    return {"mensaje": "Opciones actualizadas", "usuario_id": usuario_id, "opciones_app": opciones}
+
+
+@router.delete("/perfiles/usuario/{usuario_id}/opciones-app")
+async def resetear_opciones_app_usuario(
+    usuario_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_active_user)
+):
+    """Resetear opciones de app al default del rol"""
+    if current_user.rol != "admin":
+        raise HTTPException(status_code=403, detail="Solo administradores")
+
+    usuario = db.query(UsuarioModel).filter(UsuarioModel.id == usuario_id).first()
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    usuario.opciones_app_usuario = None
+    db.commit()
+    return {"mensaje": "Opciones reseteadas al default del rol"}

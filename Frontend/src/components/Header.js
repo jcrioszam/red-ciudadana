@@ -19,7 +19,7 @@ export default function Header() {
   const handleLogout = () => {
     logout();
     setShowProfileMenu(false);
-    navigate('/login');
+    navigate('/');
   };
 
   const handleVerPerfil = () => {

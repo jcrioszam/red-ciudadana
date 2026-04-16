@@ -30,6 +30,8 @@ const AdminNoticias = () => {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewImage, setPreviewImage] = useState(null);
+  const [galeriaUrls, setGaleriaUrls] = useState([]);
+  const [errorMsg, setErrorMsg] = useState('');
 
   // Estado del formulario
   const [formData, setFormData] = useState({
@@ -63,9 +65,8 @@ const AdminNoticias = () => {
   const cargarNoticias = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/admin/noticias/estadisticas/');
-      const noticiasResponse = await api.get('/noticias/?activas_only=false&limit=100');
-      setNoticias(noticiasResponse.data.data || []);
+      const noticiasResponse = await api.get('/admin/noticias/?limit=100');
+      setNoticias(Array.isArray(noticiasResponse.data) ? noticiasResponse.data : []);
     } catch (error) {
       console.error('Error al cargar noticias:', error);
     } finally {
@@ -103,6 +104,7 @@ const AdminNoticias = () => {
     setEditingNoticia(null);
     setSelectedFile(null);
     setPreviewImage(null);
+    setGaleriaUrls([]);
   };
 
   // Abrir formulario para crear
@@ -115,7 +117,7 @@ const AdminNoticias = () => {
   const abrirFormularioEditar = (noticia) => {
     setFormData({
       titulo: noticia.titulo,
-      descripcion_corta: noticia.descripcion_corta,
+      descripcion_corta: noticia.descripcion_corta || '',
       contenido_completo: noticia.contenido_completo || '',
       imagen_url: noticia.imagen_url || '',
       imagen_alt: noticia.imagen_alt || '',
@@ -129,6 +131,10 @@ const AdminNoticias = () => {
       enlace_externo: noticia.enlace_externo || '',
       boton_texto: noticia.boton_texto || ''
     });
+    // Cargar galería existente
+    try {
+      setGaleriaUrls(noticia.imagenes ? JSON.parse(noticia.imagenes) : []);
+    } catch { setGaleriaUrls([]); }
     setEditingNoticia(noticia);
     setShowForm(true);
   };
@@ -136,27 +142,44 @@ const AdminNoticias = () => {
   // Cerrar formulario
   const cerrarFormulario = () => {
     setShowForm(false);
+    setErrorMsg('');
     limpiarFormulario();
   };
 
   // Guardar noticia
   const guardarNoticia = async (e) => {
     e.preventDefault();
-    
+    setErrorMsg('');
+
+    // Validación básica frontend
+    if (!formData.titulo || formData.titulo.trim().length < 5) {
+      setErrorMsg('El título es obligatorio y debe tener al menos 5 caracteres.');
+      return;
+    }
+
     try {
+      const payload = Object.fromEntries(
+        Object.entries(formData).filter(([_, v]) => v !== '' && v !== null && v !== undefined)
+      );
+      if (payload.prioridad !== undefined) payload.prioridad = parseInt(payload.prioridad, 10);
+      if (galeriaUrls.length > 0) payload.imagenes = JSON.stringify(galeriaUrls);
+
       if (editingNoticia) {
-        // Actualizar noticia existente
-        await api.put(`/admin/noticias/${editingNoticia.id}`, formData);
+        await api.put(`/noticias/${editingNoticia.id}`, payload);
       } else {
-        // Crear nueva noticia
-        await api.post('/admin/noticias/', formData);
+        await api.post('/noticias/', payload);
       }
-      
+
       await cargarNoticias();
       cerrarFormulario();
     } catch (error) {
-      console.error('Error al guardar noticia:', error);
-      alert('Error al guardar la noticia');
+      const detail = error.response?.data?.detail;
+      if (Array.isArray(detail)) {
+        // Errores de validación Pydantic: [{loc, msg, type}]
+        setErrorMsg(detail.map(e => `${e.loc?.slice(-1)[0] || 'Campo'}: ${e.msg}`).join(' | '));
+      } else {
+        setErrorMsg(detail || 'Error al guardar la noticia. Revisa los datos e intenta de nuevo.');
+      }
     }
   };
 
@@ -165,7 +188,7 @@ const AdminNoticias = () => {
     if (!window.confirm('¿Estás seguro de que quieres eliminar esta noticia?')) return;
     
     try {
-      await api.delete(`/admin/noticias/${id}`);
+      await api.delete(`/noticias/${id}`);
       await cargarNoticias();
     } catch (error) {
       console.error('Error al eliminar noticia:', error);
@@ -176,17 +199,18 @@ const AdminNoticias = () => {
   // Toggle estado activo
   const toggleActiva = async (id) => {
     try {
-      await api.put(`/admin/noticias/${id}/toggle-activa`);
+      const noticia = noticias.find(n => n.id === id);
+      await api.put(`/noticias/${id}`, { activa: !noticia.activa });
       await cargarNoticias();
     } catch (error) {
       console.error('Error al cambiar estado:', error);
     }
   };
 
-  // Toggle destacada
   const toggleDestacada = async (id) => {
     try {
-      await api.put(`/admin/noticias/${id}/toggle-destacada`);
+      const noticia = noticias.find(n => n.id === id);
+      await api.put(`/noticias/${id}`, { destacada: !noticia.destacada });
       await cargarNoticias();
     } catch (error) {
       console.error('Error al cambiar destacada:', error);
@@ -208,33 +232,26 @@ const AdminNoticias = () => {
     }
   };
 
-  // Subir imagen
+  // Subir imagen y agregar a galería
   const uploadImage = async () => {
     if (!selectedFile) return;
-    
     try {
       setUploadingImage(true);
-      const formData = new FormData();
-      formData.append('file', selectedFile);
-      
-      const response = await api.post('/admin/upload-image/', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+      const fd = new FormData();
+      fd.append('file', selectedFile);
+      const response = await api.post('/admin/upload-image/', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
-      
       if (response.data.success) {
-        // Actualizar el formulario con la URL de la imagen
+        const url = response.data.data.url;
+        // Primera imagen también va a imagen_url principal
         setFormData(prev => ({
           ...prev,
-          imagen_url: response.data.data.url
+          imagen_url: prev.imagen_url || url
         }));
-        
-        // Limpiar estados
+        setGaleriaUrls(prev => [...prev, url]);
         setSelectedFile(null);
         setPreviewImage(null);
-        
-        alert('Imagen subida exitosamente');
       }
     } catch (error) {
       console.error('Error al subir imagen:', error);
@@ -242,6 +259,30 @@ const AdminNoticias = () => {
     } finally {
       setUploadingImage(false);
     }
+  };
+
+  // Eliminar imagen de galería
+  const eliminarImagenGaleria = (idx) => {
+    setGaleriaUrls(prev => {
+      const nueva = prev.filter((_, i) => i !== idx);
+      // Si se eliminó la imagen principal, actualizar imagen_url
+      setFormData(fd => ({
+        ...fd,
+        imagen_url: idx === 0 ? (nueva[0] || '') : fd.imagen_url
+      }));
+      return nueva;
+    });
+  };
+
+  // Mover imagen como portada (primera de galería)
+  const marcarComoPortada = (idx) => {
+    setGaleriaUrls(prev => {
+      const nueva = [...prev];
+      const [item] = nueva.splice(idx, 1);
+      nueva.unshift(item);
+      setFormData(fd => ({ ...fd, imagen_url: item }));
+      return nueva;
+    });
   };
 
   // Filtrar noticias
@@ -510,7 +551,8 @@ const AdminNoticias = () => {
                 {/* Título */}
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Título *
+                    Título <span className="text-red-500">*</span>
+                    <span className="ml-1 text-xs text-gray-400 font-normal">(mínimo 5 caracteres)</span>
                   </label>
                   <input
                     type="text"
@@ -526,13 +568,13 @@ const AdminNoticias = () => {
                 {/* Descripción corta */}
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Descripción corta *
+                    Descripción corta
+                    <span className="ml-1 text-xs text-gray-400 font-normal">(opcional — se genera automáticamente del contenido)</span>
                   </label>
                   <textarea
                     name="descripcion_corta"
                     value={formData.descripcion_corta}
                     onChange={handleInputChange}
-                    required
                     rows={3}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Descripción breve para el banner"
@@ -554,98 +596,119 @@ const AdminNoticias = () => {
                   />
                 </div>
 
-                {/* Subir imagen */}
-                <div>
+                {/* Galería de imágenes */}
+                <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Imagen de la noticia
+                    Imágenes de la noticia
+                    <span className="ml-2 text-xs text-gray-400 font-normal">La primera imagen es la portada</span>
                   </label>
-                  
-                  {/* Preview de imagen actual */}
-                  {formData.imagen_url && !previewImage && (
-                    <div className="mb-4">
-                      <img
-                        src={formData.imagen_url}
-                        alt="Imagen actual"
-                        className="w-full h-32 object-cover rounded-lg border border-gray-300"
-                      />
+
+                  {/* Grid de imágenes subidas */}
+                  {galeriaUrls.length > 0 && (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                      {galeriaUrls.map((url, idx) => (
+                        <div key={idx} className="relative group rounded-lg overflow-hidden border-2 border-gray-200">
+                          <img src={url} alt={`Imagen ${idx + 1}`} className="w-full h-24 object-cover" />
+                          {idx === 0 && (
+                            <span className="absolute top-1 left-1 bg-blue-600 text-white text-xs px-1.5 py-0.5 rounded font-semibold">
+                              Portada
+                            </span>
+                          )}
+                          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100">
+                            {idx !== 0 && (
+                              <button
+                                type="button"
+                                onClick={() => marcarComoPortada(idx)}
+                                className="p-1.5 bg-blue-600 text-white rounded text-xs"
+                                title="Usar como portada"
+                              >
+                                <FiStar className="w-3 h-3" />
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => eliminarImagenGaleria(idx)}
+                              className="p-1.5 bg-red-600 text-white rounded text-xs"
+                              title="Eliminar"
+                            >
+                              <FiX className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
-                  
-                  {/* Preview de imagen seleccionada */}
-                  {previewImage && (
-                    <div className="mb-4">
-                      <img
-                        src={previewImage}
-                        alt="Preview"
-                        className="w-full h-32 object-cover rounded-lg border border-gray-300"
-                      />
-                    </div>
-                  )}
-                  
-                  {/* Selector de archivo */}
-                  <div className="space-y-3">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleFileSelect}
-                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                    />
-                    
-                    {/* Botón de subir */}
-                    {selectedFile && (
-                      <button
-                        type="button"
-                        onClick={uploadImage}
-                        disabled={uploadingImage}
-                        className="inline-flex items-center px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
-                      >
-                        {uploadingImage ? (
-                          <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                            Subiendo...
-                          </>
-                        ) : (
-                          <>
-                            <FiUpload className="w-4 h-4 mr-2" />
-                            Subir Imagen
-                          </>
-                        )}
-                      </button>
+
+                  {/* Subir nueva imagen */}
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 space-y-3">
+                    {previewImage && (
+                      <img src={previewImage} alt="Preview" className="h-24 rounded-lg object-cover" />
                     )}
-                    
-                    {/* URL manual como alternativa */}
-                    <div className="mt-4 pt-4 border-t border-gray-200">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        O ingresa URL manualmente
-                      </label>
-                      <div className="relative">
-                        <FiImage className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                        <input
-                          type="url"
-                          name="imagen_url"
-                          value={formData.imagen_url}
-                          onChange={handleInputChange}
-                          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          placeholder="https://ejemplo.com/imagen.jpg"
-                        />
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileSelect}
+                        className="block text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                      />
+                      {selectedFile && (
+                        <button
+                          type="button"
+                          onClick={uploadImage}
+                          disabled={uploadingImage}
+                          className="inline-flex items-center px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+                        >
+                          {uploadingImage ? (
+                            <><div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-white mr-1.5"></div>Subiendo...</>
+                          ) : (
+                            <><FiUpload className="w-3.5 h-3.5 mr-1.5" />Subir</>
+                          )}
+                        </button>
+                      )}
+                    </div>
+
+                    {/* URL manual */}
+                    <div className="pt-2 border-t border-gray-200">
+                      <p className="text-xs text-gray-500 mb-1.5">O agrega URL directamente</p>
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <FiImage className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                          <input
+                            type="url"
+                            id="urlManual"
+                            className="w-full pl-9 pr-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="https://ejemplo.com/imagen.jpg"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const val = document.getElementById('urlManual').value.trim();
+                            if (!val) return;
+                            setGaleriaUrls(prev => [...prev, val]);
+                            setFormData(fd => ({ ...fd, imagen_url: fd.imagen_url || val }));
+                            document.getElementById('urlManual').value = '';
+                          }}
+                          className="px-3 py-1.5 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors"
+                        >
+                          Agregar
+                        </button>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Texto alternativo de imagen */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Texto alternativo de imagen
-                  </label>
-                  <input
-                    type="text"
-                    name="imagen_alt"
-                    value={formData.imagen_alt}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Descripción de la imagen"
-                  />
+                  {/* Alt text */}
+                  <div className="mt-3">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Texto alternativo (accesibilidad)</label>
+                    <input
+                      type="text"
+                      name="imagen_alt"
+                      value={formData.imagen_alt}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Descripción breve de la imagen"
+                    />
+                  </div>
                 </div>
 
                 {/* Fecha de publicación */}
@@ -789,6 +852,14 @@ const AdminNoticias = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Mensaje de error */}
+              {errorMsg && (
+                <div className="mt-4 p-3 bg-red-50 border border-red-300 rounded-lg flex items-start gap-2">
+                  <span className="text-red-500 mt-0.5 flex-shrink-0">⚠</span>
+                  <p className="text-sm text-red-700">{errorMsg}</p>
+                </div>
+              )}
 
               {/* Botones de acción */}
               <div className="flex justify-end space-x-3 mt-6 pt-6 border-t border-gray-200">

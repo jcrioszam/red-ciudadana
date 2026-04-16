@@ -19,6 +19,7 @@ class Usuario(Base):
     id_lider_superior = Column(Integer, ForeignKey("usuarios.id"))
     fecha_registro = Column(DateTime, default=func.now())
     activo = Column(Boolean, default=True)
+    opciones_app_usuario = Column(Text, nullable=True)  # JSON — override personal de opciones de app
 
     # Relaciones
     subordinados = relationship("Usuario", backref="lider_superior", remote_side=[id])
@@ -186,25 +187,6 @@ class UbicacionTiempoReal(Base):
     evento = relationship("Evento")
     vehiculo = relationship("Vehiculo") 
 
-class Noticia(Base):
-    __tablename__ = "noticias"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    titulo = Column(String(200), nullable=False)
-    contenido = Column(Text, nullable=False)
-    imagen_url = Column(String(500), nullable=True)
-    fecha_publicacion = Column(DateTime, default=func.now())
-    fecha_actualizacion = Column(DateTime, default=func.now(), onupdate=func.now())
-    autor_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
-    tipo = Column(String(50), default="general")  # general, importante, evento, aviso
-    activo = Column(Boolean, default=True)
-    likes = Column(Integer, default=0)
-    compartidos = Column(Integer, default=0)
-    
-    # Relaciones
-    autor = relationship("Usuario")
-    comentarios = relationship("Comentario", back_populates="noticia", cascade="all, delete-orphan")
-
 class Comentario(Base):
     __tablename__ = "comentarios"
     
@@ -219,7 +201,6 @@ class Comentario(Base):
     
     # Relaciones
     autor = relationship("Usuario")
-    noticia = relationship("Noticia", back_populates="comentarios") 
 
 class ReporteCiudadano(Base):
     __tablename__ = "reportes_ciudadanos"
@@ -243,6 +224,14 @@ class ReporteCiudadano(Base):
     es_publico = Column(Boolean, default=False)  # Para reportes sin login
     contacto_email = Column(String(100), nullable=True)  # Email del ciudadano para reportes públicos
     activo = Column(Boolean, default=True)
+    # Columnas extendidas (agregadas via migración)
+    folio = Column(String(50), nullable=True)
+    votos = Column(Integer, default=0)
+    vistas = Column(Integer, default=0)
+    colonia = Column(String(100), nullable=True)
+    calle = Column(String(200), nullable=True)
+    subtipo = Column(String(50), nullable=True)
+    resuelto_en = Column(DateTime, nullable=True)
     
     # Relaciones
     ciudadano = relationship("Usuario", foreign_keys=[ciudadano_id])
@@ -311,5 +300,84 @@ PERMISOS_POR_DEFECTO = [
     {"codigo": "perfil", "nombre": "Gestión de Perfil", "categoria": "usuarios", "descripcion": "Editar perfil personal"},
     {"codigo": "admin-perfiles", "nombre": "Administración de Perfiles", "categoria": "admin", "descripcion": "Configurar permisos y roles de usuarios"},
     {"codigo": "admin-dashboard", "nombre": "Administración del Dashboard", "categoria": "admin", "descripcion": "Configurar widgets y layout del dashboard"},
-    {"codigo": "admin-database", "nombre": "Administración de Base de Datos", "categoria": "admin", "descripcion": "Acceso completo a la administración de la base de datos"}
-] 
+    {"codigo": "admin-database", "nombre": "Administración de Base de Datos", "categoria": "admin", "descripcion": "Acceso completo a la administración de la base de datos"},
+    {"codigo": "admin-incentivos", "nombre": "Administración de Incentivos", "categoria": "admin", "descripcion": "Configurar montos y gestionar cortes de incentivos"},
+    {"codigo": "admin-duplicados", "nombre": "Gestión de Duplicados", "categoria": "admin", "descripcion": "Revisar y resolver personas duplicadas"},
+    {"codigo": "admin-perfiles", "nombre": "Opciones App por Usuario", "categoria": "admin", "descripcion": "Configurar qué secciones ve cada usuario en la app móvil"},
+]
+
+
+# ── Sistema de Incentivos ─────────────────────────────────────────────────────
+
+class ConfiguracionIncentivo(Base):
+    __tablename__ = "configuracion_incentivo"
+
+    id = Column(Integer, primary_key=True, index=True)
+    monto_por_persona = Column(Float, nullable=False, default=0.0)
+    descripcion = Column(String(300), nullable=True)
+    activo = Column(Boolean, default=True)
+    fecha_creacion = Column(DateTime, default=func.now())
+    fecha_actualizacion = Column(DateTime, default=func.now(), onupdate=func.now())
+    creado_por = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
+
+    creador = relationship("Usuario", foreign_keys=[creado_por])
+
+
+class CorteIncentivo(Base):
+    """Representa un corte/pago generado para un registrador."""
+    __tablename__ = "cortes_incentivo"
+
+    id = Column(Integer, primary_key=True, index=True)
+    id_usuario = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
+    fecha_corte = Column(DateTime, default=func.now())
+    total_personas = Column(Integer, nullable=False, default=0)
+    monto_por_persona = Column(Float, nullable=False, default=0.0)
+    monto_total = Column(Float, nullable=False, default=0.0)
+    pagado = Column(Boolean, default=False)
+    fecha_pago = Column(DateTime, nullable=True)
+    notas = Column(Text, nullable=True)
+    creado_por = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
+    fecha_creacion = Column(DateTime, default=func.now())
+
+    usuario = relationship("Usuario", foreign_keys=[id_usuario])
+    creador = relationship("Usuario", foreign_keys=[creado_por])
+    detalles = relationship("DetalleCorteIncentivo", back_populates="corte", cascade="all, delete-orphan")
+
+
+class DetalleCorteIncentivo(Base):
+    """Personas incluidas en un corte de incentivo."""
+    __tablename__ = "detalles_corte_incentivo"
+
+    id = Column(Integer, primary_key=True, index=True)
+    id_corte = Column(Integer, ForeignKey("cortes_incentivo.id"), nullable=False)
+    id_persona = Column(Integer, ForeignKey("personas.id"), nullable=False)
+
+    corte = relationship("CorteIncentivo", back_populates="detalles")
+    persona = relationship("Persona")
+
+
+# ── Sistema de Duplicados ─────────────────────────────────────────────────────
+
+class ProbableDuplicado(Base):
+    """Registro de posibles personas duplicadas detectadas automáticamente."""
+    __tablename__ = "probables_duplicados"
+
+    id = Column(Integer, primary_key=True, index=True)
+    id_persona_1 = Column(Integer, ForeignKey("personas.id"), nullable=False)
+    id_persona_2 = Column(Integer, ForeignKey("personas.id"), nullable=False)
+    # Tipo: 'clave_elector', 'curp', 'nombre_seccion', 'nombre_municipio'
+    tipo_coincidencia = Column(String(50), nullable=False)
+    similitud = Column(Float, default=1.0)  # 0.0 – 1.0
+    # Estado: 'pendiente', 'mismo' (confirmado dup), 'diferente' (descartado)
+    estado = Column(String(20), default="pendiente")
+    id_persona_ganadora = Column(Integer, ForeignKey("personas.id"), nullable=True)
+    resuelto_por = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    fecha_resolucion = Column(DateTime, nullable=True)
+    fecha_deteccion = Column(DateTime, default=func.now())
+    notas = Column(Text, nullable=True)
+
+    persona_1 = relationship("Persona", foreign_keys=[id_persona_1])
+    persona_2 = relationship("Persona", foreign_keys=[id_persona_2])
+    persona_ganadora = relationship("Persona", foreign_keys=[id_persona_ganadora])
+    resuelto_por_usuario = relationship("Usuario", foreign_keys=[resuelto_por])
+

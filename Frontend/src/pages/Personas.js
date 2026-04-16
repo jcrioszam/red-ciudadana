@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
-import { FiPlus, FiEdit, FiTrash2, FiSearch, FiUser, FiMapPin, FiKey } from 'react-icons/fi';
+import { FiPlus, FiEdit, FiTrash2, FiSearch, FiUser, FiMapPin, FiKey, FiAlertTriangle, FiRefreshCw } from 'react-icons/fi';
 import api from '../api';
 import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
@@ -11,6 +11,7 @@ const Personas = () => {
   const [showModal, setShowModal] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteToken, setInviteToken] = useState('');
+  const [inviteLiderResponsable, setInviteLiderResponsable] = useState('');
   const [editingPersona, setEditingPersona] = useState(null);
   const [searchFilters, setSearchFilters] = useState({
     clave_elector: '',
@@ -37,6 +38,8 @@ const Personas = () => {
     longitud: '',
     acepta_politica: false
   });
+  const [modalReubicar, setModalReubicar] = useState(null); // persona a reubicar
+  const [nuevoLiderId, setNuevoLiderId] = useState('');
   const queryClient = useQueryClient();
 
   // Función para geocodificar dirección
@@ -70,19 +73,19 @@ const Personas = () => {
     }
   };
 
-  // Obtener lista de personas
+  // Obtener lista de personas con info de líder activo
   const { data: personas, isLoading } = useQuery(['personas', searchFilters], async () => {
     const params = new URLSearchParams();
     Object.entries(searchFilters).forEach(([key, value]) => {
       if (value) params.append(key, value);
     });
-    const response = await api.get(`/personas/con-usuario-registro/?${params.toString()}`);
+    const response = await api.get(`/personas/con-lider-info/?${params.toString()}`);
     return response.data;
   });
 
   // Obtener líderes para el select
   const { data: lideres } = useQuery('lideres', async () => {
-    const response = await api.get('/users/');
+    const response = await api.get('/users/?activo=true');
     return response.data.filter(u => u.rol.includes('lider') || u.rol === 'admin');
   });
 
@@ -172,6 +175,25 @@ const Personas = () => {
     }
   );
 
+  // Mutación para reubicar persona
+  const reubicarMutation = useMutation(
+    async ({ personaId, nuevoLiderId }) => {
+      const response = await api.put(`/personas/${personaId}/reubicar?nuevo_lider_id=${nuevoLiderId}`);
+      return response.data;
+    },
+    {
+      onSuccess: (data) => {
+        queryClient.invalidateQueries('personas');
+        toast.success(`Persona reubicada con ${data.nuevo_lider_nombre}`);
+        setModalReubicar(null);
+        setNuevoLiderId('');
+      },
+      onError: (error) => {
+        toast.error(error.response?.data?.detail || 'Error al reubicar persona');
+      }
+    }
+  );
+
   const resetForm = () => {
     setFormData({
       nombre: '',
@@ -202,7 +224,6 @@ const Personas = () => {
       if (personaData[key] === '' || personaData[key] === null || personaData[key] === undefined) {
         delete personaData[key];
       } else if (typeof personaData[key] === 'object') {
-        console.error(`Campo ${key} es un objeto:`, personaData[key]);
         delete personaData[key];
       } else if (key === 'latitud' || key === 'longitud') {
         // Convertir latitud y longitud a float si tienen valor
@@ -223,16 +244,13 @@ const Personas = () => {
       }
     });
     
-    console.log('Datos a enviar:', personaData);
     if (editingPersona) {
       updatePersonaMutation.mutate({ id: editingPersona.id, personaData });
     } else {
-      // Agregar el id_lider_responsable del usuario actual
       const personaDataWithLider = {
         ...personaData,
         id_lider_responsable: currentUser.id
       };
-      console.log('Datos con líder responsable:', personaDataWithLider);
       createPersonaMutation.mutate(personaDataWithLider);
     }
   };
@@ -281,22 +299,20 @@ const Personas = () => {
 
   const handleInvitePersona = async () => {
     try {
-      const res = await api.post('/invitaciones-personas/');
-      console.log('Respuesta de invitación persona:', res.data);
+      const body = inviteLiderResponsable ? { id_lider_responsable: parseInt(inviteLiderResponsable) } : {};
+      const res = await api.post('/invitaciones-personas/', body);
       const token = res.data.token;
       if (token && typeof token === 'string') {
         setInviteToken(token);
       } else {
-        console.error('Token inválido recibido:', token);
         setInviteToken('');
         toast.error('Error: Token inválido recibido del servidor');
       }
     } catch (error) {
-      console.error('Error generando invitación persona:', error);
-      setInviteToken(''); // Limpia el token si hay error
+      console.error('Error generando invitación persona:', error.response?.data || error.message);
+      setInviteToken('');
       const errorMessage = error.response?.data?.detail;
       if (typeof errorMessage === 'object') {
-        console.error('Error de validación:', errorMessage);
         toast.error('Error al generar invitación: Datos inválidos');
       } else {
         toast.error(errorMessage || 'Error al generar invitación');
@@ -331,6 +347,7 @@ const Personas = () => {
   }
 
   return (
+    <>
     <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
@@ -354,6 +371,7 @@ const Personas = () => {
             onClick={() => {
               setShowInviteModal(true);
               setInviteToken('');
+              setInviteLiderResponsable('');
             }}
             className="btn-secondary flex items-center"
           >
@@ -442,14 +460,21 @@ const Personas = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-secondary-200">
-              {personas?.map((persona) => (
-                <tr key={persona.id} className="hover:bg-secondary-50">
+              {personas?.map((persona) => {
+                const liderInactivo = persona.lider_activo === false;
+                return (
+                <tr key={persona.id} className="hover:bg-secondary-50" style={liderInactivo ? { background: '#fffbeb', borderLeft: '3px solid #f59e0b' } : {}}>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
-                      <div className="flex-shrink-0 h-10 w-10">
+                      <div className="flex-shrink-0 h-10 w-10 relative">
                         <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center">
                           <FiUser className="h-5 w-5 text-primary-600" />
                         </div>
+                        {liderInactivo && (
+                          <span title="Líder responsable inactivo" style={{ position: 'absolute', top: -3, right: -3, background: '#f59e0b', borderRadius: '50%', width: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid white' }}>
+                            <FiAlertTriangle size={8} color="white" />
+                          </span>
+                        )}
                       </div>
                       <div className="ml-4">
                         <div className="text-sm font-medium text-secondary-900">
@@ -458,9 +483,11 @@ const Personas = () => {
                         <div className="text-sm text-secondary-500">
                           {persona.telefono || 'Sin teléfono'}
                         </div>
-                        <div className="text-xs text-secondary-400">
-                          {persona.edad} años • {persona.sexo}
-                        </div>
+                        {liderInactivo && (
+                          <div style={{ fontSize: '.68rem', color: '#d97706', fontWeight: 600, marginTop: 2 }}>
+                            ⚠ Líder inactivo
+                          </div>
+                        )}
                       </div>
                     </div>
                   </td>
@@ -500,40 +527,42 @@ const Personas = () => {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-secondary-900">
-                      {persona.usuario_registro ? (
-                        <div className="flex items-center">
-                          <FiUser className="h-4 w-4 text-secondary-400 mr-1" />
-                          {persona.usuario_registro.nombre}
-                        </div>
-                      ) : (
-                        <span className="text-secondary-400">N/A</span>
+                    <div className="flex items-center gap-1">
+                      <FiUser className="h-4 w-4 text-secondary-400" />
+                      <span className="text-sm text-secondary-900">{persona.lider_nombre || 'Sin asignar'}</span>
+                      {liderInactivo && (
+                        <span style={{ fontSize: '.65rem', fontWeight: 700, color: '#d97706', background: '#fef3c7', padding: '1px 6px', borderRadius: 8, border: '1px solid #fde68a' }}>
+                          INACTIVO
+                        </span>
                       )}
                     </div>
-                    <div className="text-xs text-secondary-500">
-                      {persona.usuario_registro?.rol && `${persona.usuario_registro.rol}`}
-                    </div>
+                    <div className="text-xs text-secondary-500">{persona.lider_rol?.replace(/_/g, ' ')}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex space-x-2">
-                      <button
-                        onClick={() => handleEdit(persona)}
-                        className="text-primary-600 hover:text-primary-900"
-                      >
+                      <button onClick={() => handleEdit(persona)} className="text-primary-600 hover:text-primary-900" title="Editar">
                         <FiEdit className="h-4 w-4" />
                       </button>
-                      {persona.activo && (
+                      {liderInactivo && (currentUser?.rol === 'admin' || currentUser?.rol === 'presidente' || currentUser?.rol === 'lider_estatal') && (
                         <button
-                          onClick={() => handleDeactivate(persona.id)}
-                          className="text-red-600 hover:text-red-900"
+                          onClick={() => { setModalReubicar(persona); setNuevoLiderId(''); }}
+                          title="Reubicar con líder activo"
+                          style={{ color: '#d97706' }}
+                          className="hover:opacity-70"
                         >
+                          <FiRefreshCw className="h-4 w-4" />
+                        </button>
+                      )}
+                      {persona.activo && (
+                        <button onClick={() => handleDeactivate(persona.id)} className="text-red-600 hover:text-red-900" title="Desactivar">
                           <FiTrash2 className="h-4 w-4" />
                         </button>
                       )}
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -772,6 +801,21 @@ const Personas = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h2 className="text-lg font-semibold mb-4">Invitar registro de persona</h2>
+            {currentUser?.rol === 'admin' && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-secondary-700 mb-1">Asignar al líder:</label>
+                <select
+                  value={inviteLiderResponsable}
+                  onChange={e => setInviteLiderResponsable(e.target.value)}
+                  className="input-field"
+                >
+                  <option value="">Mi cuenta (Administrador)</option>
+                  {lideres && lideres.filter(l => l.rol !== 'admin').map(l => (
+                    <option key={l.id} value={l.id}>{l.nombre} ({l.rol.replace('_', ' ')})</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div className="flex justify-end space-x-3 pt-4">
               <button
                 type="button"
@@ -803,6 +847,63 @@ const Personas = () => {
         </div>
       )}
     </div>
+
+      {/* ── Modal Reubicar ── */}
+
+      {modalReubicar && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: 'white', borderRadius: 16, padding: '24px', width: '100%', maxWidth: 420, boxShadow: '0 20px 60px rgba(0,0,0,.25)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+              <div style={{ width: 38, height: 38, borderRadius: 10, background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <FiAlertTriangle size={18} color="#d97706" />
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '1rem', color: '#1a1f2e' }}>Reubicar persona</div>
+                <div style={{ fontSize: '.78rem', color: '#6b7280' }}>El líder actual está inactivo</div>
+              </div>
+            </div>
+
+            <div style={{ background: '#f9fafb', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: '.85rem' }}>
+              <span style={{ fontWeight: 600 }}>Persona:</span> {modalReubicar.nombre}<br />
+              <span style={{ fontWeight: 600 }}>Líder actual:</span>{' '}
+              <span style={{ color: '#d97706' }}>{modalReubicar.lider_nombre} (inactivo)</span>
+            </div>
+
+            <label style={{ display: 'block', fontSize: '.8rem', fontWeight: 600, color: '#374151', marginBottom: 6 }}>
+              Selecciona nuevo líder activo
+            </label>
+            <select
+              value={nuevoLiderId}
+              onChange={e => setNuevoLiderId(e.target.value)}
+              style={{ width: '100%', padding: '9px 12px', border: '1.5px solid #e4e7ed', borderRadius: 9, fontSize: '.88rem', marginBottom: 18, outline: 'none' }}
+            >
+              <option value="">— Selecciona líder —</option>
+              {(lideres || []).map(l => (
+                <option key={l.id} value={l.id}>
+                  {l.nombre} ({l.rol?.replace(/_/g, ' ')})
+                </option>
+              ))}
+            </select>
+
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={() => { setModalReubicar(null); setNuevoLiderId(''); }}
+                style={{ flex: 1, padding: '10px', background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: 9, fontSize: '.88rem', fontWeight: 600, cursor: 'pointer' }}
+              >
+                Cancelar
+              </button>
+              <button
+                disabled={!nuevoLiderId || reubicarMutation.isLoading}
+                onClick={() => reubicarMutation.mutate({ personaId: modalReubicar.id, nuevoLiderId })}
+                style={{ flex: 1, padding: '10px', background: nuevoLiderId ? '#2563eb' : '#9ca3af', color: 'white', border: 'none', borderRadius: 9, fontSize: '.88rem', fontWeight: 700, cursor: nuevoLiderId ? 'pointer' : 'not-allowed' }}
+              >
+                {reubicarMutation.isLoading ? 'Reubicando...' : 'Confirmar reubicación'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 

@@ -1,378 +1,460 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from 'react-query';
 import api from '../api';
-import { useAuth } from '../contexts/AuthContext';
-import { FiPlus, FiUsers, FiEdit, FiTrash2, FiX } from 'react-icons/fi';
+import { FiPlus, FiUsers, FiEdit, FiTrash2, FiX, FiTruck, FiCheck } from 'react-icons/fi';
 import { QRCodeCanvas } from 'qrcode.react';
 import toast from 'react-hot-toast';
 
+const FORM_VEHICULO_EMPTY = { tipo: '', capacidad: '', placas: '', descripcion: '', id_movilizador: '' };
+
 const Movilizacion = () => {
-  const { user } = useAuth();
-  const [eventos, setEventos] = useState([]);
+  const qc = useQueryClient();
   const [selectedEvento, setSelectedEvento] = useState(null);
-  const [vehiculos, setVehiculos] = useState([]);
-  const [asignaciones, setAsignaciones] = useState([]);
-  const [personas, setPersonas] = useState([]);
-  const [loading, setLoading] = useState(false);
   const [showVehiculoModal, setShowVehiculoModal] = useState(false);
-  const [vehiculoForm, setVehiculoForm] = useState({ tipo: '', capacidad: '', placas: '', descripcion: '', id_movilizador: '' });
   const [vehiculoEdit, setVehiculoEdit] = useState(null);
+  const [vehiculoForm, setVehiculoForm] = useState(FORM_VEHICULO_EMPTY);
   const [showAsignarModal, setShowAsignarModal] = useState(false);
-  const [vehiculoSeleccionado, setVehiculoSeleccionado] = useState(null);
-  const [asignarPersonaId, setAsignarPersonaId] = useState(null);
-  const [asignarObservaciones, setAsignarObservaciones] = useState('');
-  const [asignarRequiereTransporte, setAsignarRequiereTransporte] = useState(false);
-  const [asignarLoading, setAsignarLoading] = useState(false);
-  const [alerta, setAlerta] = useState('');
-  const [filtroColonia, setFiltroColonia] = useState('');
+  const [vehiculoSel, setVehiculoSel] = useState(null);
+  const [personasSel, setPersonasSel] = useState([]);
+  const [filtroNombre, setFiltroNombre] = useState('');
   const [filtroSeccion, setFiltroSeccion] = useState('');
-  const [personasSeleccionadas, setPersonasSeleccionadas] = useState([]);
 
-  // Cargar eventos al iniciar
-  useEffect(() => {
-    api.get('/eventos/').then(res => setEventos(res.data));
-  }, []);
+  /* ── Queries ── */
+  const { data: eventos = [] } = useQuery('eventos', () => api.get('/eventos/').then(r => r.data));
+  // Personas del padrón (para asignar a vehículos)
+  const { data: personas = [] } = useQuery('personas', () => api.get('/personas/').then(r => r.data));
+  // Usuarios del sistema (para elegir responsable del vehículo)
+  const { data: usuarios = [] } = useQuery('usuariosActivos', () =>
+    api.get('/users/?activo=true').then(r => r.data)
+  );
+  const { data: vehiculos = [] } = useQuery(
+    ['vehiculos', selectedEvento?.id],
+    () => api.get('/vehiculos/').then(r => r.data),
+    { enabled: !!selectedEvento }
+  );
+  const { data: asignaciones = [] } = useQuery(
+    ['asignaciones', selectedEvento?.id],
+    () => api.get(`/movilizaciones/?evento_id=${selectedEvento.id}`).then(r => r.data),
+    { enabled: !!selectedEvento }
+  );
 
-  // Cargar personas
-  useEffect(() => {
-    api.get('/personas/').then(res => setPersonas(res.data));
-  }, []);
-
-  // Cargar vehículos y asignaciones del evento seleccionado
-  useEffect(() => {
-    if (selectedEvento) {
-      setLoading(true);
-      Promise.all([
-        api.get('/vehiculos/'),
-        api.get(`/movilizaciones/?evento_id=${selectedEvento.id}`)
-      ]).then(([vehRes, asigRes]) => {
-        setVehiculos(vehRes.data);
-        setAsignaciones(asigRes.data);
-        setLoading(false);
-      });
+  /* ── Mutaciones vehículo ── */
+  const saveVehiculo = useMutation(
+    (form) => vehiculoEdit
+      ? api.put(`/vehiculos/${vehiculoEdit.id}`, form).then(r => r.data)
+      : api.post('/vehiculos/', form).then(r => r.data),
+    {
+      onSuccess: () => {
+        qc.invalidateQueries(['vehiculos', selectedEvento?.id]);
+        toast.success(vehiculoEdit ? 'Vehículo actualizado' : 'Vehículo creado');
+        setShowVehiculoModal(false);
+        setVehiculoEdit(null);
+        setVehiculoForm(FORM_VEHICULO_EMPTY);
+      },
+      onError: err => toast.error(err?.response?.data?.detail || 'Error al guardar'),
     }
-  }, [selectedEvento]);
+  );
 
-  // --- Vehículo CRUD ---
-  const handleOpenVehiculoModal = (vehiculo = null) => {
-    setVehiculoEdit(vehiculo);
-    setVehiculoForm(vehiculo ? {
-      tipo: vehiculo.tipo,
-      capacidad: vehiculo.capacidad,
-      placas: vehiculo.placas || '',
-      descripcion: vehiculo.descripcion || '',
-      id_movilizador: vehiculo.id_movilizador
-    } : { tipo: '', capacidad: '', placas: '', descripcion: '', id_movilizador: '' });
+  const deleteVehiculo = useMutation(
+    id => api.delete(`/vehiculos/${id}`).then(r => r.data),
+    {
+      onSuccess: () => {
+        qc.invalidateQueries(['vehiculos', selectedEvento?.id]);
+        toast.success('Vehículo eliminado');
+      },
+      onError: err => toast.error(err?.response?.data?.detail || 'Error al eliminar'),
+    }
+  );
+
+  /* ── Mutación asignación masiva ── */
+  const asignarMasivo = useMutation(
+    body => api.post('/movilizaciones/masivo', body).then(r => r.data),
+    {
+      onSuccess: () => {
+        qc.invalidateQueries(['asignaciones', selectedEvento?.id]);
+        toast.success('Personas asignadas correctamente');
+        setPersonasSel([]);
+      },
+      onError: err => toast.error(err?.response?.data?.detail || 'Error al asignar'),
+    }
+  );
+
+  const quitarPersona = useMutation(
+    id => api.delete(`/movilizaciones/${id}`).then(r => r.data),
+    {
+      onSuccess: () => qc.invalidateQueries(['asignaciones', selectedEvento?.id]),
+      onError: err => toast.error(err?.response?.data?.detail || 'Error'),
+    }
+  );
+
+  /* ── Helpers ── */
+  const ocupacion = (vid) => asignaciones.filter(a => a.id_vehiculo === vid).length;
+  const asigsPorVehiculo = (vid) => asignaciones.filter(a => a.id_vehiculo === vid);
+  const asignadasIds = asignaciones.map(a => a.id_persona);
+  const personasDisponibles = vehiculoSel
+    ? personas.filter(p => !asignadasIds.includes(p.id))
+    : [];
+  const personasFiltradas = personasDisponibles.filter(p =>
+    (!filtroNombre  || (p.nombre || '').toLowerCase().includes(filtroNombre.toLowerCase())) &&
+    (!filtroSeccion || (p.seccion_electoral || '').includes(filtroSeccion))
+  );
+  const getNombreUsuario = id => {
+    const u = usuarios.find(x => x.id === id);
+    return u ? u.nombre : `ID ${id}`;
+  };
+
+  const openVehiculoModal = (v = null) => {
+    setVehiculoEdit(v);
+    setVehiculoForm(v ? {
+      tipo: v.tipo, capacidad: v.capacidad, placas: v.placas || '',
+      descripcion: v.descripcion || '', id_movilizador: v.id_movilizador,
+    } : FORM_VEHICULO_EMPTY);
     setShowVehiculoModal(true);
   };
-  const handleSaveVehiculo = async (e) => {
-    e.preventDefault();
-    if (!vehiculoForm.tipo || !vehiculoForm.capacidad || !vehiculoForm.id_movilizador) {
-      setAlerta('Completa los campos obligatorios');
-      return;
-    }
-    setAlerta('');
-    try {
-      if (vehiculoEdit) {
-        await api.put(`/vehiculos/${vehiculoEdit.id}`, vehiculoForm);
-      } else {
-        await api.post('/vehiculos/', vehiculoForm);
-      }
-      setShowVehiculoModal(false);
-      setVehiculoEdit(null);
-      setVehiculoForm({ tipo: '', capacidad: '', placas: '', descripcion: '', id_movilizador: '' });
-      // Refrescar
-      api.get('/vehiculos/').then(res => setVehiculos(res.data));
-    } catch (err) {
-      setAlerta(err?.response?.data?.detail || 'Error al guardar vehículo');
-    }
-  };
-  const handleDeleteVehiculo = async (vehiculoId) => {
-    if (window.confirm('¿Eliminar este vehículo?')) {
-      await api.delete(`/vehiculos/${vehiculoId}`);
-      api.get('/vehiculos/').then(res => setVehiculos(res.data));
-    }
-  };
 
-  // --- Asignación de personas ---
-  const handleOpenAsignarModal = (vehiculo) => {
-    setVehiculoSeleccionado(vehiculo);
-    setShowAsignarModal(true);
-    setAsignarPersonaId(null);
-    setAsignarObservaciones('');
-    setAsignarRequiereTransporte(false);
-    setAlerta('');
-    setFiltroColonia('');
+  const openAsignar = (v) => {
+    setVehiculoSel(v);
+    setPersonasSel([]);
+    setFiltroNombre('');
     setFiltroSeccion('');
-    setPersonasSeleccionadas([]);
-  };
-  const handleAsignarPersona = async (personaId) => {
-    setAsignarLoading(true);
-    setAlerta('');
-    try {
-      await api.post('/movilizaciones/', {
-        id_evento: selectedEvento.id,
-        id_vehiculo: vehiculoSeleccionado.id,
-        id_persona: personaId,
-        asistio: false,
-        requiere_transporte: asignarRequiereTransporte,
-        observaciones: asignarObservaciones
-      });
-      // Refrescar asignaciones
-      const asigRes = await api.get(`/movilizaciones/?evento_id=${selectedEvento.id}`);
-      setAsignaciones(asigRes.data);
-      setAsignarPersonaId(null);
-      setAsignarObservaciones('');
-      setAsignarRequiereTransporte(false);
-    } catch (err) {
-      setAlerta(err?.response?.data?.detail || 'Error al asignar persona');
-    }
-    setAsignarLoading(false);
-  };
-  const handleQuitarPersona = async (asignacionId) => {
-    if (window.confirm('¿Quitar a esta persona del vehículo?')) {
-      await api.delete(`/movilizaciones/${asignacionId}`);
-      const asigRes = await api.get(`/movilizaciones/?evento_id=${selectedEvento.id}`);
-      setAsignaciones(asigRes.data);
-    }
+    setShowAsignarModal(true);
   };
 
-  // --- Helpers ---
-  const getOcupacion = (vehiculoId) => {
-    return asignaciones.filter(a => a.id_vehiculo === vehiculoId).length;
+  const togglePersona = (id) => {
+    setPersonasSel(sel => sel.includes(id) ? sel.filter(x => x !== id) : [...sel, id]);
   };
-  const getResponsableNombre = (id) => {
-    const mov = personas.find(p => p.id === id);
-    return mov ? mov.nombre : id;
-  };
-  const personasAsignadas = (vehiculoId) => {
-    return asignaciones.filter(a => a.id_vehiculo === vehiculoId).map(a => a.id_persona);
-  };
-  const asignacionesPorVehiculo = (vehiculoId) => {
-    return asignaciones.filter(a => a.id_vehiculo === vehiculoId);
-  };
-  const personasDisponibles = (vehiculoId) => {
-    // No asignadas a ningún vehículo para este evento
-    const asignadas = asignaciones.map(a => a.id_persona);
-    return personas.filter(p => !asignadas.includes(p.id));
-  };
+
+  const capacidadDisponible = vehiculoSel
+    ? vehiculoSel.capacidad - ocupacion(vehiculoSel.id)
+    : 0;
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-secondary-900 mb-4">Movilización de Eventos</h1>
+
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-secondary-900">Movilización</h1>
+        <p className="text-secondary-600">Gestiona vehículos y asignación de personas por evento</p>
+      </div>
+
       {/* Selector de evento */}
-      <div className="mb-4">
-        <label className="block text-sm font-medium text-secondary-700 mb-1">Selecciona un evento:</label>
+      <div style={{ background: 'white', borderRadius: 14, border: '1px solid #f0f0f5', padding: '16px 20px', boxShadow: '0 1px 4px rgba(0,0,0,.05)' }}>
+        <label style={{ display: 'block', fontSize: '.8rem', fontWeight: 600, color: '#374151', marginBottom: 6 }}>Selecciona un evento</label>
         <select
           className="input-field"
+          style={{ maxWidth: 420 }}
           value={selectedEvento?.id || ''}
           onChange={e => {
-            const evento = eventos.find(ev => ev.id === parseInt(e.target.value));
-            setSelectedEvento(evento);
+            const ev = eventos.find(x => x.id === parseInt(e.target.value));
+            setSelectedEvento(ev || null);
           }}
         >
-          <option value="">-- Selecciona --</option>
+          <option value="">— Selecciona un evento —</option>
           {eventos.map(ev => (
-            <option key={ev.id} value={ev.id}>{ev.nombre} ({new Date(ev.fecha).toLocaleString()})</option>
+            <option key={ev.id} value={ev.id}>
+              {ev.nombre} · {new Date(ev.fecha).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+            </option>
           ))}
         </select>
       </div>
-      {/* Tabla de vehículos */}
+
+      {/* Contenido cuando hay evento seleccionado */}
       {selectedEvento && (
-        <div className="card">
-          <div className="flex justify-between items-center mb-2">
-            <h2 className="text-lg font-semibold">Vehículos asignados</h2>
-            <button className="btn-primary flex items-center" onClick={() => handleOpenVehiculoModal()}>
-              <FiPlus className="mr-2" /> Agregar vehículo
-            </button>
+        <>
+          {/* Stats rápidas */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+            {[
+              { label: 'Vehículos', n: vehiculos.length, color: '#3b82f6', bg: '#eff6ff' },
+              { label: 'Asignados', n: asignaciones.length, color: '#10b981', bg: '#ecfdf5' },
+              { label: 'Disponibles', n: personas.length - asignaciones.length, color: '#8b5cf6', bg: '#f5f3ff' },
+            ].map(s => (
+              <div key={s.label} style={{ background: 'white', borderRadius: 12, padding: '14px 16px', border: '1px solid #f0f0f5', display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: s.bg, color: s.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <FiTruck size={16} />
+                </div>
+                <div>
+                  <div style={{ fontSize: '.74rem', color: '#8b93a5', fontWeight: 500 }}>{s.label}</div>
+                  <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#1a1f2e', lineHeight: 1.1 }}>{s.n}</div>
+                </div>
+              </div>
+            ))}
           </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-secondary-200">
-              <thead className="bg-secondary-50">
-                <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-secondary-500 uppercase">Tipo</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-secondary-500 uppercase">Placas</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-secondary-500 uppercase">Capacidad</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-secondary-500 uppercase">Responsable</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-secondary-500 uppercase">Ocupación</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-secondary-500 uppercase">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-secondary-200">
-                {vehiculos.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="text-center text-secondary-400 py-4">No hay vehículos registrados para este evento.</td>
-                  </tr>
-                )}
-                {vehiculos.map(vehiculo => (
-                  <tr key={vehiculo.id}>
-                    <td className="px-4 py-2">{vehiculo.tipo}</td>
-                    <td className="px-4 py-2">{vehiculo.placas || '-'}</td>
-                    <td className="px-4 py-2">{vehiculo.capacidad}</td>
-                    <td className="px-4 py-2">{getResponsableNombre(vehiculo.id_movilizador)}</td>
-                    <td className="px-4 py-2">{getOcupacion(vehiculo.id)} / {vehiculo.capacidad}</td>
-                    <td className="px-4 py-2 flex gap-2">
-                      <button className="btn-secondary flex items-center text-xs" onClick={() => handleOpenAsignarModal(vehiculo)}>
-                        <FiUsers className="mr-1" /> Ver/Asignar personas
-                      </button>
-                      <button className="btn-secondary flex items-center text-xs" onClick={() => handleOpenVehiculoModal(vehiculo)}>
-                        <FiEdit className="mr-1" /> Editar
-                      </button>
-                      <button className="btn-danger flex items-center text-xs" onClick={() => handleDeleteVehiculo(vehiculo.id)}>
-                        <FiTrash2 className="mr-1" /> Eliminar
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-      {/* Modal para agregar/editar vehículo */}
-      {showVehiculoModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">{vehiculoEdit ? 'Editar vehículo' : 'Agregar vehículo'}</h3>
-              <button className="text-secondary-400 hover:text-secondary-600" onClick={() => setShowVehiculoModal(false)}><FiX /></button>
+
+          {/* Tabla de vehículos */}
+          <div style={{ background: 'white', borderRadius: 14, border: '1px solid #f0f0f5', padding: '16px 20px', boxShadow: '0 1px 4px rgba(0,0,0,.05)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h2 style={{ fontWeight: 700, fontSize: '1rem', color: '#1a1f2e' }}>Vehículos del evento</h2>
+              <button
+                onClick={() => openVehiculoModal()}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: '#2563eb', color: 'white', border: 'none', borderRadius: 9, fontWeight: 600, fontSize: '.85rem', cursor: 'pointer' }}
+              >
+                <FiPlus size={14} /> Agregar vehículo
+              </button>
             </div>
-            {alerta && <div className="text-red-600 text-sm mb-2">{alerta}</div>}
-            <form onSubmit={handleSaveVehiculo} className="space-y-4">
+
+            {vehiculos.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '32px 0', color: '#9ca3af' }}>
+                <FiTruck size={32} style={{ margin: '0 auto 8px', display: 'block', opacity: .4 }} />
+                No hay vehículos. Agrega el primero.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {vehiculos.map(v => {
+                  const ocup = ocupacion(v.id);
+                  const pct  = Math.round((ocup / v.capacidad) * 100);
+                  const barColor = pct >= 100 ? '#ef4444' : pct >= 80 ? '#f59e0b' : '#10b981';
+                  return (
+                    <div key={v.id} style={{ border: '1px solid #e4e7ed', borderRadius: 12, padding: '12px 16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        {/* Icon */}
+                        <div style={{ width: 40, height: 40, borderRadius: 10, background: '#eff6ff', color: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <FiTruck size={18} />
+                        </div>
+
+                        {/* Info */}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 2 }}>
+                            <span style={{ fontWeight: 700, color: '#1a1f2e' }}>{v.tipo}</span>
+                            {v.placas && <span style={{ fontSize: '.75rem', color: '#6b7280', background: '#f3f4f6', padding: '1px 8px', borderRadius: 20 }}>{v.placas}</span>}
+                          </div>
+                          <div style={{ fontSize: '.78rem', color: '#6b7280', marginBottom: 6 }}>
+                            Responsable: <strong>{getNombreUsuario(v.id_movilizador)}</strong>
+                            {v.descripcion && <span> · {v.descripcion}</span>}
+                          </div>
+                          {/* Barra capacidad */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <div style={{ flex: 1, height: 6, background: '#f0f0f5', borderRadius: 4, overflow: 'hidden' }}>
+                              <div style={{ width: `${Math.min(pct, 100)}%`, height: '100%', background: barColor, borderRadius: 4, transition: 'width .3s' }} />
+                            </div>
+                            <span style={{ fontSize: '.75rem', fontWeight: 700, color: barColor, minWidth: 56 }}>
+                              {ocup}/{v.capacidad}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Acciones */}
+                        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                          <button
+                            onClick={() => openAsignar(v)}
+                            title="Ver / Asignar personas"
+                            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', background: '#ecfdf5', color: '#10b981', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: '.8rem', cursor: 'pointer' }}
+                          >
+                            <FiUsers size={14} /> Personas
+                          </button>
+                          <button
+                            onClick={() => openVehiculoModal(v)}
+                            title="Editar"
+                            style={{ width: 34, height: 34, background: '#eff6ff', color: '#3b82f6', border: 'none', borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          >
+                            <FiEdit size={14} />
+                          </button>
+                          <button
+                            onClick={() => { if (window.confirm('¿Eliminar este vehículo?')) deleteVehiculo.mutate(v.id); }}
+                            title="Eliminar"
+                            style={{ width: 34, height: 34, background: '#fef2f2', color: '#ef4444', border: 'none', borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          >
+                            <FiTrash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* Modal vehículo */}
+      {showVehiculoModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: 'white', borderRadius: 16, padding: 24, width: '100%', maxWidth: 420, boxShadow: '0 20px 60px rgba(0,0,0,.25)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+              <h3 style={{ fontWeight: 700, fontSize: '1rem', color: '#1a1f2e' }}>{vehiculoEdit ? 'Editar vehículo' : 'Nuevo vehículo'}</h3>
+              <button onClick={() => setShowVehiculoModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af' }}><FiX size={18} /></button>
+            </div>
+
+            <form onSubmit={e => { e.preventDefault(); saveVehiculo.mutate({ ...vehiculoForm, id_movilizador: parseInt(vehiculoForm.id_movilizador), capacidad: parseInt(vehiculoForm.capacidad) }); }} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div>
-                <label className="block text-sm font-medium text-secondary-700">Tipo *</label>
-                <input type="text" className="input-field" value={vehiculoForm.tipo} onChange={e => setVehiculoForm({ ...vehiculoForm, tipo: e.target.value })} required />
+                <label style={{ display: 'block', fontSize: '.8rem', fontWeight: 600, color: '#374151', marginBottom: 4 }}>Tipo de vehículo *</label>
+                <input type="text" className="input-field" value={vehiculoForm.tipo} onChange={e => setVehiculoForm(f => ({ ...f, tipo: e.target.value }))} required placeholder="Ej: Autobús, Camioneta, Auto" />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '.8rem', fontWeight: 600, color: '#374151', marginBottom: 4 }}>Capacidad *</label>
+                  <input type="number" min={1} className="input-field" value={vehiculoForm.capacidad} onChange={e => setVehiculoForm(f => ({ ...f, capacidad: e.target.value }))} required />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '.8rem', fontWeight: 600, color: '#374151', marginBottom: 4 }}>Placas</label>
+                  <input type="text" className="input-field" value={vehiculoForm.placas} onChange={e => setVehiculoForm(f => ({ ...f, placas: e.target.value }))} />
+                </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-secondary-700">Capacidad *</label>
-                <input type="number" className="input-field" value={vehiculoForm.capacidad} onChange={e => setVehiculoForm({ ...vehiculoForm, capacidad: e.target.value })} required min={1} />
+                <label style={{ display: 'block', fontSize: '.8rem', fontWeight: 600, color: '#374151', marginBottom: 4 }}>Responsable *</label>
+                <select
+                  className="input-field"
+                  value={vehiculoForm.id_movilizador}
+                  onChange={e => setVehiculoForm(f => ({ ...f, id_movilizador: e.target.value }))}
+                  required
+                >
+                  <option value="">— Selecciona responsable —</option>
+                  {usuarios.map(u => (
+                    <option key={u.id} value={u.id}>{u.nombre} ({u.rol?.replace(/_/g, ' ')})</option>
+                  ))}
+                </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-secondary-700">Placas</label>
-                <input type="text" className="input-field" value={vehiculoForm.placas} onChange={e => setVehiculoForm({ ...vehiculoForm, placas: e.target.value })} />
+                <label style={{ display: 'block', fontSize: '.8rem', fontWeight: 600, color: '#374151', marginBottom: 4 }}>Descripción</label>
+                <textarea className="input-field" rows={2} value={vehiculoForm.descripcion} onChange={e => setVehiculoForm(f => ({ ...f, descripcion: e.target.value }))} />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-secondary-700">Responsable (ID de persona) *</label>
-                <input type="number" className="input-field" value={vehiculoForm.id_movilizador} onChange={e => setVehiculoForm({ ...vehiculoForm, id_movilizador: e.target.value })} required />
-                {/* En una versión mejorada, aquí se puede poner un select de personas */}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-secondary-700">Descripción</label>
-                <textarea className="input-field" value={vehiculoForm.descripcion} onChange={e => setVehiculoForm({ ...vehiculoForm, descripcion: e.target.value })} />
-              </div>
-              <div className="flex justify-end gap-2">
-                <button type="button" className="btn-secondary" onClick={() => setShowVehiculoModal(false)}>Cancelar</button>
-                <button type="submit" className="btn-primary">Guardar</button>
+              <div style={{ display: 'flex', gap: 10, paddingTop: 6 }}>
+                <button type="button" onClick={() => setShowVehiculoModal(false)} style={{ flex: 1, padding: 10, background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: 9, fontWeight: 600, cursor: 'pointer' }}>Cancelar</button>
+                <button type="submit" disabled={saveVehiculo.isLoading} style={{ flex: 1, padding: 10, background: '#2563eb', color: 'white', border: 'none', borderRadius: 9, fontWeight: 700, cursor: 'pointer' }}>
+                  {saveVehiculo.isLoading ? 'Guardando...' : 'Guardar'}
+                </button>
               </div>
             </form>
           </div>
         </div>
       )}
-      {/* Modal para asignar personas a vehículo */}
-      {showAsignarModal && vehiculoSeleccionado && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Asignar personas a {vehiculoSeleccionado.tipo} ({vehiculoSeleccionado.placas || '-'})</h3>
-              <button className="text-secondary-400 hover:text-secondary-600" onClick={() => setShowAsignarModal(false)}><FiX /></button>
-            </div>
-            {alerta && <div className="text-red-600 text-sm mb-2">{alerta}</div>}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Personas ya asignadas */}
+
+      {/* Modal asignar personas */}
+      {showAsignarModal && vehiculoSel && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: 'white', borderRadius: 16, width: '100%', maxWidth: 760, maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,.25)' }}>
+
+            {/* Header modal */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 24px', borderBottom: '1px solid #f0f0f5' }}>
               <div>
-                <h4 className="font-semibold mb-2">Asignados ({getOcupacion(vehiculoSeleccionado.id)} / {vehiculoSeleccionado.capacidad})</h4>
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {asignacionesPorVehiculo(vehiculoSeleccionado.id).map(asig => {
-                    const persona = personas.find(p => p.id === asig.id_persona);
-                    return persona ? (
-                      <div key={asig.id} className="p-2 border rounded flex justify-between items-center">
-                        <div>
-                          <span className="font-medium">{persona.nombre}</span>
-                          <span className="ml-2 text-xs text-secondary-500">{persona.telefono}</span>
-                          {asig.requiere_transporte && <span className="ml-2 text-xs text-yellow-700">Transporte</span>}
-                          {asig.observaciones && <span className="ml-2 text-xs text-secondary-400">Obs: {asig.observaciones}</span>}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <QRCodeCanvas value={JSON.stringify({ asistencia_id: asig.id })} size={48} />
-                          <button className="btn-danger text-xs" onClick={() => handleQuitarPersona(asig.id)}>Quitar</button>
-                        </div>
-                      </div>
-                    ) : null;
-                  })}
-                  {getOcupacion(vehiculoSeleccionado.id) === 0 && <div className="text-secondary-400 text-sm">Nadie asignado aún.</div>}
+                <div style={{ fontWeight: 700, fontSize: '1rem', color: '#1a1f2e' }}>
+                  {vehiculoSel.tipo} {vehiculoSel.placas && `(${vehiculoSel.placas})`}
+                </div>
+                <div style={{ fontSize: '.8rem', color: '#6b7280', marginTop: 2 }}>
+                  Capacidad: {ocupacion(vehiculoSel.id)}/{vehiculoSel.capacidad} · Disponible: {capacidadDisponible}
                 </div>
               </div>
-              {/* Personas disponibles para asignar */}
-              <div>
-                <h4 className="font-semibold mb-2">Disponibles</h4>
-                <div className="mb-2 flex gap-2">
-                  <input
-                    type="text"
-                    className="input-field"
-                    placeholder="Filtrar por colonia"
-                    value={filtroColonia}
-                    onChange={e => setFiltroColonia(e.target.value)}
-                  />
-                  <input
-                    type="text"
-                    className="input-field"
-                    placeholder="Filtrar por sección"
-                    value={filtroSeccion}
-                    onChange={e => setFiltroSeccion(e.target.value)}
-                  />
+              <button onClick={() => setShowAsignarModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af' }}><FiX size={20} /></button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', flex: 1, overflow: 'hidden' }}>
+
+              {/* Columna izquierda: asignados */}
+              <div style={{ borderRight: '1px solid #f0f0f5', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <div style={{ padding: '12px 20px', borderBottom: '1px solid #f0f0f5', fontWeight: 700, fontSize: '.88rem', color: '#374151' }}>
+                  Asignados ({ocupacion(vehiculoSel.id)})
                 </div>
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {personasDisponibles(vehiculoSeleccionado.id)
-                    .filter(p => (!filtroColonia || (p.colonia || '').toLowerCase().includes(filtroColonia.toLowerCase())) &&
-                                 (!filtroSeccion || (p.seccion_electoral || '').includes(filtroSeccion)))
-                    .length === 0 && <div className="text-secondary-400 text-sm">No hay personas disponibles.</div>}
-                  {personasDisponibles(vehiculoSeleccionado.id)
-                    .filter(p => (!filtroColonia || (p.colonia || '').toLowerCase().includes(filtroColonia.toLowerCase())) &&
-                                 (!filtroSeccion || (p.seccion_electoral || '').includes(filtroSeccion)))
-                    .map(persona => (
-                      <div key={persona.id} className="p-2 border rounded flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={personasSeleccionadas.includes(persona.id)}
-                            onChange={e => {
-                              setPersonasSeleccionadas(sel =>
-                                e.target.checked
-                                  ? [...sel, persona.id]
-                                  : sel.filter(id => id !== persona.id)
-                              );
-                            }}
+                <div style={{ flex: 1, overflowY: 'auto', padding: '8px 12px' }}>
+                  {asigsPorVehiculo(vehiculoSel.id).length === 0 ? (
+                    <div style={{ textAlign: 'center', color: '#9ca3af', padding: 24, fontSize: '.85rem' }}>Sin asignados aún</div>
+                  ) : (
+                    asigsPorVehiculo(vehiculoSel.id).map(asig => {
+                      const p = personas.find(x => x.id === asig.id_persona);
+                      return p ? (
+                        <div key={asig.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 6px', borderBottom: '1px solid #f8fafc' }}>
+                          {/* Mini QR */}
+                          <QRCodeCanvas
+                            value={JSON.stringify({ evento_id: selectedEvento.id, persona_id: p.id, asignacion_id: asig.id })}
+                            size={40}
                           />
-                          <span className="font-medium">{persona.nombre}</span>
-                          <span className="ml-2 text-xs text-secondary-500">{persona.telefono}</span>
-                          {persona.seccion_electoral && <span className="ml-2 text-xs text-secondary-400">Sección: {persona.seccion_electoral}</span>}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: 600, fontSize: '.85rem', color: '#1a1f2e', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.nombre}</div>
+                            <div style={{ fontSize: '.73rem', color: '#9ca3af' }}>{p.telefono || ''}</div>
+                          </div>
+                          <button
+                            onClick={() => { if (window.confirm('¿Quitar a esta persona?')) quitarPersona.mutate(asig.id); }}
+                            style={{ width: 28, height: 28, background: '#fef2f2', color: '#ef4444', border: 'none', borderRadius: 7, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                          >
+                            <FiX size={13} />
+                          </button>
                         </div>
-                      </div>
-                    ))}
+                      ) : null;
+                    })
+                  )}
                 </div>
-                <button
-                  className="btn-primary mt-2"
-                  disabled={personasSeleccionadas.length === 0 || getOcupacion(vehiculoSeleccionado.id) + personasSeleccionadas.length > vehiculoSeleccionado.capacidad}
-                  onClick={async () => {
-                    setAsignarLoading(true);
-                    setAlerta('');
-                    try {
-                      await api.post('/movilizaciones/masivo', {
-                        id_evento: selectedEvento.id,
-                        id_vehiculo: vehiculoSeleccionado.id,
-                        ids_persona: personasSeleccionadas
-                      });
-                      const asigRes = await api.get(`/movilizaciones/?evento_id=${selectedEvento.id}`);
-                      setAsignaciones(asigRes.data);
-                      setPersonasSeleccionadas([]);
-                      toast.success('¡Personas asignadas correctamente!');
-                    } catch (err) {
-                      setAlerta(err?.response?.data?.detail || 'Error al asignar personas');
-                    }
-                    setAsignarLoading(false);
-                  }}
-                >
-                  Asignar seleccionados
-                </button>
+              </div>
+
+              {/* Columna derecha: disponibles */}
+              <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <div style={{ padding: '12px 20px', borderBottom: '1px solid #f0f0f5' }}>
+                  <div style={{ fontWeight: 700, fontSize: '.88rem', color: '#374151', marginBottom: 8 }}>
+                    Disponibles ({personasFiltradas.length})
+                  </div>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <input
+                      type="text"
+                      placeholder="Buscar nombre..."
+                      value={filtroNombre}
+                      onChange={e => setFiltroNombre(e.target.value)}
+                      className="input-field"
+                      style={{ flex: 1, padding: '6px 10px', fontSize: '.8rem' }}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Sección"
+                      value={filtroSeccion}
+                      onChange={e => setFiltroSeccion(e.target.value)}
+                      className="input-field"
+                      style={{ width: 90, padding: '6px 10px', fontSize: '.8rem' }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ flex: 1, overflowY: 'auto', padding: '8px 12px' }}>
+                  {personasFiltradas.length === 0 ? (
+                    <div style={{ textAlign: 'center', color: '#9ca3af', padding: 24, fontSize: '.85rem' }}>No hay personas disponibles</div>
+                  ) : (
+                    personasFiltradas.map(p => {
+                      const sel = personasSel.includes(p.id);
+                      return (
+                        <div
+                          key={p.id}
+                          onClick={() => togglePersona(p.id)}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 10, padding: '8px 6px',
+                            borderBottom: '1px solid #f8fafc', cursor: 'pointer',
+                            background: sel ? '#eff6ff' : 'transparent',
+                            borderRadius: sel ? 8 : 0,
+                            transition: 'background .1s',
+                          }}
+                        >
+                          <div style={{
+                            width: 20, height: 20, borderRadius: 5, border: `2px solid ${sel ? '#3b82f6' : '#d1d5db'}`,
+                            background: sel ? '#3b82f6' : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                          }}>
+                            {sel && <FiCheck size={12} color="white" />}
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: 600, fontSize: '.85rem', color: '#1a1f2e', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.nombre}</div>
+                            <div style={{ fontSize: '.73rem', color: '#9ca3af' }}>
+                              {[p.telefono, p.seccion_electoral && `Secc. ${p.seccion_electoral}`, p.colonia].filter(Boolean).join(' · ')}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Botón asignar */}
+                <div style={{ padding: '12px 16px', borderTop: '1px solid #f0f0f5' }}>
+                  <button
+                    disabled={personasSel.length === 0 || personasSel.length > capacidadDisponible || asignarMasivo.isLoading}
+                    onClick={() => asignarMasivo.mutate({ id_evento: selectedEvento.id, id_vehiculo: vehiculoSel.id, ids_persona: personasSel })}
+                    style={{
+                      width: '100%', padding: '10px', border: 'none', borderRadius: 9, fontWeight: 700, fontSize: '.9rem', cursor: 'pointer',
+                      background: personasSel.length === 0 || personasSel.length > capacidadDisponible ? '#d1d5db' : '#2563eb',
+                      color: personasSel.length === 0 || personasSel.length > capacidadDisponible ? '#9ca3af' : 'white',
+                    }}
+                  >
+                    {asignarMasivo.isLoading ? 'Asignando...' : `Asignar ${personasSel.length > 0 ? `(${personasSel.length})` : ''} seleccionados`}
+                  </button>
+                  {personasSel.length > capacidadDisponible && (
+                    <div style={{ fontSize: '.75rem', color: '#ef4444', textAlign: 'center', marginTop: 4 }}>
+                      Seleccionaste más personas que la capacidad disponible ({capacidadDisponible})
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>

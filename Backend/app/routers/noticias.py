@@ -8,11 +8,19 @@ from ..auth import get_current_active_user, require_admin
 from ..schemas import Usuario
 from ..schemas_noticias import NoticiaResponse as Noticia, NoticiaCreate, NoticiaUpdate
 from ..models_noticias import Noticia as NoticiaModel
-from ..models import Comentario as ComentarioModel
+from ..models import Comentario as ComentarioModel, Usuario as UsuarioModel
 from ..schemas import Comentario, ComentarioCreate, ComentarioUpdate
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["noticias"])
+
+
+def _nombre_autor(db: Session, autor_id) -> str:
+    """Busca el nombre del autor por ID, sin depender de relación ORM."""
+    if not autor_id:
+        return "Usuario"
+    u = db.query(UsuarioModel).filter(UsuarioModel.id == autor_id).first()
+    return u.nombre if u else "Usuario"
 
 
 @router.post("/noticias/", response_model=Noticia)
@@ -23,18 +31,39 @@ async def create_noticia(
 ):
     if current_user.rol not in ['admin', 'lider_estatal', 'lider_municipal', 'lider_zona']:
         raise HTTPException(status_code=403, detail="No tienes permisos para crear noticias")
-    db_noticia = NoticiaModel(
-        titulo=noticia.titulo,
-        contenido=noticia.contenido,
-        imagen_url=noticia.imagen_url,
-        tipo=noticia.tipo,
-        autor_id=current_user.id
-    )
-    db.add(db_noticia)
-    db.commit()
-    db.refresh(db_noticia)
-    db_noticia.autor_nombre = current_user.nombre
-    return db_noticia
+    try:
+        desc_corta = noticia.descripcion_corta
+        if not desc_corta:
+            fuente = noticia.contenido_completo or noticia.titulo
+            desc_corta = (fuente[:200].strip()) if fuente else noticia.titulo
+
+        db_noticia = NoticiaModel(
+            titulo=noticia.titulo,
+            descripcion_corta=desc_corta,
+            contenido_completo=noticia.contenido_completo,
+            imagen_url=noticia.imagen_url,
+            imagen_alt=noticia.imagen_alt,
+            fecha_publicacion=noticia.fecha_publicacion,
+            fecha_expiracion=noticia.fecha_expiracion,
+            activa=noticia.activa,
+            destacada=noticia.destacada,
+            prioridad=noticia.prioridad,
+            categoria=noticia.categoria,
+            tags=noticia.tags,
+            imagenes=noticia.imagenes,
+            enlace_externo=noticia.enlace_externo,
+            boton_texto=noticia.boton_texto,
+            autor_id=current_user.id
+        )
+        db.add(db_noticia)
+        db.commit()
+        db.refresh(db_noticia)
+        db_noticia.autor_nombre = current_user.nombre
+        return db_noticia
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error creando noticia: {e}")
+        raise HTTPException(status_code=500, detail=f"Error al crear noticia: {str(e)}")
 
 
 @router.get("/noticias/", response_model=List[Noticia])
@@ -46,11 +75,9 @@ async def list_noticias(
     current_user: Usuario = Depends(get_current_active_user)
 ):
     query = db.query(NoticiaModel).filter(NoticiaModel.activa == True)
-    if tipo:
-        query = query.filter(NoticiaModel.tipo == tipo)
     noticias = query.order_by(NoticiaModel.fecha_publicacion.desc()).offset(skip).limit(limit).all()
     for noticia in noticias:
-        noticia.autor_nombre = noticia.autor.nombre if noticia.autor else "Usuario"
+        noticia.autor_nombre = _nombre_autor(db, noticia.autor_id)
     return noticias
 
 
@@ -63,15 +90,19 @@ async def obtener_noticias_banner(
         noticias = db.query(NoticiaModel).filter(
             NoticiaModel.activa == True
         ).order_by(NoticiaModel.fecha_publicacion.desc()).limit(limit).all()
+        import json as _json
         data = [
             {
                 "id": n.id,
                 "titulo": n.titulo,
-                "descripcion_corta": getattr(n, 'descripcion_corta', None) or (n.contenido[:100] if n.contenido else ""),
-                "imagen_url": getattr(n, 'imagen_url', None),
-                "categoria": getattr(n, 'categoria', None) or n.tipo,
-                "destacada": getattr(n, 'destacada', False),
-                "prioridad": getattr(n, 'prioridad', None),
+                "descripcion_corta": n.descripcion_corta or "",
+                "imagen_url": n.imagen_url,
+                "imagenes": _json.loads(n.imagenes) if n.imagenes else [],
+                "categoria": n.categoria or "general",
+                "destacada": n.destacada or False,
+                "prioridad": n.prioridad,
+                "enlace_externo": n.enlace_externo,
+                "boton_texto": n.boton_texto,
                 "fecha_publicacion": n.fecha_publicacion.isoformat() if n.fecha_publicacion else None,
             }
             for n in noticias
@@ -91,7 +122,7 @@ async def get_noticia(
     noticia = db.query(NoticiaModel).filter(NoticiaModel.id == noticia_id, NoticiaModel.activa == True).first()
     if not noticia:
         raise HTTPException(status_code=404, detail="Noticia no encontrada")
-    noticia.autor_nombre = noticia.autor.nombre if noticia.autor else "Usuario"
+    noticia.autor_nombre = _nombre_autor(db, noticia.autor_id)
     return noticia
 
 
@@ -107,12 +138,17 @@ async def update_noticia(
         raise HTTPException(status_code=404, detail="Noticia no encontrada")
     if noticia.autor_id != current_user.id and current_user.rol != 'admin':
         raise HTTPException(status_code=403, detail="No puedes editar esta noticia")
-    for field, value in noticia_update.dict(exclude_unset=True).items():
-        setattr(noticia, field, value)
-    db.commit()
-    db.refresh(noticia)
-    noticia.autor_nombre = noticia.autor.nombre if noticia.autor else "Usuario"
-    return noticia
+    try:
+        for field, value in noticia_update.dict(exclude_unset=True).items():
+            setattr(noticia, field, value)
+        db.commit()
+        db.refresh(noticia)
+        noticia.autor_nombre = _nombre_autor(db, noticia.autor_id)
+        return noticia
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error actualizando noticia {noticia_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error al actualizar: {str(e)}")
 
 
 @router.delete("/noticias/{noticia_id}")
@@ -140,9 +176,9 @@ async def like_noticia(
     noticia = db.query(NoticiaModel).filter(NoticiaModel.id == noticia_id, NoticiaModel.activa == True).first()
     if not noticia:
         raise HTTPException(status_code=404, detail="Noticia no encontrada")
-    noticia.likes += 1
+    noticia.vistas += 1
     db.commit()
-    return {"message": "Like agregado", "likes": noticia.likes}
+    return {"message": "Like agregado", "likes": noticia.vistas}
 
 
 @router.post("/noticias/{noticia_id}/compartir")
@@ -154,9 +190,24 @@ async def compartir_noticia(
     noticia = db.query(NoticiaModel).filter(NoticiaModel.id == noticia_id, NoticiaModel.activa == True).first()
     if not noticia:
         raise HTTPException(status_code=404, detail="Noticia no encontrada")
-    noticia.compartidos += 1
+    noticia.clicks += 1
     db.commit()
-    return {"message": "Noticia compartida", "compartidos": noticia.compartidos}
+    return {"message": "Noticia compartida", "compartidos": noticia.clicks}
+
+
+@router.get("/admin/noticias/")
+async def list_todas_noticias(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_active_user)
+):
+    if current_user.rol != 'admin':
+        raise HTTPException(status_code=403, detail="Solo administradores")
+    noticias = db.query(NoticiaModel).order_by(NoticiaModel.fecha_publicacion.desc()).offset(skip).limit(limit).all()
+    for n in noticias:
+        n.autor_nombre = _nombre_autor(db, n.autor_id)
+    return noticias
 
 
 @router.get("/admin/noticias/estadisticas/")
@@ -164,13 +215,10 @@ async def obtener_estadisticas_noticias(
     current_user: Usuario = Depends(require_admin),
     db: Session = Depends(get_db)
 ):
-    try:
-        from ..crud_noticias import crud_noticias
-        estadisticas = crud_noticias.get_estadisticas_noticias(db)
-        return {"success": True, "data": estadisticas}
-    except Exception as e:
-        logger.error(f"Error al obtener estadisticas de noticias: {e}")
-        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+    total = db.query(NoticiaModel).count()
+    activas = db.query(NoticiaModel).filter(NoticiaModel.activa == True).count()
+    destacadas = db.query(NoticiaModel).filter(NoticiaModel.destacada == True).count()
+    return {"success": True, "data": {"total": total, "activas": activas, "destacadas": destacadas}}
 
 
 # ---- Comentarios ----

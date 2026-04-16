@@ -1,152 +1,242 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, KeyboardAvoidingView, Platform, Image } from 'react-native';
-import { TextInput, Button, Text, useTheme, HelperText, Surface } from 'react-native-paper';
-import { useAuth } from '../src/contexts/AuthContext';
+import { useState, useRef, useEffect } from 'react';
+import {
+  View, Text, StyleSheet, TextInput, TouchableOpacity,
+  KeyboardAvoidingView, Platform, ScrollView, Animated,
+  ActivityIndicator, StatusBar,
+} from 'react-native';
 import { useRouter } from 'expo-router';
-import { ThemedView } from '../components/ThemedView';
-import { ThemedText } from '../components/ThemedText';
-import { useThemeColor } from '@/hooks/useThemeColor';
+import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../src/contexts/AuthContext';
+import { COLORS, FONTS, RADIUS, SHADOW } from '../src/theme';
 
 export default function LoginScreen() {
   const { login, token } = useAuth();
+  const router = useRouter();
   const [identificador, setIdentificador] = useState('');
   const [password, setPassword] = useState('');
+  const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const theme = useTheme();
-  const backgroundColor = useThemeColor({}, 'background');
-  const textColor = useThemeColor({}, 'text');
-  const router = useRouter();
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
 
   useEffect(() => {
-    if (token) {
-      router.replace('/'); // Redirige a la página principal tras login
-    }
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 450, useNativeDriver: true }),
+    ]).start();
+  }, []);
+
+  useEffect(() => {
+    if (token) router.replace('/(tabs)/' as any);
   }, [token]);
 
   const handleLogin = async () => {
-    setError('');
-    setLoading(true);
-    if (!identificador || !password) {
-      setError('Completa todos los campos');
-      setLoading(false);
+    if (!identificador.trim() || !password.trim()) {
+      setError('Ingresa usuario y contraseña');
       return;
     }
+    setError('');
+    setLoading(true);
     try {
-      const success = await login(identificador, password);
-      setLoading(false);
-      if (!success) {
-        setError('Usuario o contraseña incorrectos, o error de conexión.');
+      const result = await login(identificador.trim(), password);
+      if (!result?.success) {
+        setError('Usuario o contraseña incorrectos');
       }
-    } catch (e) {
+    } catch {
+      setError('Error de conexión. Verifica tu red.');
+    } finally {
       setLoading(false);
-      setError('Error de red o del servidor. Intenta de nuevo.');
     }
   };
 
+  const goBack = () => router.replace('/welcome' as any);
+
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: '#fff' }}
+      style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <View style={[styles.outer, { backgroundColor: '#fff' }]}>
-        <Surface style={[styles.card, { backgroundColor: '#fff' }]} elevation={4}>
-          {/* Logo institucional (opcional) */}
-          {/* <Image source={require('../assets/logo.png')} style={styles.logo} resizeMode="contain" /> */}
-          <Text style={[styles.title, { color: '#111' }]}>Red Ciudadana</Text>
-          <Text style={[styles.subtitle, { color: '#333' }]}>Acceso institucional</Text>
-          <TextInput
-            label="Correo electrónico o teléfono"
-            value={identificador}
-            onChangeText={setIdentificador}
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="default"
-            style={[styles.input, { color: '#111', backgroundColor: '#f5f7fa' }]}
-            left={<TextInput.Icon icon="email" />}
-            theme={{ colors: { text: '#111', background: '#f5f7fa' } }}
-            mode="outlined"
-          />
-          <TextInput
-            label="Contraseña"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            style={[styles.input, { color: '#111', backgroundColor: '#f5f7fa' }]}
-            left={<TextInput.Icon icon="lock" />}
-            theme={{ colors: { text: '#111', background: '#f5f7fa' } }}
-            mode="outlined"
-          />
-          {error ? <HelperText type="error" visible={true}>{error}</HelperText> : null}
-          <Button
-            mode="contained"
-            onPress={handleLogin}
-            loading={loading}
-            style={styles.button}
-            contentStyle={{ paddingVertical: 8 }}
-            labelStyle={{ fontWeight: 'bold', fontSize: 16 }}
-          >
-            Iniciar sesión
-          </Button>
-          <Text style={[styles.footer, { color: '#888' }]}>© {new Date().getFullYear()} Red Ciudadana</Text>
-        </Surface>
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.navy} />
+
+      {/* Header decorativo */}
+      <View style={styles.header}>
+        <View style={styles.headerCircle1} />
+        <View style={styles.headerCircle2} />
+        <TouchableOpacity style={styles.backBtn} onPress={goBack}>
+          <Ionicons name="arrow-back" size={22} color="#fff" />
+        </TouchableOpacity>
+        <View style={styles.headerContent}>
+          <View style={styles.logoBox}>
+            <Ionicons name="shield-checkmark" size={36} color={COLORS.primary} />
+          </View>
+          <Text style={styles.headerTitle}>Bienvenido</Text>
+          <Text style={styles.headerSub}>Inicia sesión con tu cuenta</Text>
+        </View>
       </View>
+
+      {/* Formulario */}
+      <ScrollView
+        style={styles.form}
+        contentContainerStyle={styles.formContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+
+          <Text style={styles.formTitle}>Iniciar Sesión</Text>
+
+          {/* Campo usuario */}
+          <View style={styles.fieldGroup}>
+            <Text style={styles.label}>Usuario o Email</Text>
+            <View style={styles.inputBox}>
+              <Ionicons name="person-outline" size={18} color={COLORS.textMuted} style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Ingresa tu usuario"
+                placeholderTextColor={COLORS.textMuted}
+                value={identificador}
+                onChangeText={setIdentificador}
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="next"
+              />
+            </View>
+          </View>
+
+          {/* Campo contraseña */}
+          <View style={styles.fieldGroup}>
+            <Text style={styles.label}>Contraseña</Text>
+            <View style={styles.inputBox}>
+              <Ionicons name="lock-closed-outline" size={18} color={COLORS.textMuted} style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Ingresa tu contraseña"
+                placeholderTextColor={COLORS.textMuted}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPass}
+                returnKeyType="done"
+                onSubmitEditing={handleLogin}
+              />
+              <TouchableOpacity onPress={() => setShowPass(!showPass)} style={styles.eyeBtn}>
+                <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={18} color={COLORS.textMuted} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Error */}
+          {!!error && (
+            <View style={styles.errorBox}>
+              <Ionicons name="alert-circle-outline" size={16} color={COLORS.error} />
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          )}
+
+          {/* Botón login */}
+          <TouchableOpacity
+            style={[styles.btnLogin, loading && styles.btnDisabled]}
+            onPress={handleLogin}
+            disabled={loading}
+            activeOpacity={0.85}
+          >
+            {loading
+              ? <ActivityIndicator color="#fff" size="small" />
+              : <Text style={styles.btnText}>Iniciar Sesión</Text>
+            }
+          </TouchableOpacity>
+
+          {/* Separador */}
+          <View style={styles.separator}>
+            <View style={styles.sepLine} />
+            <Text style={styles.sepText}>o</Text>
+            <View style={styles.sepLine} />
+          </View>
+
+          {/* Volver como ciudadano */}
+          <TouchableOpacity style={styles.btnPublic} onPress={goBack} activeOpacity={0.8}>
+            <Ionicons name="people-outline" size={18} color={COLORS.primary} />
+            <Text style={styles.btnPublicText}>Continuar como ciudadano</Text>
+          </TouchableOpacity>
+
+        </Animated.View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  outer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#e3e6f3',
+  container: { flex: 1, backgroundColor: COLORS.bg },
+
+  header: {
+    backgroundColor: COLORS.navyMid,
+    paddingTop: 50, paddingBottom: 36,
+    paddingHorizontal: 24,
+    borderBottomLeftRadius: 32, borderBottomRightRadius: 32,
+    overflow: 'hidden',
   },
-  card: {
-    width: '100%',
-    maxWidth: 380,
-    padding: 28,
-    borderRadius: 18,
-    alignItems: 'center',
-    backgroundColor: '#fff',
+  headerCircle1: {
+    position: 'absolute', width: 200, height: 200, borderRadius: 100,
+    backgroundColor: 'rgba(255,255,255,0.05)', top: -60, right: -50,
   },
-  logo: {
-    width: 80,
-    height: 80,
-    alignSelf: 'center',
-    marginBottom: 16,
+  headerCircle2: {
+    position: 'absolute', width: 120, height: 120, borderRadius: 60,
+    backgroundColor: 'rgba(255,255,255,0.05)', bottom: -30, left: 20,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 6,
-    color: '#1a237e',
-    letterSpacing: 1,
+  backBtn: {
+    width: 38, height: 38, borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 20,
   },
-  subtitle: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 22,
-    color: '#3949ab',
-    letterSpacing: 0.5,
+  headerContent: { alignItems: 'center' },
+  logoBox: {
+    width: 72, height: 72, borderRadius: 20,
+    backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center',
+    marginBottom: 14, ...SHADOW.md,
   },
-  input: {
-    marginBottom: 14,
-    width: 260,
-    backgroundColor: '#f5f7fa',
+  headerTitle: { fontSize: FONTS.xxl, fontWeight: '800', color: '#fff', marginBottom: 4 },
+  headerSub: { fontSize: FONTS.base, color: 'rgba(255,255,255,0.65)' },
+
+  form: { flex: 1 },
+  formContent: { padding: 24, paddingTop: 28 },
+  formTitle: { fontSize: FONTS.xl, fontWeight: '700', color: COLORS.text, marginBottom: 24 },
+
+  fieldGroup: { marginBottom: 18 },
+  label: { fontSize: FONTS.sm, fontWeight: '600', color: COLORS.textSecondary, marginBottom: 7 },
+  inputBox: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#fff', borderRadius: RADIUS.md,
+    borderWidth: 1, borderColor: COLORS.border,
+    paddingHorizontal: 14, height: 52, ...SHADOW.sm,
   },
-  button: {
-    marginTop: 8,
-    borderRadius: 8,
-    width: 180,
-    alignSelf: 'center',
-    backgroundColor: '#3949ab',
+  inputIcon: { marginRight: 10 },
+  input: { flex: 1, fontSize: FONTS.base, color: COLORS.text },
+  eyeBtn: { padding: 4 },
+
+  errorBox: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: COLORS.errorLight, borderRadius: RADIUS.md,
+    padding: 12, marginBottom: 16,
   },
-  footer: {
-    marginTop: 32,
-    textAlign: 'center',
-    color: '#9fa8da',
-    fontSize: 13,
+  errorText: { flex: 1, color: COLORS.error, fontSize: FONTS.sm, fontWeight: '500' },
+
+  btnLogin: {
+    backgroundColor: COLORS.primary, borderRadius: RADIUS.md,
+    height: 52, alignItems: 'center', justifyContent: 'center',
+    marginBottom: 20, ...SHADOW.md,
   },
+  btnDisabled: { opacity: 0.65 },
+  btnText: { color: '#fff', fontSize: FONTS.md, fontWeight: '700' },
+
+  separator: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, gap: 10 },
+  sepLine: { flex: 1, height: 1, backgroundColor: COLORS.border },
+  sepText: { fontSize: FONTS.sm, color: COLORS.textMuted },
+
+  btnPublic: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: '#fff', borderRadius: RADIUS.md,
+    height: 50, borderWidth: 1.5, borderColor: COLORS.primary,
+  },
+  btnPublicText: { fontSize: FONTS.base, fontWeight: '600', color: COLORS.primary },
 });

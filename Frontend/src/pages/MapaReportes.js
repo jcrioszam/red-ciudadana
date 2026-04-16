@@ -9,7 +9,6 @@ const MapaReportes = () => {
   const { data: reportes = [], isLoading, error } = useQuery(
     'reportes-ciudadanos-mapa',
     async () => {
-      console.log('🗺️ Cargando reportes para el mapa...');
       const response = await api.get('/reportes-publicos');
       return response.data;
     },

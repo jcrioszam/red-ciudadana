@@ -1,69 +1,69 @@
-// Polyfill para findLastIndex (ES2023)
+import { useEffect } from 'react';
+import { Stack, useRouter, useSegments } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { View, ActivityIndicator } from 'react-native';
+import { AuthProvider, useAuth } from '../src/contexts/AuthContext';
+import { PermissionsProvider } from '../src/contexts/PermissionsContext';
+import { COLORS } from '../src/theme';
+
+// Polyfill ES2023
 if (!Array.prototype.findLastIndex) {
-  Array.prototype.findLastIndex = function(callback, thisArg) {
+  (Array.prototype as any).findLastIndex = function (callback: any, thisArg?: any) {
     for (let i = this.length - 1; i >= 0; i--) {
-      if (callback.call(thisArg, this[i], i, this)) {
-        return i;
-      }
+      if (callback.call(thisArg, this[i], i, this)) return i;
     }
     return -1;
   };
 }
 
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { useFonts } from 'expo-font';
-import { Stack, useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
-import { useColorScheme } from '@/hooks/useColorScheme';
-import { AuthProvider, useAuth } from '../src/contexts/AuthContext';
-import { PermissionsProvider } from '../src/contexts/PermissionsContext';
-import React from 'react';
-
-function ProtectedLayout({ children }: { children: React.ReactNode }) {
-  const { token, loading } = useAuth();
+function RootNavigator() {
+  const { token, loading, publicMode, publicModeLoaded } = useAuth() as any;
   const router = useRouter();
-  
-  if (loading) {
-    return null;
-  }
-  
-  if (!token) {
-    // Si no hay token, mostrar solo la pantalla de login
+  const segments = useSegments();
+
+  useEffect(() => {
+    if (loading || !publicModeLoaded) return;
+
+    const inPublic = segments[0] === '(public)';
+    const inPrivate = segments[0] === '(tabs)';
+    const inWelcome = segments[0] === undefined || segments[0] === 'welcome';
+    const inLogin = segments[0] === 'login';
+
+    if (token) {
+      if (!inPrivate) router.replace('/(tabs)/' as any);
+    } else if (publicMode) {
+      if (!inPublic) router.replace('/(public)/' as any);
+    } else {
+      if (!inWelcome && !inLogin) router.replace('/welcome');
+    }
+  }, [token, loading, publicMode, publicModeLoaded, segments]);
+
+  if (loading || !publicModeLoaded) {
     return (
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="login" />
-      </Stack>
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.navy }}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+      </View>
     );
-  }
-  
-  // Si hay token, mostrar las tabs normales
-  return children;
-}
-
-export default function RootLayout() {
-  const colorScheme = useColorScheme();
-  const [loaded] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-  });
-
-  if (!loaded) {
-    return null;
   }
 
   return (
+    <>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="welcome" />
+        <Stack.Screen name="login" />
+        <Stack.Screen name="(public)" />
+        <Stack.Screen name="(tabs)" />
+      </Stack>
+      <StatusBar style="light" />
+    </>
+  );
+}
+
+export default function RootLayout() {
+  return (
     <AuthProvider>
       <PermissionsProvider>
-        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-          <ProtectedLayout>
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="(tabs)" />
-              <Stack.Screen name="login" />
-              <Stack.Screen name="+not-found" />
-            </Stack>
-            <StatusBar style="auto" />
-          </ProtectedLayout>
-        </ThemeProvider>
+        <RootNavigator />
       </PermissionsProvider>
     </AuthProvider>
   );

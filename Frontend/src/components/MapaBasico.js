@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 
 const MapaBasico = ({ onLocationSelect, selectedLocation }) => {
-  console.log('🗺️ MapaBasico renderizando con props:', { onLocationSelect: !!onLocationSelect, selectedLocation });
-  
   const [coordenadas, setCoordenadas] = useState({
     lat: 27.0706,
     lng: -109.4437
@@ -18,25 +16,21 @@ const MapaBasico = ({ onLocationSelect, selectedLocation }) => {
   };
 
   const getCurrentLocation = () => {
-    console.log('📍 Obteniendo ubicación actual...');
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { latitude, longitude } = position.coords;
-          console.log('📍 Ubicación obtenida:', { latitude, longitude });
           setCoordenadas({ lat: latitude, lng: longitude });
           
           if (onLocationSelect) {
             onLocationSelect(latitude, longitude);
           }
         },
-        (error) => {
-          console.error('❌ Error al obtener ubicación:', error);
+        () => {
           alert('No se pudo obtener tu ubicación. Por favor, ingresa las coordenadas manualmente.');
         }
       );
     } else {
-      console.error('❌ Geolocalización no soportada');
       alert('Tu navegador no soporta geolocalización. Por favor, ingresa las coordenadas manualmente.');
     }
   };

@@ -1,1318 +1,404 @@
-import React, { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
-import MapaInteractivo from '../components/MapaInteractivo';
-import api from '../api'; // ✅ IMPORTAR INSTANCIA API CON EXPORT DEFAULT
+import { useState, useRef, useCallback } from 'react';
+import { useQuery, useQueryClient } from 'react-query';
+import { FiRefreshCw, FiPlus, FiClock, FiCheckCircle, FiActivity, FiAlertTriangle, FiMapPin } from 'react-icons/fi';
+import api from '../api';
 
-// 🎯 FLUJO DE LÍNEA DE TIEMPO PARA REPORTES CIUDADANOS
+const TIPOS_INFO = {
+  tala_arboles_ecologia:     { emoji: '🌳', color: '#16a34a', label: 'Tala/Ecología' },
+  basura_alumbrado:          { emoji: '🗑️', color: '#8b5cf6', label: 'Basura/Alumbrado' },
+  transporte_urbano_rutas:   { emoji: '🚌', color: '#0ea5e9', label: 'Transporte' },
+  agua_potable_drenaje:      { emoji: '💧', color: '#10b981', label: 'Agua/Drenaje' },
+  policia_accidentes_delitos:{ emoji: '🚔', color: '#ef4444', label: 'Seguridad' },
+  otro_queja_sugerencia:     { emoji: '❓', color: '#6b7280', label: 'Otro/Queja' },
+  baches_banqueta_invadida:  { emoji: '🔧', color: '#f59e0b', label: 'Baches/Banqueta' },
+  transito_vialidad:         { emoji: '🚦', color: '#ea580c', label: 'Tránsito' },
+  obras_publicas_navojoa:    { emoji: '🏠', color: '#dc2626', label: 'Obras Públicas' },
+};
+
+const ESTADOS_INFO = {
+  pendiente:   { lbl: 'Pendiente',   color: '#f59e0b', bg: '#fffbeb' },
+  en_revision: { lbl: 'En Revisión', color: '#3b82f6', bg: '#eff6ff' },
+  en_progreso: { lbl: 'En Progreso', color: '#8b5cf6', bg: '#f5f3ff' },
+  resuelto:    { lbl: 'Resuelto',    color: '#10b981', bg: '#ecfdf5' },
+  rechazado:   { lbl: 'Rechazado',   color: '#ef4444', bg: '#fef2f2' },
+};
+
+const TIPOS_FORM = [
+  { valor: 'baches_banqueta_invadida',  emoji: '🔧', label: 'Baches/Banqueta' },
+  { valor: 'basura_alumbrado',          emoji: '🗑️', label: 'Basura/Alumbrado' },
+  { valor: 'agua_potable_drenaje',      emoji: '💧', label: 'Agua/Drenaje' },
+  { valor: 'policia_accidentes_delitos',emoji: '🚔', label: 'Seguridad' },
+  { valor: 'tala_arboles_ecologia',     emoji: '🌳', label: 'Ecología' },
+  { valor: 'otro_queja_sugerencia',     emoji: '❓', label: 'Otro/Queja' },
+];
+
+function tipoInfo(tipo) { return TIPOS_INFO[tipo] || { emoji: '⚠️', color: '#6b7280', label: tipo || 'Otro' }; }
+function estadoInfo(estado) { return ESTADOS_INFO[estado] || { lbl: estado || 'Desconocido', color: '#6b7280', bg: '#f3f4f6' }; }
+function timeAgo(dateStr) {
+  if (!dateStr) return '';
+  const diff = (Date.now() - new Date(dateStr)) / 1000;
+  if (diff < 60) return 'hace un momento';
+  if (diff < 3600) return `hace ${Math.floor(diff / 60)} min`;
+  if (diff < 86400) return `hace ${Math.floor(diff / 3600)} h`;
+  return new Date(dateStr).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
 const ReportesCiudadanos = () => {
-  // 📋 Estado del flujo step-by-step
-  const [currentStep, setCurrentStep] = useState(1);
-  const [formData, setFormData] = useState({
-    tipo: '',
-    // 🔧 CAMPOS REQUERIDOS POR EL BACKEND
-    titulo: '',
-    descripcion: '',
-    latitud: 0, // Valor por defecto
-    longitud: 0, // Valor por defecto
-    // Campos opcionales
-    direccion: '',
-    prioridad: 'normal',
-    // 🆕 NUEVO: Campo para foto
-    foto: null
-  });
-
-  // 🗺️ Estado para ubicación seleccionada en mapa
-  const [selectedLocation, setSelectedLocation] = useState(null);
-  
-  // 🆕 NUEVO: Estado para modal de detalles del reporte
-  const [selectedReporte, setSelectedReporte] = useState(null);
-  const [showModal, setShowModal] = useState(false);
-  
-  // 🆕 NUEVO: Estado para confirmación de ubicación GPS
-  const [gpsLocation, setGpsLocation] = useState(null);
-  
-  const [mensaje, setMensaje] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
   const queryClient = useQueryClient();
+  const [drawerNuevo, setDrawerNuevo] = useState(false);
+  const [form, setForm] = useState({ tipo: '', descripcion: '', latitud: '', longitud: '', colonia: '', foto: null });
+  const [fotoPreview, setFotoPreview] = useState(null);
+  const [enviando, setEnviando] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [filtroEstado, setFiltroEstado] = useState('');
+  const [gpsPos, setGpsPos] = useState(null);
+  const toastRef = useRef(null);
+  const fotoRef = useRef(null);
 
-  // ✅ FUNCIÓN CONVERTIDA A API INSTANCE - HEREDA HTTPS + CORS
-  const fetchReportes = async () => {
-    console.log('🚀 FETCHING reportes usando API instance con interceptores');
-    
-    try {
-      const response = await api.get('/reportes-ciudadanos/');
-      console.log('✅ REPORTES CARGADOS:', response.data);
-      return response.data;
-    } catch (error) {
-      console.error('❌ ERROR AL CARGAR REPORTES:', error);
-      throw error;
-    }
-  };
+  const showToast = useCallback((msg, type = '') => {
+    setToast({ msg, type });
+    clearTimeout(toastRef.current);
+    toastRef.current = setTimeout(() => setToast(null), 3200);
+  }, []);
 
-  // ✅ FUNCIÓN CONVERTIDA A API INSTANCE - HEREDA HTTPS + CORS
-  const createReporte = async (data) => {
-    console.log('🚀 CREANDO reporte usando API instance con interceptores');
-    
-    try {
-      // 🔧 ENVIAR DATOS COMPLETOS - SIN SIMPLIFICACIÓN
-      console.log('📋 DATOS COMPLETOS para backend:', data);
-      
-      const response = await api.post('/reportes-ciudadanos/', data);
-      console.log('✅ REPORTE CREADO:', response.data);
-      return response.data;
-    } catch (error) {
-      console.error('❌ ERROR AL CREAR REPORTE:', error);
-      throw error;
-    }
-  };
-
-  // React Query para obtener reportes
-  const { data: reportes = [], error, isLoading } = useQuery(
+  const { data: reportes = [], isLoading, error, refetch } = useQuery(
     'reportes-ciudadanos',
-    fetchReportes,
-    {
-      retry: 3,
-      refetchOnWindowFocus: false,
-    }
+    async () => { const r = await api.get('/reportes-ciudadanos/'); return r.data; },
+    { staleTime: 0 }
   );
 
-  // Mutation para crear reporte
-  const createMutation = useMutation(createReporte, {
-    retry: 3, // 🔧 FIX: Intentar 3 veces antes de fallar
-    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 5000), // 🔧 FIX: Delay exponencial
-    onSuccess: (data) => {
-      console.log('✅ REPORTE CREADO EXITOSAMENTE:', data);
-      setLoading(false);
-      setMensaje('✅ Reporte enviado exitosamente');
-      setShowSuccess(true);
-      setCurrentStep(5); // Paso de agradecimiento
-      
-      // Invalidar cache para refrescar la lista
-      queryClient.invalidateQueries('reportes-ciudadanos');
-      
-      // Reset after 3 seconds
-      setTimeout(() => {
-        setShowSuccess(false);
-        setCurrentStep(1);
-        setMensaje('');
-        setFormData({
-          tipo: '',
-          // 🔧 CAMPOS REQUERIDOS POR EL BACKEND
-          titulo: '',
-          descripcion: '',
-          latitud: 0, // Valor por defecto
-          longitud: 0, // Valor por defecto
-          // Campos opcionales
-          direccion: '',
-          prioridad: 'normal',
-          // 🆕 NUEVO: Campo para foto
-          foto: null
-        });
-      }, 3000);
-    },
-    onError: (error, variables, context) => {
-      // 🔧 FIX: Solo mostrar error después de todos los intentos fallidos
-      console.error('❌ ERROR AL CREAR REPORTE (después de todos los intentos):', error);
-      setLoading(false);
-      setMensaje(`❌ Error: ${error.message}`);
-    },
-  });
-
-    // 🏷️ Función para generar título automático basado en el tipo
-  const generarTitulo = (tipo) => {
-    const titulos = {
-      'dano_via_publica': 'Reporte de Daño en Vía Pública',
-      'servicios_publicos': 'Reporte de Servicios Públicos',
-      'seguridad': 'Reporte de Seguridad',
-      'limpieza': 'Reporte de Limpieza',
-      'otro': 'Reporte Ciudadano'
-    };
-    return titulos[tipo] || `Reporte de ${tipo}`;
+  const stats = {
+    total:      reportes.length,
+    pendiente:  reportes.filter(r => r.estado === 'pendiente').length,
+    enProgreso: reportes.filter(r => ['en_revision', 'en_progreso'].includes(r.estado)).length,
+    resuelto:   reportes.filter(r => r.estado === 'resuelto').length,
   };
 
-  // 🆕 NUEVA FUNCIÓN: Convertir archivo a base64
-  const convertFileToBase64 = (file) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = error => reject(error);
-    });
+  const reportesFiltrados = filtroEstado
+    ? reportes.filter(r => r.estado === filtroEstado)
+    : reportes;
+
+  const abrirNuevo = () => {
+    setForm({ tipo: '', descripcion: '', latitud: gpsPos?.lat?.toFixed(6) || '', longitud: gpsPos?.lng?.toFixed(6) || '', colonia: '', foto: null });
+    setFotoPreview(null);
+    setDrawerNuevo(true);
   };
 
-  // 🌍 Funciones de geolocalización
-  const getCurrentLocation = () => {
-    setMensaje('🔄 Obteniendo ubicación GPS...');
-    setLoading(true);
-    
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const lat = position.coords.latitude;
-          const lng = position.coords.longitude;
-          
-          // 🆕 NUEVO: Guardar ubicación GPS y ir a confirmación
-          setGpsLocation({ lat, lng });
-          setSelectedLocation({ lat, lng });
-          setLoading(false);
-          setMensaje('');
-          setCurrentStep(2.6); // Ir al paso de confirmación GPS
-        },
-        (error) => {
-          console.error('❌ Error de geolocalización:', error);
-          setLoading(false);
-          
-          let errorMessage = '';
-          switch(error.code) {
-            case error.PERMISSION_DENIED:
-              errorMessage = '🚫 Acceso a ubicación denegado. Usa el mapa para seleccionar manualmente.';
-              break;
-            case error.POSITION_UNAVAILABLE:
-              errorMessage = '📍 Ubicación no disponible. Usa el mapa para seleccionar manualmente.';
-              break;
-            case error.TIMEOUT:
-              errorMessage = '⏰ Tiempo agotado. Usa el mapa para seleccionar manualmente.';
-              break;
-            default:
-              errorMessage = '❌ Error de ubicación. Usa el mapa para seleccionar manualmente.';
-              break;
-          }
-          
-          setMensaje(errorMessage);
-          
-          // Auto-redirect a mapa después de 3 segundos
-          setTimeout(() => {
-            setMensaje('');
-            setCurrentStep(2.5);
-          }, 3000);
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 300000
-        }
-      );
-    } else {
-      setLoading(false);
-      setMensaje('❌ Geolocalización no soportada en este navegador. Usa el mapa para seleccionar manualmente.');
-      setTimeout(() => {
-        setMensaje('');
-        setCurrentStep(2.5);
-      }, 2000);
-    }
+  const seleccionarFoto = (file) => {
+    if (!file) return;
+    setForm(f => ({ ...f, foto: file }));
+    const rd = new FileReader();
+    rd.onload = e => setFotoPreview(e.target.result);
+    rd.readAsDataURL(file);
   };
 
-  // 🆕 NUEVA FUNCIÓN: Confirmar ubicación GPS
-  const confirmGpsLocation = () => {
-    if (gpsLocation) {
-      setFormData(prev => ({
-        ...prev,
-        latitud: gpsLocation.lat,
-        longitud: gpsLocation.lng,
-      }));
-      setCurrentStep(3); // Ir a paso de foto
-    }
+  const pedirGps = () => {
+    navigator.geolocation?.getCurrentPosition(
+      ({ coords }) => {
+        const pos = { lat: coords.latitude, lng: coords.longitude };
+        setGpsPos(pos);
+        setForm(f => ({ ...f, latitud: coords.latitude.toFixed(6), longitud: coords.longitude.toFixed(6) }));
+        showToast('📍 Ubicación GPS aplicada', 'ok');
+      },
+      () => showToast('GPS no disponible', 'err'),
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
   };
 
-  // 🆕 NUEVA FUNCIÓN: Ajustar ubicación GPS
-  const adjustGpsLocation = () => {
-    setCurrentStep(2.5); // Volver al paso de selección de ubicación
-  };
-
-  // 🗺️ Función para manejar selección de ubicación en mapa
-  const handleLocationSelect = (lat, lng) => {
-    setFormData(prev => ({
-      ...prev,
-      latitud: lat,
-      longitud: lng,
-    }));
-    
-    setSelectedLocation({ lat, lng });
-    setMensaje('✅ Ubicación seleccionada en mapa');
-    
-    // Avanzar al siguiente paso después de 2 segundos
-    setTimeout(() => {
-      setMensaje('');
-      setCurrentStep(3);
-    }, 2000);
-  };
-
-  const handleSubmit = async (e) => {
+  const enviar = async (e) => {
     e.preventDefault();
-    console.log('🚀 SUBMIT INICIADO - Datos del formulario:', formData);
-
-    // Validar que tengamos los datos mínimos
-    if (!formData.tipo || !formData.descripcion.trim()) {
-      setMensaje('❌ Por favor complete tipo de reporte y descripción');
-      return;
-    }
-
-    // 🔧 PREPARAR DATOS COMPLETOS PARA EL BACKEND - TODOS LOS CAMPOS REQUERIDOS
-    const reporteData = {
-      titulo: generarTitulo(formData.tipo), // ✅ REQUERIDO por backend
-      descripcion: formData.descripcion.trim(), // ✅ REQUERIDO por backend
-      tipo: formData.tipo, // ✅ REQUERIDO por backend
-      latitud: formData.latitud, // ✅ REQUERIDO por backend (0 por defecto)
-      longitud: formData.longitud, // ✅ REQUERIDO por backend (0 por defecto)
-      direccion: formData.direccion || null, // ❌ OPCIONAL
-      prioridad: formData.prioridad, // ❌ OPCIONAL
-      // 🆕 NUEVO: Incluir foto si existe
-      foto_url: formData.foto ? await convertFileToBase64(formData.foto) : null
-    };
-
-    console.log('📋 DATOS COMPLETOS PARA BACKEND:', reporteData);
-
-    setLoading(true);
-    setMensaje('🔄 Enviando reporte...');
-
-    console.log('🔥 EJECUTANDO MUTACIÓN:', reporteData);
-    createMutation.mutate(reporteData);
-    // NO llamamos setLoading(false) aquí - lo maneja la mutación
-  };
-
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
-  };
-
-  // 🆕 NUEVA FUNCIÓN: Mostrar modal con detalles del reporte
-  const handleShowReporteDetails = (reporte) => {
-    setSelectedReporte(reporte);
-    setShowModal(true);
-  };
-
-  // 🆕 NUEVA FUNCIÓN: Cerrar modal
-  const handleCloseModal = () => {
-    setShowModal(false);
-    setSelectedReporte(null);
-  };
-
-  // 🎯 FLUJO CON MAPA Y FOTO - 6 PASOS TOTAL
-  const renderStepContent = () => {
-    switch (currentStep) {
-      case 1: return renderTipoReporte();
-      case 2: return renderDescripcion();
-      case 2.5: return renderUbicacion(); // 🆕 NUEVO: Paso de ubicación (mapa/GPS)
-      case 2.6: return renderLocationConfirmation(); // 🆕 NUEVO: Paso de confirmación GPS
-      case 3: return renderFoto(); // 🆕 NUEVO: Paso de foto
-      case 4: return renderResumen();
-      case 5: return renderAgradecimiento();
-      default: return renderTipoReporte();
+    if (!form.tipo) { showToast('Selecciona una categoría', 'err'); return; }
+    if (!form.descripcion.trim()) { showToast('Describe el problema', 'err'); return; }
+    setEnviando(true);
+    try {
+      let foto_url = null;
+      if (form.foto) {
+        foto_url = await new Promise((res, rej) => {
+          const rd = new FileReader();
+          rd.onload = ev => res(ev.target.result);
+          rd.onerror = rej;
+          rd.readAsDataURL(form.foto);
+        });
+      }
+      const titulo = TIPOS_FORM.find(t => t.valor === form.tipo)?.label || form.tipo;
+      await api.post('/reportes-ciudadanos/', {
+        titulo,
+        descripcion: form.descripcion,
+        tipo: form.tipo,
+        latitud: parseFloat(form.latitud) || 0,
+        longitud: parseFloat(form.longitud) || 0,
+        direccion: form.colonia || null,
+        foto_url,
+        prioridad: 'normal',
+      });
+      showToast('✅ Reporte enviado', 'ok');
+      setDrawerNuevo(false);
+      queryClient.invalidateQueries('reportes-ciudadanos');
+      refetch();
+    } catch (err) {
+      showToast('❌ ' + (err.response?.data?.detail || err.message), 'err');
+    } finally {
+      setEnviando(false);
     }
   };
-
-  // 📝 PASO 1: Selección de tipo de reporte
-  const renderTipoReporte = () => (
-    <div style={{ textAlign: 'center', padding: '20px' }}>
-      <h2 style={{ color: '#374151', marginBottom: '10px' }}>
-        📝 ¿Qué tipo de reporte desea realizar?
-      </h2>
-      <p style={{ color: '#6b7280', marginBottom: '30px' }}>
-        Seleccione la categoría que mejor describa su reporte
-      </p>
-      
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
-        gap: '15px',
-        maxWidth: '800px',
-        margin: '0 auto'
-      }}>
-        {[
-          { value: 'dano_via_publica', icon: '🚧', title: 'Daño Vía Pública', desc: 'Baches, señales dañadas, etc.' },
-          { value: 'servicios_publicos', icon: '🚰', title: 'Servicios Públicos', desc: 'Agua, luz, drenaje' },
-          { value: 'seguridad', icon: '🚨', title: 'Seguridad', desc: 'Situaciones de riesgo' },
-          { value: 'limpieza', icon: '🧹', title: 'Limpieza', desc: 'Basura, espacios sucios' },
-          { value: 'otro', icon: '📋', title: 'Otro', desc: 'Otros problemas ciudadanos' }
-        ].map((tipo) => (
-          <button
-            key={tipo.value}
-            onClick={() => {
-              setFormData(prev => ({ ...prev, tipo: tipo.value }));
-              setCurrentStep(2);
-            }}
-                        style={{
-              backgroundColor: 'white',
-              border: '2px solid #e2e8f0',
-              borderRadius: '12px',
-              padding: '20px',
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-              textAlign: 'center'
-            }}
-            onMouseOver={(e) => {
-              e.target.style.borderColor = '#2563eb';
-              e.target.style.transform = 'translateY(-2px)';
-              e.target.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
-            }}
-            onMouseOut={(e) => {
-              e.target.style.borderColor = '#e2e8f0';
-              e.target.style.transform = 'translateY(0)';
-              e.target.style.boxShadow = 'none';
-            }}
-          >
-            <div style={{ fontSize: '2.5rem', marginBottom: '10px' }}>{tipo.icon}</div>
-            <div style={{ fontWeight: 'bold', color: '#374151', marginBottom: '5px' }}>
-              {tipo.title}
-            </div>
-            <div style={{ fontSize: '14px', color: '#6b7280' }}>
-              {tipo.desc}
-            </div>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-
-  // 📝 PASO 2: Descripción del reporte
-  const renderDescripcion = () => (
-    <div style={{ textAlign: 'center', padding: '20px' }}>
-      <h2 style={{ color: '#374151', marginBottom: '10px' }}>
-        📝 Describe el problema
-      </h2>
-      <p style={{ color: '#6b7280', marginBottom: '20px' }}>
-        Proporciona detalles sobre la situación que estás reportando
-      </p>
-
-      <div style={{ maxWidth: '600px', margin: '0 auto' }}>
-        <textarea
-          name="descripcion"
-          value={formData.descripcion}
-          onChange={handleChange}
-          placeholder="Describe el problema en detalle..."
-                        style={{
-            width: '100%',
-            minHeight: '120px',
-            padding: '15px',
-            border: '2px solid #e2e8f0',
-            borderRadius: '8px',
-            fontSize: '16px',
-            resize: 'vertical'
-          }}
-        />
-      </div>
-
-      <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '20px' }}>
-        <button
-          onClick={() => setCurrentStep(1)}
-          style={{
-            backgroundColor: 'transparent',
-            color: '#6b7280',
-            border: '1px solid #d1d5db',
-            borderRadius: '8px',
-            padding: '12px 20px',
-            fontSize: '14px',
-            cursor: 'pointer'
-          }}
-        >
-          ← Volver
-        </button>
-
-        <button
-          onClick={() => setCurrentStep(2.5)}
-          disabled={!formData.descripcion.trim()}
-          style={{
-            backgroundColor: formData.descripcion.trim() ? '#8b5cf6' : '#9ca3af',
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            padding: '12px 24px',
-            fontSize: '16px',
-            cursor: formData.descripcion.trim() ? 'pointer' : 'not-allowed',
-            opacity: formData.descripcion.trim() ? 1 : 0.6
-          }}
-        >
-          Continuar →
-        </button>
-      </div>
-    </div>
-  );
-
-  // 🆕 NUEVO PASO: Confirmación de ubicación GPS
-  const renderLocationConfirmation = () => (
-    <div style={{ textAlign: 'center', padding: '20px' }}>
-      <h2 style={{ color: '#374151', marginBottom: '10px' }}>
-        📍 Confirma tu ubicación detectada
-      </h2>
-      <p style={{ color: '#6b7280', marginBottom: '20px' }}>
-        Hemos detectado tu ubicación actual. ¿Es correcta o quieres ajustarla?
-      </p>
-
-      {/* 🗺️ Mapa con ubicación GPS */}
-      <div style={{ marginTop: '20px' }}>
-        <MapaInteractivo
-          onLocationSelect={handleLocationSelect}
-          selectedLocation={gpsLocation}
-          modo="seleccion"
-          center={gpsLocation ? [gpsLocation.lat, gpsLocation.lng] : [27.0706, -109.4437]}
-          zoom={16}
-        />
-      </div>
-
-      {/* 📍 Información de ubicación GPS */}
-      {gpsLocation && (
-        <div style={{
-          marginTop: '20px',
-          padding: '15px',
-          backgroundColor: '#fef3c7',
-          border: '2px solid #f59e0b',
-          borderRadius: '8px',
-          maxWidth: '400px',
-          margin: '20px auto 0'
-        }}>
-          <h3 style={{ color: '#f59e0b', marginBottom: '10px' }}>
-            📍 Ubicación GPS detectada
-          </h3>
-          <p style={{ margin: '5px 0', fontSize: '14px' }}>
-            <strong>Latitud:</strong> {gpsLocation.lat.toFixed(6)}
-          </p>
-          <p style={{ margin: '5px 0', fontSize: '14px' }}>
-            <strong>Longitud:</strong> {gpsLocation.lng.toFixed(6)}
-          </p>
-        </div>
-      )}
-
-      {/* 🔘 Botones de acción */}
-      <div style={{ 
-        display: 'flex', 
-        gap: '15px', 
-        justifyContent: 'center', 
-        marginTop: '20px',
-        flexWrap: 'wrap'
-      }}>
-        <button
-          onClick={confirmGpsLocation}
-          style={{
-            backgroundColor: '#10b981',
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            padding: '12px 24px',
-            fontSize: '16px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}
-        >
-          ✅ Sí, es correcta - Continuar
-        </button>
-
-        <button
-          onClick={adjustGpsLocation}
-          style={{
-            backgroundColor: '#6b7280',
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            padding: '12px 24px',
-            fontSize: '16px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}
-        >
-          🔧 Ajustar ubicación
-        </button>
-      </div>
-    </div>
-  );
-
-  // 🗺️ PASO 2.5: Selección de ubicación (GPS o mapa)
-  const renderUbicacion = () => (
-    <div style={{ textAlign: 'center', padding: '20px' }}>
-      <h2 style={{ color: '#374151', marginBottom: '10px' }}>
-        🗺️ Selecciona la ubicación del reporte
-      </h2>
-      <p style={{ color: '#6b7280', marginBottom: '20px' }}>
-        Usa GPS automático o selecciona manualmente en el mapa
-      </p>
-
-      {/* 🗺️ Opciones de ubicación */}
-      <div style={{ 
-        display: 'flex', 
-        gap: '15px', 
-        justifyContent: 'center', 
-        marginBottom: '20px',
-        flexWrap: 'wrap'
-      }}>
-        <button
-          onClick={getCurrentLocation}
-          disabled={loading}
-          style={{
-            backgroundColor: loading ? '#9ca3af' : '#10b981',
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            padding: '12px 24px',
-            fontSize: '16px',
-            cursor: loading ? 'not-allowed' : 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}
-        >
-          {loading ? '🔄' : '📍'} {loading ? 'Obteniendo GPS...' : 'Usar mi ubicación (GPS)'}
-        </button>
-
-        <button
-          onClick={() => {
-            // El mapa ya está visible en este paso, no necesitamos cambiar de paso
-            console.log('🗺️ Mapa ya visible en el paso actual');
-          }}
-          style={{
-            backgroundColor: '#6b7280',
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            padding: '12px 24px',
-            fontSize: '16px',
-            cursor: 'pointer'
-          }}
-        >
-          🗺️ Seleccionar en mapa
-        </button>
-      </div>
-
-      {/* 🗺️ Mapa interactivo */}
-      <div style={{ marginTop: '20px' }}>
-        <MapaInteractivo
-          onLocationSelect={handleLocationSelect}
-          selectedLocation={selectedLocation}
-          modo="seleccion"
-          center={[27.0706, -109.4437]} // Navojoa, Sonora
-          zoom={12}
-        />
-      </div>
-
-      {/* 📍 Información de ubicación seleccionada */}
-      {selectedLocation && (
-        <div style={{
-          marginTop: '20px',
-          padding: '15px',
-          backgroundColor: '#f0fdf4',
-          border: '2px solid #10b981',
-          borderRadius: '8px',
-          maxWidth: '400px',
-          margin: '20px auto 0'
-        }}>
-          <h3 style={{ color: '#10b981', marginBottom: '10px' }}>
-            ✅ Ubicación seleccionada
-          </h3>
-          <p style={{ margin: '5px 0', fontSize: '14px' }}>
-            <strong>Latitud:</strong> {selectedLocation.lat.toFixed(6)}
-          </p>
-          <p style={{ margin: '5px 0', fontSize: '14px' }}>
-            <strong>Longitud:</strong> {selectedLocation.lng.toFixed(6)}
-          </p>
-        </div>
-      )}
-
-      {/* 🔘 Botones de navegación */}
-      <div style={{ 
-        display: 'flex', 
-        gap: '15px', 
-        justifyContent: 'center', 
-        marginTop: '20px',
-        flexWrap: 'wrap'
-      }}>
-        <button
-          onClick={() => setCurrentStep(2)}
-          style={{
-            backgroundColor: '#6b7280',
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            padding: '10px 20px',
-            fontSize: '14px',
-            cursor: 'pointer'
-          }}
-        >
-          🔙 Regresar
-        </button>
-
-        {selectedLocation && (
-          <button
-            onClick={() => setCurrentStep(3)}
-            style={{
-              backgroundColor: '#8b5cf6',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              padding: '10px 20px',
-              fontSize: '14px',
-              cursor: 'pointer'
-            }}
-          >
-            Continuar →
-          </button>
-        )}
-      </div>
-    </div>
-  );
-
-  // 📝 PASO 3: Foto del reporte (opcional)
-  const renderFoto = () => (
-    <div style={{ textAlign: 'center', padding: '20px' }}>
-      <h2 style={{ color: '#374151', marginBottom: '10px' }}>
-        📸 Foto del problema (opcional)
-      </h2>
-      <p style={{ color: '#6b7280', marginBottom: '20px' }}>
-        Si tienes una foto que ilustre mejor la situación, puedes subirla aquí.
-      </p>
-
-      <div style={{ maxWidth: '600px', margin: '0 auto' }}>
-        <input
-          type="file"
-          accept="image/*"
-          onChange={(e) => setFormData(prev => ({ ...prev, foto: e.target.files[0] }))}
-          style={{
-            width: '100%',
-            padding: '10px',
-            border: '2px solid #e2e8f0',
-            borderRadius: '8px',
-            fontSize: '16px',
-            cursor: 'pointer'
-          }}
-        />
-        {formData.foto && (
-          <div style={{ marginTop: '20px', textAlign: 'center' }}>
-            <img
-              src={URL.createObjectURL(formData.foto)}
-              alt="Reporte"
-              style={{ maxWidth: '100%', borderRadius: '8px', marginBottom: '10px' }}
-            />
-            <button
-              onClick={() => setFormData(prev => ({ ...prev, foto: null }))}
-              style={{
-                backgroundColor: '#ef4444',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '10px 20px',
-                fontSize: '14px',
-                cursor: 'pointer'
-              }}
-            >
-              Eliminar Foto
-            </button>
-          </div>
-        )}
-      </div>
-
-      <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '20px' }}>
-        <button
-          onClick={() => setCurrentStep(2)}
-          style={{
-            backgroundColor: 'transparent',
-            color: '#6b7280',
-            border: '1px solid #d1d5db',
-            borderRadius: '8px',
-            padding: '12px 20px',
-            fontSize: '14px',
-            cursor: 'pointer'
-          }}
-        >
-          ← Volver
-        </button>
-
-        <button
-          onClick={() => setCurrentStep(4)}
-          style={{
-            backgroundColor: '#8b5cf6',
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            padding: '12px 24px',
-            fontSize: '16px',
-                    cursor: 'pointer',
-            opacity: 1
-          }}
-        >
-          Continuar →
-        </button>
-      </div>
-    </div>
-  );
-
-  // 📋 PASO 4: Resumen del reporte
-  const renderResumen = () => (
-    <div style={{ textAlign: 'center', padding: '20px' }}>
-      <h2 style={{ color: '#374151', marginBottom: '10px' }}>
-        📋 Resumen de su reporte
-      </h2>
-      <p style={{ color: '#6b7280', marginBottom: '30px' }}>
-        Revise los datos antes de enviar
-      </p>
-
-      <div style={{
-        backgroundColor: 'white',
-        border: '2px solid #e2e8f0',
-        borderRadius: '12px',
-        padding: '30px',
-        maxWidth: '600px',
-        margin: '0 auto',
-        textAlign: 'left'
-      }}>
-        <div style={{ marginBottom: '15px' }}>
-          <strong style={{ color: '#374151' }}>Tipo:</strong>
-          <div style={{ color: '#6b7280', marginTop: '5px' }}>
-            {formData.tipo === 'dano_via_publica' && '🚧 Daño Vía Pública'}
-            {formData.tipo === 'servicios_publicos' && '🚰 Servicios Públicos'}
-            {formData.tipo === 'seguridad' && '🚨 Seguridad'}
-            {formData.tipo === 'limpieza' && '🧹 Limpieza'}
-            {formData.tipo === 'otro' && '📋 Otro'}
-          </div>
-        </div>
-
-        <div style={{ marginBottom: '15px' }}>
-          <strong style={{ color: '#374151' }}>Descripción:</strong>
-          <div style={{ color: '#6b7280', marginTop: '5px' }}>
-            {formData.descripcion}
-          </div>
-        </div>
-
-        {/* 🆕 NUEVO: Mostrar estado de la foto */}
-        <div style={{ marginBottom: '15px' }}>
-          <strong style={{ color: '#374151' }}>Foto:</strong>
-          <div style={{ color: '#6b7280', marginTop: '5px' }}>
-            {formData.foto ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ color: '#10b981' }}>✅ Foto adjunta</span>
-                <span style={{ fontSize: '12px', color: '#9ca3af' }}>
-                  ({formData.foto.name} - {(formData.foto.size / 1024).toFixed(1)} KB)
-                </span>
-              </div>
-            ) : (
-              <span style={{ color: '#6b7280' }}>📷 Sin foto</span>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '30px' }}>
-        <button
-          onClick={() => setCurrentStep(3)}
-          style={{
-            backgroundColor: 'transparent',
-            color: '#6b7280',
-            border: '1px solid #d1d5db',
-            borderRadius: '8px',
-            padding: '12px 20px',
-            fontSize: '14px',
-            cursor: 'pointer'
-          }}
-        >
-          ← Volver
-        </button>
-
-        <button
-          onClick={handleSubmit}
-          disabled={loading}
-          style={{
-            backgroundColor: loading ? '#9ca3af' : '#10b981',
-          color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            padding: '12px 24px',
-            fontSize: '16px',
-            cursor: loading ? 'not-allowed' : 'pointer',
-            opacity: loading ? 0.6 : 1
-          }}
-        >
-          {loading ? '🔄 Enviando...' : '📤 Enviar Reporte'}
-        </button>
-      </div>
-    </div>
-  );
-
-  // 🎉 PASO 5: Mensaje de agradecimiento
-  const renderAgradecimiento = () => (
-    <div style={{ textAlign: 'center', padding: '40px' }}>
-      <div style={{ fontSize: '4rem', marginBottom: '20px' }}>🎉</div>
-      <h2 style={{ color: '#10b981', marginBottom: '15px' }}>
-        ¡Gracias por su participación!
-      </h2>
-      <p style={{ color: '#6b7280', fontSize: '18px', lineHeight: '1.6', marginBottom: '20px' }}>
-        Su reporte ha sido enviado exitosamente. <br />
-        <strong>¡Gracias por su participación ciudadana y su tiempo!</strong>
-      </p>
-      <p style={{ color: '#9ca3af', fontSize: '14px' }}>
-        Su colaboración ayuda a mejorar nuestra comunidad
-      </p>
-      
-      <div style={{ 
-        marginTop: '30px', 
-        padding: '15px', 
-        backgroundColor: '#ecfdf5',
-        border: '1px solid #bbf7d0',
-        borderRadius: '8px',
-        color: '#166534'
-      }}>
-        ✅ Reporte registrado correctamente
-      </div>
-      
-      {/* 🚀 BOTONES DE NAVEGACIÓN */}
-      <div style={{ 
-        marginTop: '30px',
-        display: 'flex',
-        gap: '15px',
-        justifyContent: 'center',
-        flexWrap: 'wrap'
-      }}>
-        <button
-          onClick={() => setCurrentStep(1)}
-          style={{
-            padding: '12px 24px',
-            backgroundColor: '#3b82f6',
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            fontSize: '16px',
-            cursor: 'pointer',
-            transition: 'background-color 0.2s'
-          }}
-          onMouseOver={(e) => e.target.style.backgroundColor = '#2563eb'}
-          onMouseOut={(e) => e.target.style.backgroundColor = '#3b82f6'}
-        >
-          📝 Crear Otro Reporte
-        </button>
-        
-        <button
-          onClick={() => window.location.href = '/mapa-reportes'}
-          style={{
-            padding: '12px 24px',
-            backgroundColor: '#10b981',
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            fontSize: '16px',
-            cursor: 'pointer',
-            transition: 'background-color 0.2s'
-          }}
-          onMouseOver={(e) => e.target.style.backgroundColor = '#059669'}
-          onMouseOut={(e) => e.target.style.backgroundColor = '#10b981'}
-        >
-          🗺️ Ir al Mapa de Reportes
-        </button>
-      </div>
-    </div>
-  );
 
   return (
-    <div style={{ padding: '20px', maxWidth: '900px', margin: '0 auto', minHeight: '80vh' }}>
-      {/* 📊 Header con progreso */}
-      <div style={{ marginBottom: '30px' }}>
-        <h1 style={{ color: '#2563eb', marginBottom: '20px', textAlign: 'center' }}>
-          📋 Reportes Ciudadanos
-        </h1>
-        
-        {/* 📊 Barra de progreso */}
-        {currentStep <= 5 && (
-          <div style={{
-            width: '100%',
-            maxWidth: '600px',
-            margin: '0 auto 20px auto',
-            backgroundColor: '#e2e8f0',
-            borderRadius: '10px',
-            height: '8px',
-            overflow: 'hidden'
-          }}>
-            <div
-                            style={{
-                height: '100%',
-                backgroundColor: '#8b5cf6',
-                width: `${(currentStep / 5) * 100}%`,
-                transition: 'width 0.3s ease'
-              }}
-            />
-          </div>
-        )}
-        {currentStep <= 5 && (
-          <p style={{ textAlign: 'center', color: '#6b7280', fontSize: '14px' }}>
-            Paso {currentStep} de 5
-          </p>
-        )}
+    <div className="space-y-5" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+
+      {/* ── Header ── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+        <div>
+          <h1 style={{ fontSize: '1.4rem', fontWeight: 700, color: '#1a1f2e', margin: 0 }}>Reportes Ciudadanos</h1>
+          <p style={{ fontSize: '.83rem', color: '#8b93a5', margin: '2px 0 0' }}>Gestiona y da seguimiento a tus reportes</p>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={() => refetch()} title="Actualizar" style={{ padding: '8px 12px', background: 'white', border: '1.5px solid #e4e7ed', borderRadius: 10, cursor: 'pointer', color: '#4a5168' }}>
+            <FiRefreshCw size={16} />
+          </button>
+          <button onClick={abrirNuevo} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: '#2563eb', color: 'white', border: 'none', borderRadius: 10, cursor: 'pointer', fontSize: '.88rem', fontWeight: 700 }}>
+            <FiPlus size={15} /> Nuevo Reporte
+          </button>
+        </div>
       </div>
 
-      {/* 🎯 Contenido del paso actual */}
-      <div style={{ 
-        backgroundColor: 'white', 
-        borderRadius: '16px',
-        border: '1px solid #e2e8f0',
-        minHeight: '400px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center'
-      }}>
-        {renderStepContent()}
-      </div>
-      
-      {/* Mensajes de estado */}
-      {mensaje && (
-        <div style={{ 
-          marginTop: '20px', 
-          padding: '15px', 
-          borderRadius: '8px',
-          backgroundColor: mensaje.includes('✅') ? '#dcfce7' : '#fef2f2',
-          color: mensaje.includes('✅') ? '#166534' : '#dc2626',
-          border: `1px solid ${mensaje.includes('✅') ? '#bbf7d0' : '#fecaca'}`,
-          textAlign: 'center'
-        }}>
-          {mensaje}
-        </div>
-      )}
-
-      {/* 📊 LISTA DE REPORTES - Solo mostrar cuando no estamos en el flujo */}
-      {currentStep === 1 && (
-        <div style={{ 
-          backgroundColor: 'white', 
-          padding: '20px', 
-          borderRadius: '8px',
-          border: '1px solid #e2e8f0',
-          marginTop: '30px'
-        }}>
-        <h2 style={{ color: '#374151', marginBottom: '20px' }}>
-          📋 Lista de Reportes ({reportes.length})
-        </h2>
-        
-        {isLoading && (
-          <div style={{ textAlign: 'center', padding: '20px', color: '#6b7280' }}>
-            ⏳ Cargando reportes...
-          </div>
-        )}
-        
-        {error && (
-          <div style={{ 
-            padding: '15px', 
-            backgroundColor: '#fef2f2', 
-            color: '#dc2626',
-            borderRadius: '4px',
-            border: '1px solid #fecaca'
-          }}>
-            ❌ Error al cargar reportes: {error.message}
-          </div>
-        )}
-        
-        {!isLoading && !error && reportes.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '40px', color: '#6b7280' }}>
-            📭 No hay reportes disponibles
-          </div>
-        )}
-        
-        {!isLoading && !error && reportes.length > 0 && (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ 
-              width: '100%', 
-              borderCollapse: 'collapse',
-              backgroundColor: 'white',
-              borderRadius: '8px',
-              overflow: 'hidden',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-            }}>
-              {/* Header de la tabla */}
-              <thead style={{ backgroundColor: '#f8fafc' }}>
-                <tr>
-                  <th style={{ 
-                    padding: '12px', 
-                    textAlign: 'left', 
-                    borderBottom: '2px solid #e2e8f0',
-                    color: '#374151',
-                    fontWeight: '600'
-                  }}>
-                    🏷️ Tipo
-                  </th>
-                  <th style={{ 
-                    padding: '12px', 
-                    textAlign: 'left', 
-                    borderBottom: '2px solid #e2e8f0',
-                    color: '#374151',
-                    fontWeight: '600'
-                  }}>
-                    📝 Descripción
-                  </th>
-                  <th style={{ 
-                    padding: '12px', 
-                    textAlign: 'left', 
-                    borderBottom: '2px solid #e2e8f0',
-                    color: '#374151',
-                    fontWeight: '600'
-                  }}>
-                    📍 Ubicación
-                  </th>
-                  <th style={{ 
-                    padding: '12px', 
-                    textAlign: 'left', 
-                    borderBottom: '2px solid #e2e8f0',
-                    color: '#374151',
-                    fontWeight: '600'
-                  }}>
-                    📊 Estatus
-                  </th>
-                  <th style={{ 
-                    padding: '12px', 
-                    textAlign: 'left', 
-                    borderBottom: '2px solid #e2e8f0',
-                    color: '#374151',
-                    fontWeight: '600'
-                  }}>
-                    📅 Fecha
-                  </th>
-                  <th style={{ 
-                    padding: '12px', 
-                    textAlign: 'left', 
-                    borderBottom: '2px solid #e2e8f0',
-                    color: '#374151',
-                    fontWeight: '600'
-                  }}>
-                    📷 Foto
-                  </th>
-                </tr>
-              </thead>
-              
-              {/* Cuerpo de la tabla */}
-              <tbody>
-                {reportes.map((reporte, index) => (
-                  <tr 
-                    key={reporte.id || index} 
-                    style={{ 
-                      borderBottom: '1px solid #f1f5f9',
-                      backgroundColor: index % 2 === 0 ? 'white' : '#f8fafc',
-                      cursor: 'pointer',
-                      transition: 'background-color 0.2s'
-                    }}
-                    onClick={() => handleShowReporteDetails(reporte)}
-                    onMouseOver={(e) => {
-                      e.target.closest('tr').style.backgroundColor = '#e0f2fe';
-                    }}
-                    onMouseOut={(e) => {
-                      e.target.closest('tr').style.backgroundColor = index % 2 === 0 ? 'white' : '#f8fafc';
-                    }}
-                  >
-                    <td style={{ padding: '12px', color: '#2563eb', fontWeight: '500' }}>
-                      {reporte.tipo || 'Sin tipo'}
-                    </td>
-                    <td style={{ padding: '12px', color: '#4b5563', maxWidth: '200px' }}>
-                      <div style={{ 
-                        overflow: 'hidden', 
-                        textOverflow: 'ellipsis', 
-                        whiteSpace: 'nowrap',
-                        fontSize: '14px'
-                      }}>
-                        {reporte.descripcion || 'Sin descripción'}
-                      </div>
-                    </td>
-                    <td style={{ padding: '12px', color: '#4b5563', fontSize: '14px' }}>
-                      {reporte.latitud && reporte.longitud ? (
-                        <span style={{ color: '#059669' }}>✅ Con coordenadas</span>
-                      ) : (
-                        <span style={{ color: '#dc2626' }}>❌ Sin ubicación</span>
-                      )}
-                    </td>
-                    <td style={{ padding: '12px' }}>
-                      <span style={{
-                        padding: '4px 8px',
-                        borderRadius: '12px',
-                        fontSize: '12px',
-                        fontWeight: '500',
-                        backgroundColor: reporte.estado === 'resuelto' ? '#dcfce7' : 
-                                       reporte.estado === 'en_progreso' ? '#fef3c7' : 
-                                       reporte.estado === 'pendiente' ? '#dbeafe' : '#f3f4f6',
-                        color: reporte.estado === 'resuelto' ? '#166534' : 
-                               reporte.estado === 'en_progreso' ? '#92400e' : 
-                               reporte.estado === 'pendiente' ? '#1d4ed8' : '#6b7280'
-                      }}>
-                        {reporte.estado || 'pendiente'}
-                      </span>
-                    </td>
-                    <td style={{ padding: '12px', color: '#9ca3af', fontSize: '13px' }}>
-                      {reporte.fecha_creacion ? 
-                        new Date(reporte.fecha_creacion).toLocaleDateString() : 
-                        'Sin fecha'
-                      }
-                    </td>
-                    <td style={{ padding: '12px', textAlign: 'center' }}>
-                      {reporte.foto_url ? (
-                        <span style={{ color: '#059669', fontSize: '14px' }}>📷</span>
-                      ) : (
-                        <span style={{ color: '#9ca3af', fontSize: '14px' }}>—</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-        </div>
-      )}
-
-      {/* 🆕 NUEVO: Modal de detalles del reporte */}
-      {showModal && selectedReporte && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000
-        }}>
-          <div style={{
-            backgroundColor: 'white',
-            borderRadius: '12px',
-            padding: '30px',
-            maxWidth: '600px',
-            width: '90%',
-            maxHeight: '80vh',
-            overflow: 'auto',
-            position: 'relative'
-          }}>
-            {/* 🚪 Botón de cerrar */}
-            <button
-              onClick={handleCloseModal}
-              style={{
-                position: 'absolute',
-                top: '15px',
-                right: '20px',
-                backgroundColor: 'transparent',
-                border: 'none',
-                fontSize: '24px',
-                cursor: 'pointer',
-                color: '#6b7280'
-              }}
-            >
-              ×
-            </button>
-
-            {/* 📋 Contenido del modal */}
-            <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-              <h2 style={{ color: '#374151', marginBottom: '10px' }}>
-                🏷️ Detalles del Reporte
-              </h2>
-              <p style={{ color: '#6b7280' }}>
-                Información completa del reporte seleccionado
-              </p>
+      {/* ── Stats ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12 }}>
+        {[
+          { label: 'Total',      n: stats.total,      color: '#2563eb', bg: '#eff6ff', Icon: FiAlertTriangle },
+          { label: 'Pendientes', n: stats.pendiente,  color: '#f59e0b', bg: '#fffbeb', Icon: FiClock },
+          { label: 'En Proceso', n: stats.enProgreso, color: '#8b5cf6', bg: '#f5f3ff', Icon: FiActivity },
+          { label: 'Resueltos',  n: stats.resuelto,   color: '#10b981', bg: '#ecfdf5', Icon: FiCheckCircle },
+        ].map(({ label, n, color, bg, Icon }) => (
+          <div key={label} style={{ background: 'white', borderRadius: 14, padding: '15px 16px', border: '1px solid #f0f0f5', display: 'flex', alignItems: 'center', gap: 12, boxShadow: '0 1px 4px rgba(0,0,0,.06)', borderLeft: `4px solid ${color}` }}>
+            <div style={{ width: 40, height: 40, borderRadius: 10, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color, flexShrink: 0 }}>
+              <Icon size={18} />
             </div>
+            <div>
+              <div style={{ fontSize: '.73rem', color: '#8b93a5', fontWeight: 500 }}>{label}</div>
+              <div style={{ fontSize: '1.6rem', fontWeight: 700, color: '#1a1f2e', lineHeight: 1.1 }}>{n}</div>
+            </div>
+          </div>
+        ))}
+      </div>
 
-            {/* 📷 Imagen del reporte */}
-            {selectedReporte.foto_url && (
-              <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-                <img 
-                  src={selectedReporte.foto_url} 
-                  alt="Foto del reporte"
-                  style={{
-                    maxWidth: '100%',
-                    maxHeight: '300px',
-                    borderRadius: '8px',
-                    border: '2px solid #e5e7eb'
-                  }}
-                />
-              </div>
-            )}
+      {/* ── Filtros de estado ── */}
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        {[{ v: '', lbl: 'Todos' }, ...Object.entries(ESTADOS_INFO).map(([v, e]) => ({ v, lbl: e.lbl, color: e.color }))].map(({ v, lbl, color }) => (
+          <button
+            key={v}
+            onClick={() => setFiltroEstado(v)}
+            style={{
+              padding: '5px 13px', border: 'none', borderRadius: 20, fontSize: '.79rem', fontWeight: 600, cursor: 'pointer',
+              background: filtroEstado === v ? (color || '#1a1f2e') : '#f7f8fa',
+              color: filtroEstado === v ? 'white' : '#4a5168',
+              transition: 'all .15s',
+            }}
+          >{lbl}</button>
+        ))}
+      </div>
 
-            {/* 📋 Información del reporte */}
-            <div style={{ textAlign: 'left' }}>
-              <div style={{ marginBottom: '15px' }}>
-                <strong style={{ color: '#374151' }}>🏷️ Tipo:</strong>
-                <div style={{ color: '#6b7280', marginTop: '5px' }}>
-                  {selectedReporte.tipo || 'Sin tipo'}
+      {/* ── Lista de reportes ── */}
+      {isLoading && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200 }}>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600" />
+        </div>
+      )}
+
+      {!isLoading && error && (
+        <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 12, padding: '16px 20px', color: '#dc2626', fontSize: '.88rem' }}>
+          ❌ Error al cargar reportes: {error.message}
+        </div>
+      )}
+
+      {!isLoading && !error && reportesFiltrados.length === 0 && (
+        <div style={{ background: 'white', borderRadius: 16, padding: '40px 20px', textAlign: 'center', border: '1px solid #f0f0f5', boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}>
+          <div style={{ fontSize: '3rem', marginBottom: 12 }}>📋</div>
+          <div style={{ fontWeight: 700, color: '#1a1f2e', marginBottom: 6 }}>
+            {filtroEstado ? `Sin reportes "${estadoInfo(filtroEstado).lbl}"` : 'Sin reportes aún'}
+          </div>
+          <div style={{ fontSize: '.85rem', color: '#8b93a5', marginBottom: 20 }}>
+            {filtroEstado ? 'Prueba otro filtro' : 'Sé el primero en reportar un problema en tu comunidad.'}
+          </div>
+          {!filtroEstado && (
+            <button onClick={abrirNuevo} style={{ padding: '10px 24px', background: '#2563eb', color: 'white', border: 'none', borderRadius: 10, fontSize: '.88rem', fontWeight: 700, cursor: 'pointer' }}>
+              ＋ Crear primer reporte
+            </button>
+          )}
+        </div>
+      )}
+
+      {!isLoading && !error && reportesFiltrados.length > 0 && (
+        <div style={{ background: 'white', borderRadius: 16, boxShadow: '0 1px 4px rgba(0,0,0,.07)', border: '1px solid #f0f0f5', overflow: 'hidden' }}>
+          <div style={{ padding: '12px 18px', borderBottom: '1px solid #f0f0f5', fontSize: '.8rem', color: '#8b93a5' }}>
+            {reportesFiltrados.length} {reportesFiltrados.length === 1 ? 'reporte' : 'reportes'}
+          </div>
+          {reportesFiltrados.map((r, i) => {
+            const t = tipoInfo(r.tipo);
+            const est = estadoInfo(r.estado);
+            return (
+              <div
+                key={r.id}
+                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 18px', borderBottom: i < reportesFiltrados.length - 1 ? '1px solid #f7f8fa' : 'none' }}
+              >
+                {r.foto_url ? (
+                  <img src={r.foto_url} alt="" style={{ width: 48, height: 48, borderRadius: 10, objectFit: 'cover', flexShrink: 0, border: '2px solid #f0f0f5' }} onError={e => e.target.style.display = 'none'} />
+                ) : (
+                  <div style={{ width: 48, height: 48, borderRadius: 10, background: t.color + '18', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem', flexShrink: 0 }}>{t.emoji}</div>
+                )}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 3 }}>
+                    <span style={{ fontSize: '.83rem', fontWeight: 700, color: '#1a1f2e' }}>{t.label}</span>
+                    {r.folio && <span style={{ fontSize: '.68rem', color: '#aaa', fontFamily: 'monospace' }}>{r.folio}</span>}
+                  </div>
+                  <div style={{ fontSize: '.78rem', color: '#8b93a5', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {r.descripcion || 'Sin descripción'}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 4 }}>
+                    {(r.latitud || r.longitud) && r.latitud !== 0 && (
+                      <span style={{ fontSize: '.68rem', color: '#8b93a5', display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <FiMapPin size={10} /> Con ubicación
+                      </span>
+                    )}
+                    <span style={{ fontSize: '.68rem', color: '#aaa' }}>{timeAgo(r.fecha_creacion)}</span>
+                  </div>
                 </div>
-              </div>
-
-              <div style={{ marginBottom: '15px' }}>
-                <strong style={{ color: '#374151' }}>📝 Descripción:</strong>
-                <div style={{ color: '#6b7280', marginTop: '5px' }}>
-                  {selectedReporte.descripcion || 'Sin descripción'}
-                </div>
-              </div>
-
-              <div style={{ marginBottom: '15px' }}>
-                <strong style={{ color: '#374151' }}>📍 Ubicación:</strong>
-                <div style={{ color: '#6b7280', marginTop: '5px' }}>
-                  {selectedReporte.latitud && selectedReporte.longitud ? (
-                    <span style={{ color: '#059669' }}>
-                      ✅ Con coordenadas<br />
-                      Lat: {selectedReporte.latitud.toFixed(6)}<br />
-                      Lng: {selectedReporte.longitud.toFixed(6)}
-                    </span>
-                  ) : (
-                    <span style={{ color: '#dc2626' }}>❌ Sin ubicación</span>
-                  )}
-                </div>
-              </div>
-
-              <div style={{ marginBottom: '15px' }}>
-                <strong style={{ color: '#374151' }}>📊 Estatus:</strong>
-                <div style={{ marginTop: '5px' }}>
-                  <span style={{
-                    padding: '4px 8px',
-                    borderRadius: '12px',
-                    fontSize: '12px',
-                    fontWeight: '500',
-                    backgroundColor: selectedReporte.estado === 'resuelto' ? '#dcfce7' : 
-                                   selectedReporte.estado === 'en_progreso' ? '#fef3c7' : 
-                                   selectedReporte.estado === 'pendiente' ? '#dbeafe' : '#f3f4f6',
-                    color: selectedReporte.estado === 'resuelto' ? '#166534' : 
-                           selectedReporte.estado === 'en_progreso' ? '#92400e' : 
-                           selectedReporte.estado === 'pendiente' ? '#1d4ed8' : '#6b7280'
-                  }}>
-                    {selectedReporte.estado || 'pendiente'}
+                <div style={{ flexShrink: 0 }}>
+                  <span style={{ fontSize: '.69rem', fontWeight: 700, color: est.color, background: est.bg, padding: '3px 9px', borderRadius: 8, display: 'block', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                    {est.lbl}
                   </span>
                 </div>
               </div>
+            );
+          })}
+        </div>
+      )}
 
-              <div style={{ marginBottom: '15px' }}>
-                <strong style={{ color: '#374151' }}>📅 Fecha:</strong>
-                <div style={{ color: '#6b7280', marginTop: '5px' }}>
-                  {selectedReporte.fecha_creacion ? 
-                    new Date(selectedReporte.fecha_creacion).toLocaleString() : 
-                    'Sin fecha'
-                  }
-                </div>
-              </div>
+      {/* ── Overlay ── */}
+      {drawerNuevo && (
+        <div
+          onClick={() => setDrawerNuevo(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(10,15,30,.3)', backdropFilter: 'blur(2px)', zIndex: 800 }}
+        />
+      )}
 
-              <div style={{ marginBottom: '15px' }}>
-                <strong style={{ color: '#374151' }}>📷 Foto:</strong>
-                <div style={{ color: '#6b7280', marginTop: '5px' }}>
-                  {selectedReporte.foto_url ? (
-                    <span style={{ color: '#059669' }}>✅ Foto adjunta</span>
-                  ) : (
-                    <span style={{ color: '#6b7280' }}>📷 Sin foto</span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* 🔙 Botón para cerrar */}
-            <div style={{ textAlign: 'center', marginTop: '30px' }}>
-              <button
-                onClick={handleCloseModal}
-                style={{
-                  backgroundColor: '#6b7280',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  padding: '12px 24px',
-                  fontSize: '16px',
-                  cursor: 'pointer'
-                }}
-              >
-                🔙 Cerrar
-              </button>
-            </div>
+      {/* ── Drawer: Nuevo Reporte ── */}
+      <div style={{
+        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 900,
+        background: 'white', borderRadius: '20px 20px 0 0',
+        boxShadow: '0 -6px 32px rgba(0,0,0,.12)',
+        transform: drawerNuevo ? 'translateY(0)' : 'translateY(100%)',
+        transition: 'transform .32s cubic-bezier(.32,.72,0,1)',
+        maxHeight: '92vh', overflowY: 'auto',
+      }}>
+        <div style={{ width: 36, height: 4, background: '#e4e7ed', borderRadius: 2, margin: '10px auto 0' }} />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 20px 11px', borderBottom: '1px solid #e4e7ed' }}>
+          <div>
+            <div style={{ fontSize: '1rem', fontWeight: 700, color: '#1a1f2e' }}>Nuevo reporte</div>
+            <div style={{ fontSize: '.75rem', color: '#8b93a5', marginTop: 1 }}>Categoriza y describe el problema</div>
           </div>
+          <button onClick={() => setDrawerNuevo(false)} style={{ width: 30, height: 30, borderRadius: '50%', background: '#f7f8fa', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4a5168', fontSize: '1rem' }}>✕</button>
+        </div>
+
+        <div style={{ padding: '15px 20px 30px' }}>
+          <form onSubmit={enviar}>
+            {/* Categoría */}
+            <div style={{ fontSize: '.71rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.07em', color: '#8b93a5', marginBottom: 9 }}>Categoría del problema</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 7, marginBottom: 16 }}>
+              {TIPOS_FORM.map(({ valor, emoji, label }) => (
+                <div
+                  key={valor}
+                  onClick={() => setForm(f => ({ ...f, tipo: valor }))}
+                  style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+                    padding: '11px 5px',
+                    border: `2px solid ${form.tipo === valor ? tipoInfo(valor).color : '#e4e7ed'}`,
+                    borderRadius: 12, cursor: 'pointer', transition: 'all .16s',
+                    background: form.tipo === valor ? tipoInfo(valor).color + '14' : 'white',
+                  }}
+                >
+                  <span style={{ fontSize: '1.6rem', lineHeight: 1 }}>{emoji}</span>
+                  <span style={{ fontSize: '.73rem', fontWeight: 600, color: form.tipo === valor ? tipoInfo(valor).color : '#4a5168', textAlign: 'center' }}>{label}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Descripción */}
+            <div style={{ marginBottom: 11 }}>
+              <label style={{ display: 'block', fontSize: '.74rem', fontWeight: 600, color: '#4a5168', marginBottom: 4 }}>Descripción</label>
+              <textarea
+                value={form.descripcion}
+                onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))}
+                placeholder="Describe el problema brevemente..."
+                style={{ width: '100%', padding: '9px 11px', border: '1.5px solid #e4e7ed', borderRadius: 9, fontSize: '.86rem', color: '#1a1f2e', resize: 'none', height: 70, outline: 'none', fontFamily: 'inherit' }}
+              />
+            </div>
+
+            {/* Colonia + GPS */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 11 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '.74rem', fontWeight: 600, color: '#4a5168', marginBottom: 4 }}>Colonia / Calle</label>
+                <input
+                  value={form.colonia}
+                  onChange={e => setForm(f => ({ ...f, colonia: e.target.value }))}
+                  placeholder="Ej. Centro"
+                  style={{ width: '100%', padding: '9px 11px', border: '1.5px solid #e4e7ed', borderRadius: 9, fontSize: '.86rem', outline: 'none' }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '.74rem', fontWeight: 600, color: '#4a5168', marginBottom: 4 }}>Ubicación</label>
+                <div style={{ display: 'flex', gap: 5 }}>
+                  <div style={{ flex: 1, padding: '9px 8px', border: '1.5px solid #e4e7ed', borderRadius: 9, fontSize: '.72rem', color: form.latitud ? '#10b981' : '#8b93a5', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {form.latitud ? `${parseFloat(form.latitud).toFixed(4)},${parseFloat(form.longitud).toFixed(4)}` : 'Sin GPS'}
+                  </div>
+                  <button type="button" title="Usar mi ubicación GPS" onClick={pedirGps}
+                    style={{ padding: '9px 10px', background: '#10b981', color: 'white', border: 'none', borderRadius: 9, fontSize: '.9rem', cursor: 'pointer' }}>📍</button>
+                </div>
+              </div>
+            </div>
+
+            {/* Foto */}
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: 'block', fontSize: '.74rem', fontWeight: 600, color: '#4a5168', marginBottom: 4 }}>
+                Foto <span style={{ color: '#8b93a5', fontWeight: 400 }}>(opcional)</span>
+              </label>
+              {fotoPreview ? (
+                <div style={{ position: 'relative' }}>
+                  <img src={fotoPreview} alt="" style={{ width: '100%', height: 130, objectFit: 'cover', borderRadius: 9 }} />
+                  <button type="button" onClick={() => { setForm(f => ({ ...f, foto: null })); setFotoPreview(null); if (fotoRef.current) fotoRef.current.value = ''; }}
+                    style={{ position: 'absolute', top: 6, right: 6, background: 'rgba(0,0,0,.5)', color: 'white', border: 'none', borderRadius: '50%', width: 26, height: 26, cursor: 'pointer', fontSize: '.8rem' }}>✕</button>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '14px 8px', border: '2px dashed #e4e7ed', borderRadius: 9, cursor: 'pointer', gap: 4 }}>
+                    <span style={{ fontSize: '1.6rem' }}>📸</span>
+                    <span style={{ fontSize: '.73rem', fontWeight: 600, color: '#4a5168' }}>Tomar foto</span>
+                    <input type="file" accept="image/*" capture="environment" onChange={e => seleccionarFoto(e.target.files[0])} style={{ display: 'none' }} />
+                  </label>
+                  <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '14px 8px', border: '2px dashed #e4e7ed', borderRadius: 9, cursor: 'pointer', gap: 4 }}>
+                    <span style={{ fontSize: '1.6rem' }}>🖼️</span>
+                    <span style={{ fontSize: '.73rem', fontWeight: 600, color: '#4a5168' }}>Galería</span>
+                    <input type="file" accept="image/*" ref={fotoRef} onChange={e => seleccionarFoto(e.target.files[0])} style={{ display: 'none' }} />
+                  </label>
+                </div>
+              )}
+            </div>
+
+            <button type="submit" disabled={enviando}
+              style={{ width: '100%', padding: '13px', background: enviando ? '#9ca3af' : '#2563eb', color: 'white', border: 'none', borderRadius: 10, fontSize: '.95rem', fontWeight: 700, cursor: enviando ? 'not-allowed' : 'pointer' }}>
+              {enviando ? '⏳ Enviando...' : '📤 Enviar reporte'}
+            </button>
+          </form>
+        </div>
+      </div>
+
+      {/* ── Toast ── */}
+      {toast && (
+        <div style={{ position: 'fixed', bottom: 80, left: '50%', transform: 'translateX(-50%)', zIndex: 9999, background: toast.type === 'ok' ? '#10b981' : toast.type === 'err' ? '#ef4444' : '#1a1f2e', color: 'white', padding: '10px 18px', borderRadius: 10, fontSize: '.84rem', fontWeight: 600, boxShadow: '0 4px 20px rgba(0,0,0,.2)', whiteSpace: 'nowrap', pointerEvents: 'none' }}>
+          {toast.msg}
         </div>
       )}
     </div>
   );
 };
 
-export default ReportesCiudadanos; 
+export default ReportesCiudadanos;

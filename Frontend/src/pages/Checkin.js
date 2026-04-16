@@ -1,487 +1,397 @@
 import React, { useState, useEffect } from 'react';
-import { QRCodeCanvas } from 'qrcode.react';
+import { useQuery, useMutation, useQueryClient } from 'react-query';
 import api from '../api';
+import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
-
-const Toast = ({ message, onClose }) => (
-  <div style={{
-    position: 'fixed',
-    top: 20,
-    right: 20,
-    background: '#38a169',
-    color: 'white',
-    padding: '16px 24px',
-    borderRadius: 8,
-    boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-    zIndex: 1000,
-    minWidth: 200,
-    fontWeight: 'bold',
-    fontSize: 16
-  }}>
-    {message}
-    <button style={{ marginLeft: 16, background: 'transparent', color: 'white', border: 'none', fontWeight: 'bold', cursor: 'pointer' }} onClick={onClose}>×</button>
-  </div>
-);
+import { FiSearch, FiRefreshCw, FiCheck, FiUsers, FiTruck, FiCalendar, FiAlertCircle, FiStar } from 'react-icons/fi';
 
 const Checkin = () => {
-  const { logout } = useAuth();
-  const [claveElector, setClaveElector] = useState('');
-  const [idEvento, setIdEvento] = useState('');
-  const [asistenciaId, setAsistenciaId] = useState(null);
-  const [mensaje, setMensaje] = useState('');
-  const [scanned, setScanned] = useState(false);
-  const [showCamera, setShowCamera] = useState(false);
-  const [personasEvento, setPersonasEvento] = useState([]);
-  const [busqueda, setBusqueda] = useState('');
-  const [eventos, setEventos] = useState([]);
-  const [vehiculos, setVehiculos] = useState([]);
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  const [idEvento, setIdEvento]     = useState('');
   const [idVehiculo, setIdVehiculo] = useState('');
-  const [toast, setToast] = useState(null);
-  const [loadingId, setLoadingId] = useState(null);
-  const [reload, setReload] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [busqueda, setBusqueda]     = useState('');
+  const [loadingId, setLoadingId]   = useState(null);
 
-  // Cargar eventos para el select
+  /* ── Queries ── */
+  const { data: eventos = [] } = useQuery('eventosCheckin', () =>
+    api.get('/eventos/?activos=true').then(r => r.data)
+  );
+
+  const { data: vehiculos = [] } = useQuery(
+    ['vehiculosCheckin', idEvento],
+    () => api.get('/vehiculos/').then(r => r.data),
+    { enabled: !!idEvento }
+  );
+
+  const { data: asignaciones = [], isLoading: loadingAsig, refetch } = useQuery(
+    ['asignacionesCheckin', idEvento, idVehiculo],
+    () => api.get(`/movilizaciones/?evento_id=${idEvento}${idVehiculo ? `&vehiculo_id=${idVehiculo}` : ''}`).then(r => r.data),
+    { enabled: !!idEvento, refetchInterval: 30000 }
+  );
+
+  // Auto-seleccionar primer evento si solo hay uno
   useEffect(() => {
-    loadEventos();
-  }, []);
-
-  const loadEventos = async () => {
-    try {
-      const response = await api.get('/eventos/?activos=true');
-      setEventos(response.data);
-    } catch (error) {
-      if (error.response?.status === 401) {
-        alert('Sesión expirada. Por favor, inicia sesión nuevamente.');
-        logout();
-      }
+    if (eventos.length === 1 && !idEvento) {
+      setIdEvento(String(eventos[0].id));
     }
-  };
+  }, [eventos]);
 
-  // Cargar vehículos para el evento seleccionado
+  // Auto-seleccionar el vehículo del movilizador actual (si es su responsabilidad)
   useEffect(() => {
-    if (idEvento) {
-      loadVehiculos();
-    } else {
-      setVehiculos([]);
+    if (vehiculos.length > 0 && idEvento && !idVehiculo) {
+      const miVehiculo = vehiculos.find(v => String(v.id_movilizador) === String(user?.id));
+      if (miVehiculo) setIdVehiculo(String(miVehiculo.id));
     }
-  }, [idEvento]);
+  }, [vehiculos, idEvento]);
 
-  const loadVehiculos = async () => {
-    try {
-      const response = await api.get('/vehiculos/');
-      setVehiculos(response.data);
-    } catch (error) {
-      if (error.response?.status === 401) {
-        alert('Sesión expirada. Por favor, inicia sesión nuevamente.');
-        logout();
-      }
-    }
-  };
-
-  // Cargar personas asignadas al evento y vehículo seleccionado
-  useEffect(() => {
-    if (idEvento) {
-      loadPersonasEvento();
-    } else {
-      setPersonasEvento([]);
-    }
-  }, [idEvento, idVehiculo, reload]);
-
-  const loadPersonasEvento = async () => {
-    try {
-      const response = await api.get(`/movilizaciones/?evento_id=${idEvento}${idVehiculo ? `&vehiculo_id=${idVehiculo}` : ''}`);
-      setPersonasEvento(response.data);
-    } catch (error) {
-      if (error.response?.status === 401) {
-        alert('Sesión expirada. Por favor, inicia sesión nuevamente.');
-        logout();
-      }
-    }
-  };
-
-  // Escaneo real de QR
-  const handleScan = (result, error) => {
-    if (!!result) {
-      try {
-        const data = JSON.parse(result?.text || result);
-        if (data.asistencia_id) {
-          setAsistenciaId(data.asistencia_id);
-          setScanned(true);
-          setMensaje('QR leído correctamente. Listo para check-in.');
-          setShowCamera(false);
-        } else {
-          setMensaje('QR inválido.');
-        }
-      } catch {
-        setMensaje('QR inválido.');
-      }
-    }
-    if (!!error && error.name !== 'NotFoundException') {
-      setMensaje('Error al leer QR');
-    }
-  };
-
-  // Simulación de escaneo de QR (input manual)
-  const handleScanQR = (e) => {
-    try {
-      const data = JSON.parse(e.target.value);
-      if (data.asistencia_id) {
-        setAsistenciaId(data.asistencia_id);
-        setScanned(true);
-        setMensaje('QR leído correctamente. Listo para check-in.');
-      } else {
-        setMensaje('QR inválido.');
-      }
-    } catch {
-      setMensaje('QR inválido.');
-    }
-  };
-
-  // Check-in por QR
-  const handleCheckinQR = async () => {
-    if (!asistenciaId) return;
-    try {
-      await api.post(`/asistencias/${asistenciaId}/checkin`);
-      setMensaje('¡Check-in realizado con éxito!');
-      setScanned(false);
-      setAsistenciaId(null);
-    } catch (err) {
-      if (err.response?.status === 401) {
-        alert('Sesión expirada. Por favor, inicia sesión nuevamente.');
-        logout();
-        return;
-      }
-      setMensaje(err?.response?.data?.detail || 'Error al hacer check-in');
-    }
-  };
-
-  // Búsqueda manual por clave de elector
-  const handleBuscarAsistencia = async () => {
-    if (!claveElector || !idEvento) {
-      setMensaje('Ingresa clave de elector y evento.');
-      return;
-    }
-    try {
-      const res = await api.get(`/asistencias/buscar-por-clave?clave_elector=${claveElector}&id_evento=${idEvento}`);
-      setAsistenciaId(res.data.id);
-      setMensaje('Asistencia encontrada. Listo para check-in.');
-    } catch (err) {
-      if (err.response?.status === 401) {
-        alert('Sesión expirada. Por favor, inicia sesión nuevamente.');
-        logout();
-        return;
-      }
-      setMensaje(err?.response?.data?.detail || 'No se encontró asistencia para esa persona en el evento.');
-    }
-  };
-
-  // Check-in manual
-  const handleCheckinManual = async (id = null) => {
-    // Si id es un objeto de asignación (de la tabla), usar el nuevo endpoint
-    if (typeof id === 'object' && id !== null && id.id) {
-      setLoadingId(id.id);
-      try {
-        await api.post(`/movilizaciones/${id.id}/checkin`);
-        setToast('¡Check-in realizado con éxito!');
-        setTimeout(() => setToast(null), 2500);
-        setMensaje('');
-        // Recargar tabla
-        setTimeout(() => {
-          setLoadingId(null);
-          setMensaje('');
-          setReload(r => r + 1); // Forzar recarga
-        }, 500);
-      } catch (err) {
-        if (err.response?.status === 401) {
-          alert('Sesión expirada. Por favor, inicia sesión nuevamente.');
-          logout();
-          return;
-        }
-        setToast(err?.response?.data?.detail || 'Error al hacer check-in');
-        setTimeout(() => setToast(null), 3000);
+  /* ── Check-in ── */
+  const checkinMutation = useMutation(
+    asig => api.post(`/movilizaciones/${asig.id}/checkin`).then(r => r.data),
+    {
+      onSuccess: () => {
+        qc.invalidateQueries(['asignacionesCheckin', idEvento, idVehiculo]);
+        toast.success('¡Asistencia marcada!');
         setLoadingId(null);
-      }
-      return;
-    }
-    // Si id es un número (flujo QR), usar el endpoint antiguo
-    const aid = id || asistenciaId;
-    if (!aid) return;
-    setLoadingId(aid);
-    try {
-      await api.post(`/asistencias/${aid}/checkin`);
-      setToast('¡Check-in realizado con éxito!');
-      setTimeout(() => setToast(null), 2500);
-      setAsistenciaId(null);
-      setMensaje('');
-      setTimeout(() => {
+      },
+      onError: err => {
+        toast.error(err?.response?.data?.detail || 'Error al marcar asistencia');
         setLoadingId(null);
-        setReload(r => r + 1); // Forzar recarga
-      }, 500);
-    } catch (err) {
-      if (err.response?.status === 401) {
-        alert('Sesión expirada. Por favor, inicia sesión nuevamente.');
-        logout();
-        return;
-      }
-      setToast(err?.response?.data?.detail || 'Error al hacer check-in');
-      setTimeout(() => setToast(null), 3000);
-      setLoadingId(null);
+      },
     }
+  );
+
+  const handleCheckin = (asig) => {
+    setLoadingId(asig.id);
+    checkinMutation.mutate(asig);
   };
 
-  // Buscar persona en el check list (búsqueda dinámica)
-  const personasFiltradas = personasEvento.filter(p => {
+  /* ── Filtro y stats ── */
+  const filtradas = asignaciones.filter(a => {
     if (!busqueda) return true;
-    const persona = p.persona || {};
+    const p = a.persona || {};
+    const q = busqueda.toLowerCase();
     return (
-      (persona.nombre || '').toLowerCase().includes(busqueda.toLowerCase()) ||
-      (persona.clave_elector || '').toLowerCase().includes(busqueda.toLowerCase()) ||
-      (persona.telefono || '').toLowerCase().includes(busqueda.toLowerCase()) ||
-      (persona.curp || '').toLowerCase().includes(busqueda.toLowerCase()) ||
-      (persona.direccion || '').toLowerCase().includes(busqueda.toLowerCase())
+      (p.nombre        || '').toLowerCase().includes(q) ||
+      (p.clave_elector || '').toLowerCase().includes(q) ||
+      (p.telefono      || '').toLowerCase().includes(q) ||
+      (p.curp          || '').toLowerCase().includes(q)
     );
   });
 
-  // Calcular estadísticas del evento
-  const estadisticasEvento = () => {
-    if (!personasEvento.length) return null;
-    const total = personasEvento.length;
-    const presentes = personasEvento.filter(p => p.asistio).length;
-    const porcentaje = total > 0 ? Math.round((presentes / total) * 100) : 0;
-    return { total, presentes, porcentaje };
-  };
+  const total     = asignaciones.length;
+  const presentes = asignaciones.filter(a => a.asistio).length;
+  const pct       = total > 0 ? Math.round((presentes / total) * 100) : 0;
 
-  const stats = estadisticasEvento();
+  const eventoSel   = eventos.find(e => String(e.id) === String(idEvento));
+  const vehiculoSel = vehiculos.find(v => String(v.id) === String(idVehiculo));
+  const esMovilizadorDeVehiculo = vehiculoSel && String(vehiculoSel.id_movilizador) === String(user?.id);
+
+  // Vehículos propios del movilizador actual
+  const misVehiculos = vehiculos.filter(v => String(v.id_movilizador) === String(user?.id));
 
   return (
-    <div className="w-full min-h-screen flex bg-secondary-50">
-      {/* Columna izquierda: controles */}
-      <div className="w-full max-w-xs p-6 space-y-6 bg-white border-r border-secondary-200 flex-shrink-0">
-        <h1 className="text-2xl font-bold mb-4 text-left">Pase de Lista</h1>
-        
-        {/* Selector de evento */}
-        <div className="mb-4 w-full text-left">
-          <label className="block text-sm font-medium text-secondary-700 mb-1">Selecciona un evento:</label>
-          <select
-            className="input-field w-full"
-            value={idEvento}
-            onChange={e => { setIdEvento(e.target.value); setIdVehiculo(''); }}
-          >
-            <option value="">-- Selecciona --</option>
-            {eventos.map(ev => (
-              <option key={ev.id} value={ev.id}>{ev.nombre} ({new Date(ev.fecha).toLocaleString()})</option>
-            ))}
-          </select>
+    <div style={{ display: 'flex', height: '100%', minHeight: 'calc(100vh - 64px)', background: '#f8fafc' }}>
+
+      {/* ── Panel lateral ── */}
+      <div style={{
+        width: 290, flexShrink: 0, background: 'white',
+        borderRight: '1px solid #e4e7ed',
+        display: 'flex', flexDirection: 'column', overflowY: 'auto',
+      }}>
+        <div style={{ padding: '20px 18px', borderBottom: '1px solid #f0f0f5' }}>
+          <h1 style={{ fontWeight: 800, fontSize: '1.15rem', color: '#1a1f2e', marginBottom: 2 }}>Pase de Lista</h1>
+          <p style={{ fontSize: '.8rem', color: '#6b7280' }}>Marca asistencia por evento y vehículo</p>
         </div>
 
-        {/* Selector de vehículo y tarjeta resumen */}
-        {idEvento && (
-          <div className="mb-4 w-full text-left">
-            <label className="block text-sm font-medium text-secondary-700 mb-1">Selecciona un vehículo:</label>
+        <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+          {/* Selector evento */}
+          <div>
+            <label style={{ display: 'block', fontSize: '.78rem', fontWeight: 600, color: '#374151', marginBottom: 5 }}>
+              <FiCalendar size={12} style={{ display: 'inline', marginRight: 4 }} /> Evento
+            </label>
             <select
-              className="input-field w-full mb-2"
-              value={idVehiculo}
-              onChange={e => setIdVehiculo(e.target.value)}
+              className="input-field"
+              value={idEvento}
+              onChange={e => { setIdEvento(e.target.value); setIdVehiculo(''); setBusqueda(''); }}
             >
-              <option value="">-- Todos los vehículos --</option>
-              {vehiculos.map(v => (
-                <option key={v.id} value={v.id}>{v.tipo} {v.placas ? `(${v.placas})` : ''} - Capacidad: {v.capacidad}</option>
+              <option value="">— Selecciona —</option>
+              {eventos.map(ev => (
+                <option key={ev.id} value={ev.id}>{ev.nombre}</option>
               ))}
             </select>
-            {idVehiculo && (() => {
-              const v = vehiculos.find(v => String(v.id) === String(idVehiculo));
-              if (!v) return null;
-              const ocupacion = personasEvento.length;
-              return (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-2 flex flex-col gap-2">
-                  <div><span className="font-semibold">{v.tipo}</span> {v.placas && <span className="text-xs">({v.placas})</span>}</div>
-                  <div className="text-xs">Capacidad: <span className="font-semibold">{v.capacidad}</span></div>
-                  <div className="text-xs">Ocupación actual: <span className="font-semibold">{ocupacion}</span></div>
-                  {v.descripcion && <div className="text-xs text-secondary-500">{v.descripcion}</div>}
-                </div>
-              );
-            })()}
-          </div>
-        )}
-
-        {/* Estadísticas del evento */}
-        {stats && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
-            <h3 className="font-semibold text-green-800 mb-2">Resumen del Evento</h3>
-            <div className="flex justify-between text-sm">
-              <span>Total: <strong>{stats.total}</strong></span>
-              <span>Presentes: <strong>{stats.presentes}</strong></span>
-              <span>Faltantes: <strong>{stats.total - stats.presentes}</strong></span>
-            </div>
-            <div className="mt-2">
-              <div className="w-full bg-green-200 rounded-full h-2">
-                <div 
-                  className="bg-green-600 h-2 rounded-full transition-all duration-300" 
-                  style={{ width: `${stats.porcentaje}%` }}
-                ></div>
+            {eventoSel && (
+              <div style={{ fontSize: '.72rem', color: '#9ca3af', marginTop: 3 }}>
+                {new Date(eventoSel.fecha).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}
+                {eventoSel.lugar && ` · ${eventoSel.lugar}`}
               </div>
-              <div className="text-xs text-green-700 mt-1">{stats.porcentaje}% de asistencia</div>
-            </div>
+            )}
+            {idEvento && eventos.length === 0 && (
+              <div style={{ fontSize: '.73rem', color: '#ef4444', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <FiAlertCircle size={11} /> No hay eventos activos hoy
+              </div>
+            )}
           </div>
-        )}
 
-        {/* Escaneo real de QR */}
-        <div className="card p-4 mb-4">
-          <h2 className="text-lg font-semibold mb-2">Escanear QR con cámara</h2>
-          <button className="btn-primary mb-2" onClick={() => setShowCamera(v => !v)}>
-            {showCamera ? 'Cerrar cámara' : 'Abrir cámara para escanear QR'}
-          </button>
-          {showCamera && (
-            <div className="mb-2 p-4 border border-dashed border-gray-300 text-center">
-              <p className="text-gray-600">Funcionalidad QR temporal deshabilitada</p>
-              <p className="text-sm text-gray-500">Use el campo manual de código por ahora</p>
+          {/* Vehículos asignados al movilizador actual */}
+          {idEvento && misVehiculos.length > 0 && (
+            <div style={{ background: '#eff6ff', borderRadius: 10, padding: '10px 12px', border: '1px solid #bfdbfe' }}>
+              <div style={{ fontSize: '.75rem', fontWeight: 700, color: '#1d4ed8', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
+                <FiStar size={11} /> Mis vehículos asignados
+              </div>
+              {misVehiculos.map(v => {
+                const asigCount = asignaciones.filter(a => a.id_vehiculo === v.id).length;
+                const presenteCount = asignaciones.filter(a => a.id_vehiculo === v.id && a.asistio).length;
+                return (
+                  <button
+                    key={v.id}
+                    onClick={() => setIdVehiculo(String(v.id))}
+                    style={{
+                      width: '100%', textAlign: 'left', padding: '8px 10px', marginBottom: 4,
+                      background: String(idVehiculo) === String(v.id) ? '#2563eb' : 'white',
+                      color: String(idVehiculo) === String(v.id) ? 'white' : '#1a1f2e',
+                      border: '1px solid #dbeafe', borderRadius: 8, cursor: 'pointer',
+                      fontSize: '.82rem', fontWeight: 600,
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span><FiTruck size={12} style={{ display: 'inline', marginRight: 5 }} />{v.tipo}{v.placas ? ` (${v.placas})` : ''}</span>
+                      <span style={{ fontSize: '.7rem', opacity: .8 }}>{presenteCount}/{asigCount}</span>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           )}
-          <button
-            className="btn-success"
-            disabled={!scanned}
-            onClick={handleCheckinQR}
-          >
-            Hacer Check-in por QR
-          </button>
-        </div>
 
-        {/* Simulación de escaneo de QR */}
-        <div className="card p-4 mb-4">
-          <h2 className="text-lg font-semibold mb-2">Pegar contenido del QR (simulación)</h2>
-          <input
-            type="text"
-            placeholder="Pega aquí el contenido del QR"
-            className="input-field mb-2"
-            onChange={handleScanQR}
-          />
-          <button
-            className="btn-primary"
-            disabled={!scanned}
-            onClick={handleCheckinQR}
-          >
-            Hacer Check-in por QR
-          </button>
-        </div>
+          {/* Selector vehículo (todos) */}
+          {idEvento && (
+            <div>
+              <label style={{ display: 'block', fontSize: '.78rem', fontWeight: 600, color: '#374151', marginBottom: 5 }}>
+                <FiTruck size={12} style={{ display: 'inline', marginRight: 4 }} /> Vehículo
+              </label>
+              <select
+                className="input-field"
+                value={idVehiculo}
+                onChange={e => { setIdVehiculo(e.target.value); setBusqueda(''); }}
+              >
+                <option value="">— Todos los vehículos —</option>
+                {vehiculos.map(v => {
+                  const esMio = String(v.id_movilizador) === String(user?.id);
+                  const count = asignaciones.filter(a => a.id_vehiculo === v.id).length;
+                  return (
+                    <option key={v.id} value={v.id}>
+                      {esMio ? '★ ' : ''}{v.tipo}{v.placas ? ` (${v.placas})` : ''} — {count} personas
+                    </option>
+                  );
+                })}
+              </select>
+              {vehiculoSel && (
+                <div style={{ fontSize: '.72rem', marginTop: 3, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  <span style={{ color: '#9ca3af' }}>Cap: {vehiculoSel.capacidad}</span>
+                  {esMovilizadorDeVehiculo && (
+                    <span style={{ color: '#2563eb', fontWeight: 700 }}>★ Eres el responsable</span>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
-        {/* Búsqueda manual */}
-        <div className="card p-4 mb-4">
-          <h2 className="text-lg font-semibold mb-2">Buscar por Clave de Elector</h2>
-          <input
-            type="text"
-            placeholder="Clave de elector"
-            className="input-field mb-2"
-            value={claveElector}
-            onChange={e => setClaveElector(e.target.value)}
-          />
-          <button className="btn-primary mb-2" onClick={handleBuscarAsistencia}>
-            Buscar asistencia
-          </button>
-          <button
-            className="btn-success"
-            disabled={!asistenciaId}
-            onClick={() => handleCheckinManual()}
-          >
-            Hacer Check-in Manual
-          </button>
-        </div>
+          {/* Stats */}
+          {idEvento && total > 0 && (
+            <div style={{ background: '#f8fafc', borderRadius: 12, padding: '14px' }}>
+              <div style={{ fontWeight: 700, fontSize: '.82rem', color: '#374151', marginBottom: 10 }}>
+                {idVehiculo ? 'Este vehículo' : 'Evento completo'}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
+                {[
+                  { label: 'Total',     n: total,           color: '#6b7280' },
+                  { label: 'Presentes', n: presentes,       color: '#10b981' },
+                  { label: 'Faltantes', n: total-presentes, color: '#ef4444' },
+                  { label: 'Asistencia', n: `${pct}%`,      color: '#3b82f6' },
+                ].map(s => (
+                  <div key={s.label} style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '1.3rem', fontWeight: 800, color: s.color, lineHeight: 1 }}>{s.n}</div>
+                    <div style={{ fontSize: '.68rem', color: '#9ca3af', marginTop: 2 }}>{s.label}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ height: 6, background: '#e4e7ed', borderRadius: 4, overflow: 'hidden' }}>
+                <div style={{ width: `${pct}%`, height: '100%', background: pct >= 80 ? '#10b981' : pct >= 50 ? '#f59e0b' : '#ef4444', borderRadius: 4, transition: 'width .4s' }} />
+              </div>
+            </div>
+          )}
 
-        {mensaje && <div className="text-center text-lg font-semibold text-blue-700">{mensaje}</div>}
+          {/* Actualizar */}
+          {idEvento && (
+            <button
+              onClick={() => refetch()}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '9px', background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: 9, fontWeight: 600, fontSize: '.83rem', cursor: 'pointer' }}
+            >
+              <FiRefreshCw size={13} style={loadingAsig ? { animation: 'spin 1s linear infinite' } : {}} />
+              Actualizar
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Columna derecha: tabla de personas asignadas */}
-      <div className="flex-1 p-6">
-        {idEvento && (
-          <div className="card p-4 mb-4 w-full overflow-x-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold text-left">Lista de Personas Asignadas</h2>
-              <button 
-                className="btn-secondary text-sm"
-                onClick={() => setReload(r => r + 1)}
-              >
-                🔄 Actualizar
-              </button>
+      {/* ── Panel principal ── */}
+      <div style={{ flex: 1, padding: 24, overflowY: 'auto' }}>
+        {!idEvento ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', flexDirection: 'column', gap: 16, color: '#9ca3af' }}>
+            <FiCalendar size={48} style={{ opacity: .25 }} />
+            <div style={{ textAlign: 'center' }}>
+              <p style={{ fontSize: '1.1rem', fontWeight: 700, color: '#374151', marginBottom: 8 }}>Selecciona un evento para comenzar</p>
+              <div style={{ fontSize: '.85rem', color: '#9ca3af', maxWidth: 360, lineHeight: 1.6 }}>
+                <strong style={{ color: '#374151' }}>Flujo:</strong><br />
+                1. Selecciona el evento activo<br />
+                2. Elige tu vehículo (★ = el tuyo)<br />
+                3. Marca la asistencia de cada persona
+              </div>
             </div>
-            
-            <input
-              type="text"
-              placeholder="Buscar por nombre, clave de elector, teléfono, CURP o dirección..."
-              className="input-field mb-4 w-full max-w-md"
-              value={busqueda}
-              onChange={e => setBusqueda(e.target.value)}
-            />
-            
-            <div className="overflow-x-auto w-full">
-              <table className="min-w-full divide-y divide-secondary-200">
-                <thead className="bg-secondary-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Estado</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Nombre</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Clave Elector</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Teléfono</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Líder</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Hora</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Acción</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-secondary-200">
-                  {personasFiltradas.length === 0 && (
-                    <tr>
-                      <td colSpan={7} className="text-center text-secondary-400 py-8">
-                        {busqueda ? 'No hay coincidencias con la búsqueda.' : 'No hay personas asignadas.'}
-                      </td>
+          </div>
+        ) : idEvento && total === 0 && !loadingAsig ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', flexDirection: 'column', gap: 12, color: '#9ca3af' }}>
+            <FiUsers size={48} style={{ opacity: .25 }} />
+            <div style={{ textAlign: 'center' }}>
+              <p style={{ fontSize: '1rem', fontWeight: 700, color: '#374151', marginBottom: 6 }}>No hay personas asignadas</p>
+              <p style={{ fontSize: '.85rem', color: '#9ca3af', maxWidth: 340, lineHeight: 1.6 }}>
+                Para que aparezcan personas aquí, el administrador o líder debe ir a <strong style={{ color: '#374151' }}>Movilización</strong>, seleccionar este evento, y asignar personas a los vehículos usando el botón <strong style={{ color: '#374151' }}>"Personas"</strong>.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+            {/* Buscador */}
+            <div style={{ position: 'relative', maxWidth: 440 }}>
+              <FiSearch size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
+              <input
+                type="text"
+                placeholder="Buscar nombre, clave elector, CURP, teléfono..."
+                value={busqueda}
+                onChange={e => setBusqueda(e.target.value)}
+                className="input-field"
+                style={{ paddingLeft: 36 }}
+              />
+            </div>
+
+            {/* Tabla */}
+            <div style={{ background: 'white', borderRadius: 14, border: '1px solid #f0f0f5', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,.05)' }}>
+              <div style={{ padding: '12px 20px', borderBottom: '1px solid #f0f0f5', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontWeight: 700, fontSize: '.9rem', color: '#1a1f2e', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <FiUsers size={15} />
+                  {busqueda ? `${filtradas.length} resultados` : `${total} personas${idVehiculo ? ` en ${vehiculoSel?.tipo || 'vehículo'}` : ' en el evento'}`}
+                </span>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: '.78rem' }}>
+                  <span style={{ color: '#10b981', fontWeight: 700 }}>{presentes} presentes</span>
+                  <span style={{ color: '#9ca3af' }}>·</span>
+                  <span style={{ color: '#9ca3af' }}>{total - presentes} pendientes</span>
+                </div>
+              </div>
+
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.85rem' }}>
+                  <thead>
+                    <tr style={{ background: '#f8fafc', borderBottom: '1px solid #f0f0f5' }}>
+                      {['Estado', 'Persona', 'Clave Elector', 'Teléfono', 'Vehículo', 'Hora check-in', 'Acción'].map(h => (
+                        <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: '.72rem', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '.04em', whiteSpace: 'nowrap' }}>{h}</th>
+                      ))}
                     </tr>
-                  )}
-                  {personasFiltradas.map(asig => (
-                    <tr key={asig.id} className={`hover:bg-gray-50 transition-colors ${asig.asistio ? 'bg-green-50' : ''}`}>
-                      <td className="px-4 py-3">
-                        {asig.asistio ? (
-                          <div className="flex items-center">
-                            <span className="text-green-600 text-2xl">✅</span>
-                            <span className="ml-2 text-sm text-green-700 font-medium">Presente</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center">
-                            <span className="text-red-600 text-2xl">❌</span>
-                            <span className="ml-2 text-sm text-red-700 font-medium">Pendiente</span>
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center">
-                          <span className="text-gray-500 mr-2">👤</span>
-                          <span className="font-medium text-gray-900">{asig.persona?.nombre || 'Sin nombre'}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-500">{asig.persona?.clave_elector || ''}</td>
-                      <td className="px-4 py-3 text-sm text-gray-500">{asig.persona?.telefono || ''}</td>
-                      <td className="px-4 py-3 text-sm text-gray-500">{asig.persona?.lider_responsable?.nombre || ''}</td>
-                      <td className="px-4 py-3 text-sm text-gray-500">
-                        {asig.hora_checkin ? new Date(asig.hora_checkin).toLocaleTimeString() : ''}
-                      </td>
-                      <td className="px-4 py-3">
-                        {!asig.asistio && (
-                          <button
-                            className={`btn-success text-xs px-3 py-1 ${loadingId === asig.id ? 'opacity-50 cursor-not-allowed' : 'hover:bg-green-600'}`}
-                            disabled={loadingId === asig.id}
-                            onClick={() => handleCheckinManual(asig)}
-                          >
-                            {loadingId === asig.id ? 'Marcando...' : 'Marcar Asistencia'}
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {loadingAsig && (
+                      <tr><td colSpan={7} style={{ textAlign: 'center', padding: 32, color: '#9ca3af' }}>Cargando...</td></tr>
+                    )}
+                    {!loadingAsig && filtradas.length === 0 && (
+                      <tr><td colSpan={7} style={{ textAlign: 'center', padding: 32, color: '#9ca3af' }}>
+                        {busqueda ? 'Sin coincidencias con la búsqueda' : 'Sin personas'}
+                      </td></tr>
+                    )}
+                    {filtradas.map(asig => {
+                      const p = asig.persona || {};
+                      const isLoading = loadingId === asig.id;
+                      const v = vehiculos.find(x => x.id === asig.id_vehiculo);
+                      return (
+                        <tr key={asig.id} style={{ borderBottom: '1px solid #f8fafc', background: asig.asistio ? '#f0fdf4' : 'white' }}>
+
+                          <td style={{ padding: '10px 14px' }}>
+                            {asig.asistio ? (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: '.78rem', fontWeight: 700, color: '#16a34a', background: '#dcfce7', padding: '3px 10px', borderRadius: 20 }}>
+                                <FiCheck size={11} /> Presente
+                              </span>
+                            ) : (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: '.78rem', fontWeight: 600, color: '#6b7280', background: '#f3f4f6', padding: '3px 10px', borderRadius: 20 }}>
+                                Pendiente
+                              </span>
+                            )}
+                          </td>
+
+                          <td style={{ padding: '10px 14px' }}>
+                            <div style={{ fontWeight: 600, color: '#1a1f2e' }}>{p.nombre || 'Sin nombre'}</div>
+                            {p.lider_responsable?.nombre && (
+                              <div style={{ fontSize: '.73rem', color: '#9ca3af' }}>Líder: {p.lider_responsable.nombre}</div>
+                            )}
+                          </td>
+
+                          <td style={{ padding: '10px 14px', color: '#6b7280', fontFamily: 'monospace', fontSize: '.8rem' }}>
+                            {p.clave_elector || '—'}
+                          </td>
+
+                          <td style={{ padding: '10px 14px', color: '#6b7280' }}>{p.telefono || '—'}</td>
+
+                          <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
+                            {v ? (
+                              <span style={{
+                                fontSize: '.75rem', fontWeight: 600, padding: '2px 8px', borderRadius: 20,
+                                background: String(v.id_movilizador) === String(user?.id) ? '#eff6ff' : '#f3f4f6',
+                                color: String(v.id_movilizador) === String(user?.id) ? '#2563eb' : '#6b7280',
+                              }}>
+                                {String(v.id_movilizador) === String(user?.id) ? '★ ' : ''}{v.tipo}{v.placas ? ` (${v.placas})` : ''}
+                              </span>
+                            ) : '—'}
+                          </td>
+
+                          <td style={{ padding: '10px 14px', color: '#6b7280', whiteSpace: 'nowrap' }}>
+                            {asig.hora_checkin
+                              ? new Date(asig.hora_checkin).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
+                              : '—'}
+                          </td>
+
+                          <td style={{ padding: '10px 14px' }}>
+                            {!asig.asistio && (
+                              <button
+                                disabled={isLoading}
+                                onClick={() => handleCheckin(asig)}
+                                style={{
+                                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                                  padding: '7px 14px', border: 'none', borderRadius: 8,
+                                  background: isLoading ? '#d1d5db' : '#10b981',
+                                  color: 'white', fontWeight: 700, fontSize: '.8rem',
+                                  cursor: isLoading ? 'not-allowed' : 'pointer',
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                <FiCheck size={12} />
+                                {isLoading ? 'Marcando...' : 'Marcar'}
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
       </div>
-      {toast && <Toast message={toast} onClose={() => setToast(null)} />}
+
+      <style>{`@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }`}</style>
     </div>
   );
 };
 
-export default Checkin; 
+export default Checkin;

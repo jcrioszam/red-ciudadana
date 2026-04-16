@@ -4,7 +4,7 @@ const isDev = process.env.NODE_ENV !== 'production';
 
 const baseURL = process.env.NODE_ENV === 'production'
   ? (process.env.REACT_APP_API_URL || 'https://red-ciudadana-production.up.railway.app')
-  : 'http://localhost:8000';
+  : `http://${window.location.hostname}:8000`;
 
 const api = axios.create({
   baseURL,

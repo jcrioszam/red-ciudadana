@@ -1,9 +1,9 @@
-import React from 'react';
 import { useQuery } from 'react-query';
 import {
-  FiUsers, FiUserCheck, FiCalendar, FiMapPin, FiTrendingUp, FiActivity,
-  FiUser, FiBarChart, FiRefreshCw, FiTruck, FiCheckCircle, FiGitBranch,
-  FiPlus, FiFileText
+  FiUsers, FiUserCheck, FiCalendar, FiTrendingUp, FiActivity,
+  FiBarChart, FiRefreshCw, FiTruck, FiCheckCircle, FiGitBranch,
+  FiPlus, FiFileText, FiAlertTriangle, FiClock, FiUser, FiStar,
+  FiArrowRight, FiMapPin, FiCheck
 } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
@@ -71,7 +71,7 @@ function QuickAction({ icon, label, to, color }) {
 // ─────────────────────────────────────────────────────────────────────────────
 const Dashboard = () => {
   const { user } = useAuth();
-  const navigate = useNavigate();
+  const navigate = useNavigate(); // usado en QuickAction vía prop `to`
 
   const { data: configuracionPerfil } = useQuery(
     ['configuracion-perfil-usuario', user?.rol],
@@ -97,6 +97,10 @@ const Dashboard = () => {
     { enabled: !!user?.rol, staleTime: 0, refetchOnWindowFocus: true, refetchOnMount: true }
   );
 
+  const { data: statsReportes } = useQuery('statsReportesDash', async () => {
+    try { const r = await api.get('/reportes-ciudadanos/estadisticas-mapa'); return r.data; } catch { return null; }
+  }, { staleTime: 60000 });
+
   const { data: reportePersonas, isLoading: lP, refetch: rP } = useQuery('reportePersonas', async () => {
     const r = await api.get('/reportes/personas'); return r.data;
   });
@@ -110,11 +114,21 @@ const Dashboard = () => {
     const r = await api.get('/reportes/asistencias-tiempo-real'); return r.data;
   });
   const { data: movilizacionVehiculos, isLoading: lM, refetch: rM } = useQuery('movilizacionVehiculos', async () => {
-    const r = await api.get('/reportes/movilizacion-vehiculos'); return r.data;
+    const r = await api.get('/reportes/metricas-movilizacion/'); return r.data;
   });
   const { data: usuarios, isLoading: lU } = useQuery('usuarios', async () => {
     const r = await api.get('/users/'); return r.data;
   });
+
+  // Mis vehículos asignados (para movilizadores)
+  const { data: misVehiculos = [] } = useQuery(
+    ['misVehiculos', user?.id],
+    async () => {
+      try { const r = await api.get('/movilizaciones/mis-vehiculos'); return r.data; }
+      catch { return []; }
+    },
+    { enabled: !!user?.id, staleTime: 30000 }
+  );
 
   const stats = {
     totalPersonas: reportePersonas?.total_personas || 0,
@@ -222,6 +236,138 @@ const Dashboard = () => {
             <StatCard icon={<FiGitBranch />} label="Secciones Cubiertas" value={stats.seccionesCubiertas}
               accent="#ea580c" sub="Secciones electorales" />
           )}
+        </div>
+      )}
+
+      {/* Estadísticas Alerta Ciudadana */}
+      {statsReportes && (
+        <div style={{
+          background: 'linear-gradient(135deg, #0f172a 0%, #1e3a5f 60%, #0c4a6e 100%)',
+          borderRadius: 16, padding: '24px 28px', color: 'white',
+          boxShadow: '0 4px 24px rgba(0,0,0,.18)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, flexWrap: 'wrap', gap: 8 }}>
+            <div>
+              <div style={{ fontSize: '.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.1em', color: '#38bdf8', marginBottom: 4 }}>Plataforma ciudadana activa</div>
+              <div style={{ fontSize: '1.35rem', fontWeight: 800, lineHeight: 1.2 }}>
+                Alerta <span style={{ color: '#38bdf8' }}>Ciudadana</span>
+              </div>
+              <div style={{ fontSize: '.8rem', color: '#94a3b8', marginTop: 3 }}>Reportes ciudadanos en tiempo real</div>
+            </div>
+            <button onClick={() => navigate('/alerta-ciudadana')} style={{ padding: '8px 18px', background: '#2563eb', color: 'white', border: 'none', borderRadius: 10, fontSize: '.82rem', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+              Ver mapa →
+            </button>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 12 }}>
+            {[
+              { label: 'Total',       n: statsReportes.resumen?.total ?? 0,       color: '#e2e8f0', Icon: FiAlertTriangle },
+              { label: 'Pendientes',  n: statsReportes.resumen?.pendientes ?? 0,  color: '#fbbf24', Icon: FiClock },
+              { label: 'En Progreso', n: statsReportes.resumen?.en_progreso ?? 0, color: '#a78bfa', Icon: FiActivity },
+              { label: 'Resueltos',   n: statsReportes.resumen?.resueltos ?? 0,   color: '#34d399', Icon: FiCheckCircle },
+            ].map(({ label, n, color, Icon }) => (
+              <div key={label} style={{ background: 'rgba(255,255,255,.07)', borderRadius: 12, padding: '14px 16px', border: '1px solid rgba(255,255,255,.1)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 6 }}>
+                  <Icon size={14} color={color} />
+                  <span style={{ fontSize: '.72rem', color: '#94a3b8', fontWeight: 600 }}>{label}</span>
+                </div>
+                <div style={{ fontSize: '1.8rem', fontWeight: 800, color, fontFamily: 'monospace', lineHeight: 1 }}>{n}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Mis Movilizaciones (solo si soy movilizador con vehículos asignados) ── */}
+      {misVehiculos.length > 0 && (
+        <div style={{ background: 'white', borderRadius: 16, border: '1px solid #f0f0f5', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}>
+          <div style={{ padding: '16px 24px', borderBottom: '1px solid #f0f0f5', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <FiStar size={17} />
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '1rem', color: '#1a1f2e' }}>Mis Movilizaciones Asignadas</div>
+                <div style={{ fontSize: '.78rem', color: '#6b7280' }}>Vehículos bajo tu responsabilidad</div>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ padding: '16px 20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
+            {misVehiculos.map((mv, i) => {
+              const pct = mv.porcentaje || 0;
+              const barColor = pct >= 80 ? '#10b981' : pct >= 50 ? '#f59e0b' : '#3b82f6';
+              const estadoBadge = mv.en_curso
+                ? { label: 'En curso', color: '#16a34a', bg: '#dcfce7' }
+                : mv.proximo
+                ? { label: 'Próximo', color: '#2563eb', bg: '#dbeafe' }
+                : { label: 'Hoy', color: '#7c3aed', bg: '#ede9fe' };
+
+              return (
+                <div key={i} style={{ border: '1px solid #e4e7ed', borderRadius: 14, overflow: 'hidden', borderTop: `3px solid ${barColor}` }}>
+                  {/* Header tarjeta */}
+                  <div style={{ padding: '12px 14px', background: '#fafafa', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                        <FiTruck size={14} color="#3b82f6" />
+                        <span style={{ fontWeight: 700, fontSize: '.9rem', color: '#1a1f2e' }}>
+                          {mv.vehiculo_tipo}
+                          {mv.vehiculo_placas && <span style={{ fontWeight: 400, color: '#6b7280', fontSize: '.8rem' }}> ({mv.vehiculo_placas})</span>}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '.8rem', color: '#374151', fontWeight: 600 }}>{mv.evento_nombre}</div>
+                      <div style={{ fontSize: '.73rem', color: '#9ca3af', marginTop: 2, display: 'flex', gap: 8 }}>
+                        <span><FiClock size={10} style={{ display: 'inline', marginRight: 3 }} />
+                          {new Date(mv.evento_fecha).toLocaleString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                        {mv.evento_lugar && (
+                          <span><FiMapPin size={10} style={{ display: 'inline', marginRight: 3 }} />{mv.evento_lugar}</span>
+                        )}
+                      </div>
+                    </div>
+                    <span style={{ fontSize: '.7rem', fontWeight: 700, color: estadoBadge.color, background: estadoBadge.bg, padding: '3px 9px', borderRadius: 20, whiteSpace: 'nowrap' }}>
+                      {estadoBadge.label}
+                    </span>
+                  </div>
+
+                  {/* Stats */}
+                  <div style={{ padding: '10px 14px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: '.82rem' }}>
+                      <span style={{ color: '#6b7280' }}>
+                        <FiUsers size={11} style={{ display: 'inline', marginRight: 4 }} />
+                        {mv.presentes}/{mv.total_personas} presentes
+                      </span>
+                      <span style={{ fontWeight: 700, color: barColor }}>{pct}%</span>
+                    </div>
+                    <div style={{ height: 6, background: '#f0f0f5', borderRadius: 4, overflow: 'hidden', marginBottom: 10 }}>
+                      <div style={{ width: `${pct}%`, height: '100%', background: barColor, borderRadius: 4, transition: 'width .4s' }} />
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button
+                        onClick={() => navigate('/checkin')}
+                        style={{
+                          flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                          padding: '8px', background: '#2563eb', color: 'white',
+                          border: 'none', borderRadius: 9, fontWeight: 700, fontSize: '.8rem', cursor: 'pointer',
+                        }}
+                      >
+                        <FiCheck size={13} /> Ir a Check-in
+                      </button>
+                      <button
+                        onClick={() => navigate('/movilizacion')}
+                        style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+                          padding: '8px 12px', background: '#f3f4f6', color: '#374151',
+                          border: 'none', borderRadius: 9, fontWeight: 600, fontSize: '.8rem', cursor: 'pointer',
+                        }}
+                      >
+                        <FiArrowRight size={13} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 

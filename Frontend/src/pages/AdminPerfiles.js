@@ -50,13 +50,11 @@ const AdminPerfiles = () => {
   // Mutación para actualizar configuración
   const updateConfiguracionMutation = useMutation(
     async ({ rol, configuracion }) => {
-      console.log('Enviando configuración:', { rol, configuracion });
       const response = await api.put(`/perfiles/configuracion/${rol}`, configuracion);
       return response.data;
     },
     {
       onSuccess: () => {
-        console.log('Configuración actualizada exitosamente');
         queryClient.invalidateQueries(['configuracion-perfil', selectedRol]);
         setIsEditing(false);
       },
@@ -88,9 +86,6 @@ const AdminPerfiles = () => {
   };
 
   const handleSave = () => {
-    console.log('Botón guardar presionado');
-    console.log('Rol seleccionado:', selectedRol);
-    console.log('Configuración actual:', configuracionActual);
     updateConfiguracionMutation.mutate({
       rol: selectedRol,
       configuracion: configuracionActual

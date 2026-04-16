@@ -5,7 +5,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-from fastapi import FastAPI, Depends, HTTPException, status, Request
+from fastapi import FastAPI, Depends, HTTPException, status, Request, Form, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -21,6 +21,7 @@ from .database import engine, get_db, SessionLocal
 from .models import Base
 from .auth import get_password_hash
 from .models import Usuario as UsuarioModel
+from .models_noticias import Noticia as _NoticiaRegistro  # registra tabla noticias en Base.metadata
 from . import vehiculos, movilizaciones
 from . import endpoints_padron
 
@@ -30,24 +31,34 @@ from . import endpoints_padron
 # ---------------------------------------------------------------------------
 
 def verificar_y_crear_columnas():
-    """Ensure required columns exist in reportes_ciudadanos."""
-    for col, ddl in [
-        ("es_publico", "ALTER TABLE reportes_ciudadanos ADD COLUMN es_publico BOOLEAN DEFAULT true"),
-        ("contacto_email", "ALTER TABLE reportes_ciudadanos ADD COLUMN contacto_email VARCHAR(255)"),
+    """Ensure required columns exist."""
+    for tabla, col, ddl in [
+        ("reportes_ciudadanos", "es_publico", "ALTER TABLE reportes_ciudadanos ADD COLUMN es_publico BOOLEAN DEFAULT true"),
+        ("reportes_ciudadanos", "contacto_email", "ALTER TABLE reportes_ciudadanos ADD COLUMN contacto_email VARCHAR(255)"),
+        ("noticias", "imagenes", "ALTER TABLE noticias ADD COLUMN imagenes TEXT"),
+        ("fotos_reportes", "contenido_base64", "ALTER TABLE fotos_reportes ADD COLUMN contenido_base64 TEXT"),
+        ("reportes_ciudadanos", "folio",       "ALTER TABLE reportes_ciudadanos ADD COLUMN folio TEXT"),
+        ("reportes_ciudadanos", "votos",       "ALTER TABLE reportes_ciudadanos ADD COLUMN votos INTEGER DEFAULT 0"),
+        ("reportes_ciudadanos", "vistas",      "ALTER TABLE reportes_ciudadanos ADD COLUMN vistas INTEGER DEFAULT 0"),
+        ("reportes_ciudadanos", "colonia",     "ALTER TABLE reportes_ciudadanos ADD COLUMN colonia TEXT"),
+        ("reportes_ciudadanos", "calle",       "ALTER TABLE reportes_ciudadanos ADD COLUMN calle TEXT"),
+        ("reportes_ciudadanos", "subtipo",     "ALTER TABLE reportes_ciudadanos ADD COLUMN subtipo TEXT"),
+        ("reportes_ciudadanos", "resuelto_en", "ALTER TABLE reportes_ciudadanos ADD COLUMN resuelto_en DATETIME"),
     ]:
         db = SessionLocal()
         try:
-            db.execute(text(f"SELECT {col} FROM reportes_ciudadanos LIMIT 1"))
+            db.execute(text(f"SELECT {col} FROM {tabla} LIMIT 1"))
         except Exception:
             try:
                 db.execute(text(ddl))
                 db.commit()
-                logger.info(f"Columna {col} creada")
+                logger.info(f"Columna {tabla}.{col} creada")
             except Exception as e:
-                logger.error(f"Error creando columna {col}: {e}")
+                logger.error(f"Error creando columna {tabla}.{col}: {e}")
                 db.rollback()
         finally:
             db.close()
+
 
 
 def migrate_foto_url_auto():
@@ -153,17 +164,18 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://red-ciudadana.vercel.app",
-        "https://red-ciudadana-574v-iakbeuaab-juan-carlos-projects-ba06dd79.vercel.app",
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "*",
-    ],
+    allow_origins=["*"],
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Middleware para permitir Private Network Access (Radmin VPN / IPs externas hacia localhost)
+@app.middleware("http")
+async def add_private_network_header(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["Access-Control-Allow-Private-Network"] = "true"
+    return response
 
 # Static files
 os.makedirs("uploads", exist_ok=True)
@@ -183,7 +195,7 @@ from .routers import (
     auth_routes, usuarios, perfiles, ubicaciones,
     eventos, asistencias, personas, reportes,
     noticias, reportes_ciudadanos, tipos_reporte,
-    invitaciones, uploads,
+    invitaciones, uploads, incentivos, duplicados,
 )
 app.include_router(auth_routes.router)
 app.include_router(usuarios.router)
@@ -198,6 +210,8 @@ app.include_router(reportes_ciudadanos.router)
 app.include_router(tipos_reporte.router)
 app.include_router(invitaciones.router)
 app.include_router(uploads.router)
+app.include_router(incentivos.router)
+app.include_router(duplicados.router)
 
 # Admin database routes
 try:
@@ -208,7 +222,42 @@ try:
 except Exception as e:
     logger.warning(f"admin_database no disponible: {e}")
 
-# /reportes-publicos alias — served by reportes_ciudadanos router as /reportes-ciudadanos/publicos/
+# /reportes-publicos alias
+from .routers.reportes_ciudadanos import (
+    obtener_reportes_publicos_con_fotos as _rp_handler,
+    create_reporte_publico as _rp_create_handler,
+)
+from typing import Optional as _Optional
+
+@app.get("/reportes-publicos")
+async def reportes_publicos_alias(
+    skip: int = 0,
+    limit: int = 100,
+    tipo: _Optional[str] = None,
+    estado: _Optional[str] = None,
+    fecha_inicio: _Optional[str] = None,
+    fecha_fin: _Optional[str] = None,
+    db=Depends(get_db)
+):
+    return await _rp_handler(skip=skip, limit=limit, tipo=tipo, estado=estado, fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, db=db)
+
+@app.post("/reporte-publico")
+async def reporte_publico_create_alias(
+    titulo: _Optional[str] = Form(None),
+    descripcion: str = Form(...),
+    tipo: str = Form(...),
+    latitud: float = Form(...),
+    longitud: float = Form(...),
+    direccion: _Optional[str] = Form(None),
+    prioridad: _Optional[str] = Form("normal"),
+    foto: _Optional[UploadFile] = File(None),
+    db=Depends(get_db)
+):
+    return await _rp_create_handler(
+        titulo=titulo, descripcion=descripcion, tipo=tipo,
+        latitud=latitud, longitud=longitud, direccion=direccion,
+        prioridad=prioridad, es_publico=True, foto=foto, db=db,
+    )
 
 # ---------------------------------------------------------------------------
 # Core endpoints

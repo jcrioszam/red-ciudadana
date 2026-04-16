@@ -101,23 +101,13 @@ const AdminDatabase = () => {
                 params.status = cleanForm.status;
             }
             
-            console.log('🔍 DEBUG: Llamando a endpoint con parámetros:', params);
-            
             const response = await api.get('/admin/database/limpiar-preview', { params });
-            console.log('✅ DEBUG: Respuesta del endpoint:', response.data);
-            
+
             const reportes = response.data.reportes || [];
-            console.log('📊 DEBUG: Reportes extraídos:', reportes);
-            console.log('📊 DEBUG: Cantidad de reportes:', reportes.length);
-            
+
             // Agregar propiedad selected a cada reporte
             const reportesConSeleccion = reportes.map(r => ({ ...r, selected: true }));
             setPreviewReports(reportesConSeleccion);
-            
-            // Mostrar información adicional si está disponible
-            if (response.data.debug_info) {
-                console.log('🔍 DEBUG: Información de debug del backend:', response.data.debug_info);
-            }
             
         } catch (err) {
             console.error('❌ Error obteniendo vista previa:', err);
@@ -154,8 +144,6 @@ const AdminDatabase = () => {
                 reportes_ids: reportesSeleccionados.map(r => r.id),
                 total_seleccionados: reportesSeleccionados.length
             };
-            
-            console.log('🗑️ Enviando datos de limpieza:', datosLimpieza);
             
             const response = await api.post('/admin/database/limpiar', datosLimpieza);
             
@@ -254,7 +242,6 @@ const AdminDatabase = () => {
 
     return (
         <div className="container-fluid">
-            {console.log('🔍 AdminDatabase: Renderizando componente...')}
             <div className="d-flex justify-content-between align-items-center mb-4">
                 <div>
                     <h1 className="h3 mb-0">🗄️ Administración de Base de Datos</h1>

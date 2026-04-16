@@ -39,8 +39,7 @@ const Usuarios = () => {
 
   // Obtener líderes para el select
   const { data: lideres } = useQuery('lideres', async () => {
-    const response = await api.get('/users/');
-    // Incluir presidente y admin como posibles superiores
+    const response = await api.get('/users/?activo=true');
     return response.data.filter(u => u.rol.includes('lider') || u.rol === 'presidente' || u.rol === 'admin');
   });
 
@@ -178,12 +177,10 @@ const Usuarios = () => {
       }
       
       const res = await api.post('/invitaciones/', invitationData);
-      console.log('Respuesta de invitación:', res.data);
       const token = res.data.token;
       if (token && typeof token === 'string') {
         setInviteToken(token);
       } else {
-        console.error('Token inválido recibido:', token);
         setInviteToken('');
         toast.error('Error: Token inválido recibido del servidor');
       }
@@ -229,15 +226,16 @@ const Usuarios = () => {
   };
 
   // Mapa de jerarquía para roles
+  // Jerarquía: Presidente > Estatal > Regional > Zona > Municipal > Capturista > Ciudadano
   const superiorPorRol = {
-    'presidente': [], // No tiene superior
-    'admin': [], // No tiene superior
-    'lider_estatal': ['presidente'],
-    'lider_regional': ['lider_estatal'],
-    'lider_municipal': ['lider_regional'],
-    'lider_zona': ['lider_municipal'],
-    'capturista': ['lider_zona'],
-    'ciudadano': [], // No tiene superior, es un rol independiente
+    'presidente': [],
+    'admin': [],
+    'lider_estatal':   ['presidente'],
+    'lider_regional':  ['lider_estatal', 'presidente'],
+    'lider_zona':      ['lider_regional', 'lider_estatal', 'presidente'],
+    'lider_municipal': ['lider_zona', 'lider_regional', 'lider_estatal', 'presidente'],
+    'capturista':      ['lider_municipal', 'lider_zona', 'lider_regional', 'lider_estatal'],
+    'ciudadano':       ['lider_municipal', 'lider_zona'],
   };
 
   if (isLoading) {

@@ -98,6 +98,27 @@ async def upload_file(
     }
 
 
+@router.post("/admin/upload-image/")
+async def upload_image_noticia(
+    file: UploadFile = File(...),
+    current_user: Usuario = Depends(get_current_active_user)
+):
+    if not file.content_type or not file.content_type.startswith('image/'):
+        raise HTTPException(status_code=400, detail="Solo se permiten archivos de imagen")
+    content = await file.read()
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="El archivo es demasiado grande (máximo 10MB)")
+    os.makedirs("uploads/noticias", exist_ok=True)
+    ext = file.filename.rsplit('.', 1)[-1].lower() if file.filename and '.' in file.filename else 'jpg'
+    file_name = f"{uuid.uuid4()}.{ext}"
+    with open(f"uploads/noticias/{file_name}", "wb") as f:
+        f.write(content)
+    base_url = os.getenv("BASE_URL", f"http://{os.getenv('HOST', 'localhost')}:8001")
+    url = f"{base_url}/uploads/noticias/{file_name}"
+    logger.info(f"Imagen de noticia subida: {file_name} ({len(content)} bytes)")
+    return {"success": True, "data": {"url": url, "filename": file_name}}
+
+
 @router.get("/static/{path:path}")
 def serve_static_files(path: str):
     file_path = f"static/{path}"

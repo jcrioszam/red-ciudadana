@@ -1,542 +1,294 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Card, 
-  CardContent, 
-  Typography, 
-  Box, 
-  Chip, 
-  IconButton, 
-  Alert,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Button,
-  Grid,
-  Paper
-} from '@mui/material';
-import { 
-  Refresh, 
-  LocationOn, 
-  Speed, 
-  Battery90,
-  DirectionsCar,
-  Map,
-  Event,
-  AccessTime
-} from '@mui/icons-material';
+import React, { useState, useEffect } from 'react';
+import { useQuery } from 'react-query';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import L from 'leaflet';
+import { FiRefreshCw, FiMapPin, FiTruck, FiCalendar, FiClock, FiAlertCircle } from 'react-icons/fi';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api';
+import 'leaflet/dist/leaflet.css';
+
+// Fix default leaflet icon
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+});
+
+const ROL_COLOR = {
+  admin:           '#f59e0b',
+  presidente:      '#8b5cf6',
+  lider_estatal:   '#ef4444',
+  lider_regional:  '#3b82f6',
+  lider_zona:      '#10b981',
+  lider_municipal: '#06b6d4',
+  default:         '#6b7280',
+};
+
+const makeVehicleIcon = (color) => L.divIcon({
+  html: `<div style="
+    width:34px;height:34px;background:${color};
+    border:2.5px solid white;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 2px 8px rgba(0,0,0,.3);font-size:15px;">🚗</div>`,
+  className: '',
+  iconSize: [34, 34],
+  iconAnchor: [17, 17],
+  popupAnchor: [0, -18],
+});
+
+function timeAgo(ts) {
+  const d = Math.floor((Date.now() - new Date(ts)) / 60000);
+  if (d < 1) return 'Ahora';
+  if (d < 60) return `Hace ${d} min`;
+  if (d < 1440) return `Hace ${Math.floor(d / 60)}h`;
+  return new Date(ts).toLocaleDateString('es-MX');
+}
+
+const ALLOWED = ['admin', 'presidente', 'lider_estatal', 'lider_regional', 'lider_municipal'];
 
 export default function Seguimiento() {
   const { user } = useAuth();
-  const [vehicles, setVehicles] = useState([]);
-  const [selectedEvento, setSelectedEvento] = useState(null);
-  const [eventos, setEventos] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [map, setMap] = useState(null);
-  const [markers, setMarkers] = useState([]);
-  const mapRef = useRef(null);
+  const [selectedEvento, setSelectedEvento] = useState('');
+  const [autoRefresh, setAutoRefresh] = useState(true);
 
-  // Roles permitidos para ver seguimiento (solo líderes superiores)
-  const allowedRoles = ['admin', 'presidente', 'lider_estatal', 'lider_municipal'];
+  /* ── Eventos activos ── */
+  const { data: eventos = [] } = useQuery('eventosActivos', () =>
+    api.get('/eventos/?activos=true').then(r => r.data)
+  );
 
-  // Cargar eventos activos
+  /* ── Ubicaciones ── */
+  const { data: ubicData, isLoading, isError, refetch, dataUpdatedAt } = useQuery(
+    ['ubicaciones', selectedEvento],
+    () => api.get(`/ubicacion/vehiculos${selectedEvento ? `?evento_id=${selectedEvento}` : ''}`).then(r => r.data),
+    {
+      enabled: !!selectedEvento,
+      refetchInterval: autoRefresh ? 30000 : false,
+    }
+  );
+
+  const vehicles = ubicData?.ubicaciones || [];
+
+  /* ── Auto-seleccionar primer evento ── */
   useEffect(() => {
-    loadActiveEvents();
-  }, []);
+    if (eventos.length > 0 && !selectedEvento) setSelectedEvento(String(eventos[0].id));
+  }, [eventos]);
 
-  // Cargar ubicaciones cuando cambie el evento
-  useEffect(() => {
-    if (selectedEvento) {
-      loadVehiclesLocation();
-    }
-  }, [selectedEvento]);
-
-  // Actualizar cada 30 segundos
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (selectedEvento) {
-        loadVehiclesLocation();
-      }
-    }, 30000);
-
-    return () => clearInterval(interval);
-  }, [selectedEvento]);
-
-  // Inicializar mapa cuando se monte el componente
-  useEffect(() => {
-    const initializeMapWithRetry = () => {
-      if (typeof window !== 'undefined' && window.L) {
-        initializeMap();
-      } else {
-        // Reintentar después de un breve delay
-        setTimeout(() => {
-          if (typeof window !== 'undefined' && window.L) {
-            initializeMap();
-          } else {
-            console.error('Leaflet no se pudo cargar');
-            setError('Error al cargar el mapa. Por favor, recarga la página.');
-          }
-        }, 1000);
-      }
-    };
-
-    initializeMapWithRetry();
-
-    // Limpiar mapa cuando el componente se desmonte
-    return () => {
-      if (map) {
-        map.remove();
-        setMap(null);
-      }
-    };
-  }, []);
-
-  const initializeMap = () => {
-    if (!mapRef.current || map) return;
-
-    // Verificar si el contenedor ya tiene un mapa
-    if (mapRef.current._leaflet_id) {
-      console.log('Mapa ya inicializado, saltando...');
-      return;
-    }
-
-    try {
-      const mapInstance = window.L.map(mapRef.current).setView([19.4326, -99.1332], 12);
-
-      // Agregar capa de OpenStreetMap
-      window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
-      }).addTo(mapInstance);
-
-      setMap(mapInstance);
-      console.log('Mapa inicializado correctamente');
-    } catch (error) {
-      console.error('Error al inicializar mapa:', error);
-      setError('Error al cargar el mapa. Por favor, recarga la página.');
-    }
-  };
-
-  const loadActiveEvents = async () => {
-    try {
-      const response = await api.get('/eventos/?activos=true');
-      setEventos(response.data);
-      if (response.data.length > 0) {
-        setSelectedEvento(response.data[0].id);
-      }
-    } catch (error) {
-      console.error('Error al cargar eventos:', error);
-      setError('Error al cargar eventos');
-    }
-  };
-
-  const loadVehiclesLocation = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const endpoint = selectedEvento 
-        ? `/ubicacion/vehiculos?evento_id=${selectedEvento}`
-        : '/ubicacion/vehiculos';
-      
-      const response = await api.get(endpoint);
-      const vehiclesData = response.data?.ubicaciones || [];
-      setVehicles(vehiclesData);
-      
-      // Actualizar marcadores en el mapa
-      updateMapMarkers(vehiclesData);
-    } catch (error) {
-      console.error('Error al cargar ubicaciones:', error);
-      setError('Error al cargar las ubicaciones de vehículos');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const updateMapMarkers = (vehiclesData) => {
-    if (!map) {
-      console.log('Mapa no disponible para actualizar marcadores');
-      return;
-    }
-
-    try {
-      // Limpiar marcadores anteriores
-      markers.forEach(marker => {
-        if (marker && marker.remove) {
-          marker.remove();
-        }
-      });
-
-      const newMarkers = vehiclesData.map(vehicle => {
-        const position = [vehicle.latitud, vehicle.longitud];
-        
-        // Crear icono personalizado según el rol
-        const icon = createVehicleIcon(vehicle);
-
-        const marker = window.L.marker(position, { icon }).addTo(map);
-
-        // Crear contenido de popup
-        const popupContent = createPopupContent(vehicle);
-        marker.bindPopup(popupContent);
-
-        return marker;
-      });
-
-      setMarkers(newMarkers);
-
-      // Ajustar vista del mapa para mostrar todos los marcadores
-      if (newMarkers.length > 0) {
-        const group = new window.L.featureGroup(newMarkers);
-        map.fitBounds(group.getBounds().pad(0.1));
-      }
-    } catch (error) {
-      console.error('Error al actualizar marcadores:', error);
-    }
-  };
-
-  const createVehicleIcon = (vehicle) => {
-    const colors = {
-      'admin': '#FF9800',
-      'presidente': '#9C27B0',
-      'lider_estatal': '#F44336',
-      'lider_municipal': '#4CAF50',
-      'lider_zona': '#2196F3',
-      'default': '#607D8B'
-    };
-    
-    const color = colors[vehicle.rol] || colors.default;
-    
-    // Crear un identificador único para el vehículo
-    const vehicleId = vehicle.vehiculo_placas || vehicle.vehiculo_tipo || vehicle.id_usuario;
-    
-    return window.L.divIcon({
-      html: `
-        <div style="
-          width: 32px; 
-          height: 32px; 
-          background-color: ${color}; 
-          border: 2px solid white; 
-          border-radius: 50%; 
-          display: flex; 
-          align-items: center; 
-          justify-content: center;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-        ">
-          <span style="color: white; font-size: 16px;">🚗</span>
-        </div>
-      `,
-      className: 'custom-vehicle-icon',
-      iconSize: [32, 32],
-      iconAnchor: [16, 16]
-    });
-  };
-
-  const createPopupContent = (vehicle) => {
-    const formatTimestamp = (timestamp) => {
-      const date = new Date(timestamp);
-      const now = new Date();
-      const diffMs = now.getTime() - date.getTime();
-      const diffMins = Math.floor(diffMs / 60000);
-      
-      if (diffMins < 1) return 'Ahora';
-      if (diffMins < 60) return `Hace ${diffMins} min`;
-      if (diffMins < 1440) return `Hace ${Math.floor(diffMins / 60)}h`;
-      return date.toLocaleDateString('es-MX');
-    };
-
-    let popupContent = `
-      <div style="padding: 10px; min-width: 200px;">
-        <h3 style="margin: 0 0 8px 0; color: #1a237e; font-weight: bold;">${vehicle.nombre}${vehicle.vehiculo_placas ? ` - ${vehicle.vehiculo_placas}` : ''}</h3>
-        <p style="margin: 4px 0; color: #666;">
-          <strong>Rol:</strong> ${vehicle.rol.replace('_', ' ').toUpperCase()}
-        </p>
-        <p style="margin: 4px 0; color: #666;">
-          <strong>Ubicación:</strong> ${vehicle.latitud.toFixed(6)}, ${vehicle.longitud.toFixed(6)}
-        </p>
-        ${vehicle.velocidad ? `<p style="margin: 4px 0; color: #666;"><strong>Velocidad:</strong> ${vehicle.velocidad.toFixed(1)} km/h</p>` : ''}
-        ${vehicle.bateria ? `<p style="margin: 4px 0; color: #666;"><strong>Batería:</strong> ${vehicle.bateria}%</p>` : ''}
-        ${vehicle.direccion ? `<p style="margin: 4px 0; color: #666;"><strong>Dirección:</strong> ${vehicle.direccion}</p>` : ''}
-        <p style="margin: 4px 0; color: #666;">
-          <strong>Última actualización:</strong> ${formatTimestamp(vehicle.timestamp)}
-        </p>
-    `;
-
-    // Agregar información de movilización si está disponible
-    if (vehicle.evento_nombre) {
-      popupContent += `
-        <hr style="margin: 12px 0; border: 1px solid #ddd;">
-        <h4 style="margin: 8px 0; color: #4CAF50; font-weight: bold;">🚗 Información de Movilización</h4>
-        <p style="margin: 4px 0; color: #666;">
-          <strong>Evento:</strong> ${vehicle.evento_nombre}
-        </p>
-        <p style="margin: 4px 0; color: #666;">
-          <strong>Vehículo:</strong> ${vehicle.vehiculo_tipo || 'N/A'}
-        </p>
-        ${vehicle.vehiculo_placas ? `<p style="margin: 4px 0; color: #666;"><strong>Placas:</strong> ${vehicle.vehiculo_placas}</p>` : ''}
-        ${vehicle.total_personas ? `<p style="margin: 4px 0; color: #666;"><strong>Personas:</strong> ${vehicle.total_personas}${vehicle.vehiculo_capacidad ? ` de ${vehicle.vehiculo_capacidad}` : ''}</p>` : ''}
-      `;
-    }
-
-    popupContent += `</div>`;
-    return popupContent;
-  };
-
-  const getRoleColor = (rol) => {
-    const colors = {
-      'admin': '#FF9800',
-      'presidente': '#9C27B0',
-      'lider_estatal': '#F44336',
-      'lider_municipal': '#4CAF50',
-      'lider_zona': '#2196F3',
-      'default': '#607D8B'
-    };
-    return colors[rol] || colors.default;
-  };
-
-  const formatTimestamp = (timestamp) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    
-    if (diffMins < 1) return 'Ahora';
-    if (diffMins < 60) return `Hace ${diffMins} min`;
-    if (diffMins < 1440) return `Hace ${Math.floor(diffMins / 60)}h`;
-    return date.toLocaleDateString('es-MX');
-  };
-
-  // Verificar si el usuario tiene permisos
-  if (!allowedRoles.includes(user?.rol)) {
+  if (!ALLOWED.includes(user?.rol)) {
     return (
-      <Box sx={{ p: 3 }}>
-        <Alert severity="error">
-          No tienes permisos para acceder al módulo de seguimiento en tiempo real.
-        </Alert>
-      </Box>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300, flexDirection: 'column', gap: 12, color: '#ef4444' }}>
+        <FiAlertCircle size={40} />
+        <p style={{ fontWeight: 600 }}>No tienes permisos para acceder al seguimiento en tiempo real</p>
+      </div>
     );
   }
 
+  const eventoSel = eventos.find(e => String(e.id) === String(selectedEvento));
+  const center = vehicles.length > 0
+    ? [vehicles[0].latitud, vehicles[0].longitud]
+    : [19.4326, -99.1332];
+
   return (
-    <Box sx={{ p: 3 }}>
+    <div className="space-y-5">
+
       {/* Header */}
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          Seguimiento en Tiempo Real
-        </Typography>
-        <Typography variant="subtitle1" color="text.secondary" gutterBottom>
-          Monitorea la ubicación de vehículos y personal durante movilizaciones
-        </Typography>
-      </Box>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+        <div>
+          <h1 className="text-2xl font-bold text-secondary-900">Seguimiento en Tiempo Real</h1>
+          <p className="text-secondary-600">Monitorea la ubicación de vehículos durante movilizaciones</p>
+        </div>
+
+        {/* Última actualización */}
+        {dataUpdatedAt > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '.78rem', color: '#6b7280', background: 'white', padding: '6px 12px', borderRadius: 20, border: '1px solid #e4e7ed' }}>
+            <FiClock size={12} />
+            Actualizado: {new Date(dataUpdatedAt).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+          </div>
+        )}
+      </div>
 
       {/* Controles */}
-      <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid item xs={12} md={4}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                <Event sx={{ mr: 1, color: 'primary.main' }} />
-                <Typography variant="h6">Seleccionar Evento</Typography>
-              </Box>
-              <FormControl fullWidth>
-                <InputLabel>Evento</InputLabel>
-                <Select
-                  value={selectedEvento || ''}
-                  onChange={(e) => setSelectedEvento(e.target.value)}
-                  label="Evento"
-                >
-                  {eventos.map(evento => (
-                    <MenuItem key={evento.id} value={evento.id}>
-                      {evento.nombre}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </CardContent>
-          </Card>
-        </Grid>
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+        {/* Selector evento */}
+        <div style={{ flex: '1 1 260px' }}>
+          <label style={{ display: 'block', fontSize: '.78rem', fontWeight: 600, color: '#374151', marginBottom: 5 }}>
+            <FiCalendar size={12} style={{ display: 'inline', marginRight: 4 }} /> Evento
+          </label>
+          <select
+            className="input-field"
+            value={selectedEvento}
+            onChange={e => setSelectedEvento(e.target.value)}
+          >
+            <option value="">— Selecciona un evento —</option>
+            {eventos.map(ev => (
+              <option key={ev.id} value={ev.id}>{ev.nombre}</option>
+            ))}
+          </select>
+        </div>
 
-        <Grid item xs={12} md={4}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                <DirectionsCar sx={{ mr: 1, color: 'primary.main' }} />
-                <Typography variant="h6">Vehículos Activos</Typography>
-              </Box>
-              <Typography variant="h3" color="primary" gutterBottom>
-                {vehicles.length}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                En seguimiento
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
+        {/* Actualizar manual */}
+        <button
+          onClick={() => refetch()}
+          disabled={!selectedEvento || isLoading}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px',
+            background: '#2563eb', color: 'white', border: 'none', borderRadius: 10,
+            fontWeight: 600, fontSize: '.85rem', cursor: 'pointer',
+            opacity: !selectedEvento ? 0.5 : 1,
+          }}
+        >
+          <FiRefreshCw size={14} style={isLoading ? { animation: 'spin 1s linear infinite' } : {}} />
+          Actualizar
+        </button>
 
-        <Grid item xs={12} md={4}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                <Refresh sx={{ mr: 1, color: 'primary.main' }} />
-                <Typography variant="h6">Actualizar</Typography>
-              </Box>
-              <Button
-                variant="contained"
-                onClick={loadVehiclesLocation}
-                disabled={loading}
-                fullWidth
-                startIcon={<Refresh sx={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />}
-              >
-                {loading ? 'Actualizando...' : 'Actualizar Ahora'}
-              </Button>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+        {/* Toggle auto-refresh */}
+        <button
+          onClick={() => setAutoRefresh(v => !v)}
+          disabled={!selectedEvento}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px',
+            background: autoRefresh ? '#ecfdf5' : '#f3f4f6',
+            color: autoRefresh ? '#16a34a' : '#6b7280',
+            border: `1.5px solid ${autoRefresh ? '#86efac' : '#e4e7ed'}`,
+            borderRadius: 10, fontWeight: 600, fontSize: '.85rem', cursor: 'pointer',
+            opacity: !selectedEvento ? 0.5 : 1,
+          }}
+        >
+          <div style={{ width: 8, height: 8, borderRadius: '50%', background: autoRefresh ? '#16a34a' : '#9ca3af' }} />
+          {autoRefresh ? 'Auto (30s)' : 'Auto off'}
+        </button>
+      </div>
 
-      {/* Mapa Interactivo */}
-      <Card sx={{ mb: 3, height: 500 }}>
-        <CardContent sx={{ height: '100%', p: 0 }}>
-          {typeof window !== 'undefined' && window.L ? (
-            <div 
-              ref={mapRef}
-              style={{ 
-                height: '100%', 
-                width: '100%',
-                borderRadius: '8px'
-              }}
-            />
-          ) : (
-            <Box sx={{ 
-              height: '100%', 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center',
-              flexDirection: 'column',
-              p: 3
-            }}>
-              <Map sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
-              <Typography variant="h6" color="text.secondary" gutterBottom>
-                Cargando mapa...
-              </Typography>
-              <Typography variant="body2" color="text.secondary" align="center">
-                Si el mapa no aparece, recarga la página
-              </Typography>
-              <Button 
-                variant="outlined" 
-                onClick={() => window.location.reload()}
-                sx={{ mt: 2 }}
-              >
-                Recargar Página
-              </Button>
-            </Box>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Error Alert */}
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
-        </Alert>
+      {/* Stats */}
+      {selectedEvento && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
+          {[
+            { label: 'Vehículos activos', n: vehicles.length,                          color: '#3b82f6', bg: '#eff6ff', Icon: FiTruck },
+            { label: 'En movimiento',     n: vehicles.filter(v => v.velocidad > 0).length, color: '#10b981', bg: '#ecfdf5', Icon: FiMapPin },
+            { label: 'Evento',            n: eventoSel?.nombre || '—',                  color: '#8b5cf6', bg: '#f5f3ff', Icon: FiCalendar },
+          ].map(s => (
+            <div key={s.label} style={{ background: 'white', borderRadius: 12, padding: '14px 16px', border: '1px solid #f0f0f5', display: 'flex', alignItems: 'center', gap: 10, boxShadow: '0 1px 3px rgba(0,0,0,.04)' }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: s.bg, color: s.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <s.Icon size={16} />
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: '.73rem', color: '#8b93a5', fontWeight: 500 }}>{s.label}</div>
+                <div style={{ fontSize: typeof s.n === 'number' ? '1.4rem' : '.9rem', fontWeight: 700, color: '#1a1f2e', lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.n}</div>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
 
-      {/* Lista de vehículos */}
-      <Card>
-        <CardContent>
-          <Typography variant="h5" gutterBottom>
-            Vehículos en Seguimiento ({vehicles.length})
-          </Typography>
+      {/* Error */}
+      {isError && (
+        <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '12px 16px', color: '#dc2626', fontSize: '.88rem', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <FiAlertCircle size={16} /> Error al cargar ubicaciones. Verifica la conexión e intenta de nuevo.
+        </div>
+      )}
 
-          {vehicles.length === 0 ? (
-            <Box sx={{ textAlign: 'center', py: 4 }}>
-              <DirectionsCar sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
-              <Typography variant="body1" color="text.secondary">
-                No hay vehículos en seguimiento para este evento
-              </Typography>
-            </Box>
-          ) : (
-            <Grid container spacing={2}>
-              {vehicles.map((vehicle, index) => (
-                <Grid item xs={12} sm={6} md={4} key={index}>
-                  <Card sx={{ height: '100%' }}>
-                    <CardContent>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                        <Box>
-                          <Typography variant="h6" component="h3" gutterBottom>
-                            {vehicle.nombre}
-                          </Typography>
-                          <Chip 
-                            label={vehicle.rol.replace('_', ' ').toUpperCase()} 
-                            size="small"
-                            sx={{ 
-                              backgroundColor: getRoleColor(vehicle.rol),
-                              color: 'white'
-                            }}
-                          />
-                        </Box>
-                        <Box sx={{ textAlign: 'right' }}>
-                          <Typography variant="caption" color="text.secondary">
-                            {formatTimestamp(vehicle.timestamp)}
-                          </Typography>
-                          {vehicle.activo && (
-                            <Box sx={{ width: 8, height: 8, bgcolor: 'success.main', borderRadius: '50%', mt: 1, ml: 'auto' }} />
-                          )}
-                        </Box>
-                      </Box>
+      {/* Mapa */}
+      {selectedEvento && (
+        <div style={{ borderRadius: 14, overflow: 'hidden', border: '1px solid #e4e7ed', boxShadow: '0 2px 8px rgba(0,0,0,.06)', height: 460 }}>
+          <MapContainer
+            center={center}
+            zoom={12}
+            style={{ height: '100%', width: '100%' }}
+            key={selectedEvento}
+          >
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+            {vehicles.map((v, i) => (
+              <Marker
+                key={i}
+                position={[v.latitud, v.longitud]}
+                icon={makeVehicleIcon(ROL_COLOR[v.rol] || ROL_COLOR.default)}
+              >
+                <Popup>
+                  <div style={{ minWidth: 180, fontFamily: 'system-ui, sans-serif' }}>
+                    <div style={{ fontWeight: 700, fontSize: '.9rem', marginBottom: 6, color: '#1a1f2e' }}>
+                      {v.nombre}{v.vehiculo_placas ? ` · ${v.vehiculo_placas}` : ''}
+                    </div>
+                    <div style={{ fontSize: '.8rem', color: '#6b7280', display: 'flex', flexDirection: 'column', gap: 3 }}>
+                      <span>Rol: <strong style={{ textTransform: 'capitalize' }}>{v.rol?.replace(/_/g, ' ')}</strong></span>
+                      {v.velocidad != null && <span>Velocidad: <strong>{v.velocidad.toFixed(1)} km/h</strong></span>}
+                      {v.bateria   != null && <span>Batería: <strong>{v.bateria}%</strong></span>}
+                      {v.direccion && <span>Dir: {v.direccion}</span>}
+                      {v.total_personas != null && (
+                        <span>Personas: <strong>{v.total_personas}{v.vehiculo_capacidad ? `/${v.vehiculo_capacidad}` : ''}</strong></span>
+                      )}
+                      <span style={{ color: '#9ca3af', marginTop: 4 }}>{timeAgo(v.timestamp)}</span>
+                    </div>
+                  </div>
+                </Popup>
+              </Marker>
+            ))}
+          </MapContainer>
+        </div>
+      )}
 
-                      <Box sx={{ space: 1 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                          <LocationOn sx={{ fontSize: 16, mr: 1, color: 'text.secondary' }} />
-                          <Typography variant="body2" color="text.secondary">
-                            {vehicle.latitud.toFixed(6)}, {vehicle.longitud.toFixed(6)}
-                          </Typography>
-                        </Box>
+      {/* Lista vehículos */}
+      {selectedEvento && vehicles.length > 0 && (
+        <div style={{ background: 'white', borderRadius: 14, border: '1px solid #f0f0f5', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,.05)' }}>
+          <div style={{ padding: '12px 20px', borderBottom: '1px solid #f0f0f5', fontWeight: 700, fontSize: '.9rem', color: '#1a1f2e', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <FiTruck size={15} /> Vehículos en seguimiento ({vehicles.length})
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12, padding: 16 }}>
+            {vehicles.map((v, i) => {
+              const color = ROL_COLOR[v.rol] || ROL_COLOR.default;
+              return (
+                <div key={i} style={{ border: '1px solid #f0f0f5', borderRadius: 12, padding: '12px 14px', borderTop: `3px solid ${color}` }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: '.88rem', color: '#1a1f2e' }}>{v.nombre}</div>
+                      {v.vehiculo_placas && (
+                        <div style={{ fontSize: '.73rem', color: '#9ca3af' }}>{v.vehiculo_tipo} · {v.vehiculo_placas}</div>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                      <div style={{ fontSize: '.68rem', fontWeight: 700, color, background: color + '22', padding: '2px 8px', borderRadius: 20 }}>
+                        {v.rol?.replace(/_/g, ' ')}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '.68rem', color: '#9ca3af' }}>
+                        <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981' }} />
+                        {timeAgo(v.timestamp)}
+                      </div>
+                    </div>
+                  </div>
 
-                        {vehicle.velocidad && (
-                          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                            <Speed sx={{ fontSize: 16, mr: 1, color: 'text.secondary' }} />
-                            <Typography variant="body2" color="text.secondary">
-                              Velocidad: {vehicle.velocidad.toFixed(1)} km/h
-                            </Typography>
-                          </Box>
-                        )}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: '.78rem', color: '#6b7280' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <FiMapPin size={11} color="#9ca3af" />
+                      {v.latitud.toFixed(5)}, {v.longitud.toFixed(5)}
+                    </div>
+                    {v.velocidad != null && (
+                      <div>Velocidad: <strong>{v.velocidad.toFixed(1)} km/h</strong></div>
+                    )}
+                    {v.bateria != null && (
+                      <div>Batería: <strong>{v.bateria}%</strong></div>
+                    )}
+                    {v.total_personas != null && (
+                      <div>Personas: <strong>{v.total_personas}{v.vehiculo_capacidad ? `/${v.vehiculo_capacidad}` : ''}</strong></div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
-                        {vehicle.bateria && (
-                          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                            <Battery90 sx={{ fontSize: 16, mr: 1, color: 'text.secondary' }} />
-                            <Typography variant="body2" color="text.secondary">
-                              Batería: {vehicle.bateria}%
-                            </Typography>
-                          </Box>
-                        )}
+      {selectedEvento && !isLoading && vehicles.length === 0 && (
+        <div style={{ textAlign: 'center', padding: 48, color: '#9ca3af', background: 'white', borderRadius: 14, border: '1px solid #f0f0f5' }}>
+          <FiTruck size={36} style={{ margin: '0 auto 10px', display: 'block', opacity: .3 }} />
+          <p style={{ fontWeight: 600 }}>No hay vehículos en seguimiento para este evento</p>
+          <p style={{ fontSize: '.83rem', marginTop: 4 }}>Los vehículos aparecerán aquí cuando compartan su ubicación</p>
+        </div>
+      )}
 
-                        {vehicle.direccion && (
-                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                            <LocationOn sx={{ fontSize: 16, mr: 1, color: 'text.secondary' }} />
-                            <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                              {vehicle.direccion}
-                            </Typography>
-                          </Box>
-                        )}
-                      </Box>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              ))}
-            </Grid>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Estilos para animación */}
-      <style jsx>{`
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
-    </Box>
+      <style>{`@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }`}</style>
+    </div>
   );
-} 
+}

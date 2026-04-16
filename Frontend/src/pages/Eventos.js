@@ -1,718 +1,394 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
-import { FiPlus, FiEdit, FiTrash2, FiCalendar, FiMapPin, FiUsers, FiClock } from 'react-icons/fi';
+import { FiPlus, FiEdit, FiTrash2, FiCalendar, FiMapPin, FiClock, FiTag } from 'react-icons/fi';
 import api from '../api';
 import toast from 'react-hot-toast';
-import { format } from 'date-fns';
+import { format, isPast, formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useAuth } from '../contexts/AuthContext';
 
-// Utilidad para mostrar errores legibles
+const TIPOS = {
+  mitin:        { label: 'Mitin',        color: '#ef4444', bg: '#fef2f2' },
+  eleccion:     { label: 'Elección',     color: '#3b82f6', bg: '#eff6ff' },
+  reunion:      { label: 'Reunión',      color: '#10b981', bg: '#ecfdf5' },
+  movilizacion: { label: 'Movilización', color: '#8b5cf6', bg: '#f5f3ff' },
+  otro:         { label: 'Otro',         color: '#6b7280', bg: '#f3f4f6' },
+};
+
 function getErrorMessage(error) {
   const detail = error?.response?.data?.detail;
   if (!detail) return error?.message || 'Error desconocido';
   if (typeof detail === 'string') return detail;
-  if (Array.isArray(detail)) {
-    return detail.map(e => e.msg || JSON.stringify(e)).join(' | ');
-  }
-  if (typeof detail === 'object') return JSON.stringify(detail);
+  if (Array.isArray(detail)) return detail.map(e => e.msg || JSON.stringify(e)).join(' | ');
   return String(detail);
 }
+
+const FORM_EMPTY = { nombre: '', descripcion: '', fecha: '', lugar: '', tipo: 'mitin', seccion_electoral: '', colonia: '' };
 
 const Eventos = () => {
   const { user } = useAuth();
   const [showModal, setShowModal] = useState(false);
-  const [showAsistenciasModal, setShowAsistenciasModal] = useState(false);
   const [editingEvento, setEditingEvento] = useState(null);
-  const [selectedEvento, setSelectedEvento] = useState(null);
-  const [formData, setFormData] = useState({
-    nombre: '',
-    descripcion: '',
-    fecha: '',
-    lugar: '',
-    tipo: 'mitin',
-    seccion_electoral: '',
-    colonia: ''
-  });
+  const [formData, setFormData] = useState(FORM_EMPTY);
   const [formErrors, setFormErrors] = useState({});
-
-  // Estado para el formulario de asistencia
-  const [showAsistenciaForm, setShowAsistenciaForm] = useState(false);
-  const [asistenciaForm, setAsistenciaForm] = useState({
-    id: null, // null para nueva, o id para editar
-    id_persona: null,
-    asistio: false,
-    movilizado: false,
-    requiere_transporte: false,
-    observaciones: ''
-  });
-
+  const [filtro, setFiltro] = useState('todos'); // todos | activos | pasados
   const queryClient = useQueryClient();
 
-  // Obtener lista de eventos
-  const { data: eventos, isLoading } = useQuery('eventos', async () => {
-    const response = await api.get('/eventos/');
-    return response.data;
+  const { data: eventos = [], isLoading } = useQuery('eventos', async () => {
+    const r = await api.get('/eventos/');
+    return r.data;
   });
 
-  // Obtener personas para asistencias
-  const { data: personas } = useQuery('personas', async () => {
-    const response = await api.get('/personas/');
-    return response.data;
-  });
-
-  // Obtener asistencias del evento seleccionado
-  const { data: asistencias } = useQuery(
-    ['asistencias', selectedEvento?.id],
-    async () => {
-      if (!selectedEvento) return [];
-      const response = await api.get(`/asistencias/buscar/?id_evento=${selectedEvento.id}`);
-      return response.data;
-    },
-    { enabled: !!selectedEvento }
-  );
-
-  // Mutación para crear evento
-  const createEventoMutation = useMutation(
-    async (eventoData) => {
-      const response = await api.post('/eventos/', eventoData);
-      return response.data;
-    },
+  const createMutation = useMutation(
+    data => api.post('/eventos/', data).then(r => r.data),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('eventos');
-        toast.success('Evento creado exitosamente');
-        setShowModal(false);
-        resetForm();
-        setFormErrors({});
+        toast.success('Evento creado');
+        closeModal();
       },
-      onError: (error) => {
-        // Manejo de errores de validación
-        const detail = error?.response?.data?.detail;
-        if (Array.isArray(detail)) {
-          const errors = {};
-          detail.forEach(e => {
-            if (e.loc && e.loc.length > 0) {
-              const field = e.loc[e.loc.length - 1];
-              errors[field] = e.msg;
-            }
-          });
-          setFormErrors(errors);
-        } else {
-          setFormErrors({});
-        }
-        toast.error(getErrorMessage(error));
-      }
+      onError: (err) => {
+        handleValidationErrors(err);
+        toast.error(getErrorMessage(err));
+      },
     }
   );
 
-  // Mutación para actualizar evento
-  const updateEventoMutation = useMutation(
-    async ({ id, eventoData }) => {
-      const response = await api.put(`/eventos/${id}`, eventoData);
-      return response.data;
-    },
+  const updateMutation = useMutation(
+    ({ id, data }) => api.put(`/eventos/${id}`, data).then(r => r.data),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('eventos');
-        toast.success('Evento actualizado exitosamente');
-        setShowModal(false);
-        setEditingEvento(null);
-        resetForm();
-        setFormErrors({});
+        toast.success('Evento actualizado');
+        closeModal();
       },
-      onError: (error) => {
-        // Manejo de errores de validación
-        const detail = error?.response?.data?.detail;
-        if (Array.isArray(detail)) {
-          const errors = {};
-          detail.forEach(e => {
-            if (e.loc && e.loc.length > 0) {
-              const field = e.loc[e.loc.length - 1];
-              errors[field] = e.msg;
-            }
-          });
-          setFormErrors(errors);
-        } else {
-          setFormErrors({});
-        }
-        toast.error(getErrorMessage(error));
-      }
+      onError: (err) => {
+        handleValidationErrors(err);
+        toast.error(getErrorMessage(err));
+      },
     }
   );
 
-  // Mutación para desactivar evento
-  const deactivateEventoMutation = useMutation(
-    async (eventoId) => {
-      const response = await api.delete(`/eventos/${eventoId}`);
-      return response.data;
-    },
+  const deleteMutation = useMutation(
+    id => api.delete(`/eventos/${id}`).then(r => r.data),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('eventos');
-        toast.success('Evento desactivado exitosamente');
+        toast.success('Evento desactivado');
       },
-      onError: (error) => {
-        toast.error(getErrorMessage(error));
-      }
+      onError: err => toast.error(getErrorMessage(err)),
     }
   );
 
-  // Mutación para registrar asistencia
-  const createAsistenciaMutation = useMutation(
-    async (asistenciaData) => {
-      const response = await api.post('/asistencias/', asistenciaData);
-      return response.data;
-    },
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries(['asistencias', selectedEvento?.id]);
-        toast.success('Asistencia registrada exitosamente');
-      },
-      onError: (error) => {
-        toast.error(getErrorMessage(error));
-      }
-    }
-  );
-
-  // Mutación para actualizar asistencia
-  const updateAsistenciaMutation = useMutation(
-    async ({ id, asistenciaData }) => {
-      const response = await api.put(`/asistencias/${id}`, asistenciaData);
-      return response.data;
-    },
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries(['asistencias', selectedEvento?.id]);
-        toast.success('Asistencia actualizada exitosamente');
-        setShowAsistenciaForm(false);
-        setAsistenciaForm({ id: null, id_persona: null, asistio: false, movilizado: false, requiere_transporte: false, observaciones: '' });
-      },
-      onError: (error) => {
-        toast.error(getErrorMessage(error));
-      }
-    }
-  );
-
-  const resetForm = () => {
-    setFormData({
-      nombre: '',
-      descripcion: '',
-      fecha: '',
-      lugar: '',
-      tipo: 'mitin',
-      seccion_electoral: '',
-      colonia: ''
-    });
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const eventoData = { ...formData, id_lider_organizador: user.id };
-    if (editingEvento) {
-      updateEventoMutation.mutate({ id: editingEvento.id, eventoData });
+  const handleValidationErrors = (err) => {
+    const detail = err?.response?.data?.detail;
+    if (Array.isArray(detail)) {
+      const errs = {};
+      detail.forEach(e => {
+        if (e.loc?.length) errs[e.loc[e.loc.length - 1]] = e.msg;
+      });
+      setFormErrors(errs);
     } else {
-      createEventoMutation.mutate(eventoData);
+      setFormErrors({});
     }
   };
 
-  const handleEdit = (evento) => {
+  const openCreate = () => {
+    setEditingEvento(null);
+    setFormData(FORM_EMPTY);
+    setFormErrors({});
+    setShowModal(true);
+  };
+
+  const openEdit = (evento) => {
     setEditingEvento(evento);
     setFormData({
       nombre: evento.nombre,
       descripcion: evento.descripcion || '',
-      fecha: evento.fecha ? format(new Date(evento.fecha), 'yyyy-MM-dd\'T\'HH:mm') : '',
+      fecha: evento.fecha ? format(new Date(evento.fecha), "yyyy-MM-dd'T'HH:mm") : '',
       lugar: evento.lugar || '',
       tipo: evento.tipo,
       seccion_electoral: evento.seccion_electoral || '',
-      colonia: evento.colonia || ''
+      colonia: evento.colonia || '',
     });
+    setFormErrors({});
     setShowModal(true);
   };
 
-  const handleDeactivate = (eventoId) => {
-    if (window.confirm('¿Estás seguro de que quieres desactivar este evento?')) {
-      deactivateEventoMutation.mutate(eventoId);
-    }
+  const closeModal = () => {
+    setShowModal(false);
+    setEditingEvento(null);
+    setFormData(FORM_EMPTY);
+    setFormErrors({});
   };
 
-  const handleAsistencias = (evento) => {
-    setSelectedEvento(evento);
-    setShowAsistenciasModal(true);
-  };
-
-  // Abrir formulario para registrar nueva asistencia
-  const handleRegistrarAsistencia = (personaId) => {
-    setAsistenciaForm({
-      id: null,
-      id_persona: personaId,
-      asistio: false,
-      movilizado: false,
-      requiere_transporte: false,
-      observaciones: ''
-    });
-    setShowAsistenciaForm(true);
-  };
-
-  // Abrir formulario para editar asistencia existente
-  const handleEditarAsistencia = (asistencia) => {
-    setAsistenciaForm({
-      id: asistencia.id,
-      id_persona: asistencia.id_persona,
-      asistio: asistencia.asistio,
-      movilizado: asistencia.movilizado,
-      requiere_transporte: asistencia.requiere_transporte,
-      observaciones: asistencia.observaciones || ''
-    });
-    setShowAsistenciaForm(true);
-  };
-
-  // Guardar (crear o actualizar) asistencia
-  const handleGuardarAsistencia = (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
-    if (!selectedEvento) return;
-    const data = {
-      id_evento: selectedEvento.id,
-      id_persona: asistenciaForm.id_persona,
-      asistio: asistenciaForm.asistio,
-      movilizado: asistenciaForm.movilizado,
-      requiere_transporte: asistenciaForm.requiere_transporte,
-      observaciones: asistenciaForm.observaciones
-    };
-    if (asistenciaForm.id) {
-      // Editar existente
-      updateAsistenciaMutation.mutate({ id: asistenciaForm.id, asistenciaData: data });
+    const payload = { ...formData, id_lider_organizador: user.id };
+    if (editingEvento) {
+      updateMutation.mutate({ id: editingEvento.id, data: payload });
     } else {
-      // Nueva
-      createAsistenciaMutation.mutate(data, {
-        onSuccess: () => {
-          setShowAsistenciaForm(false);
-          setAsistenciaForm({ id: null, id_persona: null, asistio: false, movilizado: false, requiere_transporte: false, observaciones: '' });
-        }
-      });
+      createMutation.mutate(payload);
     }
   };
 
-  const getTipoLabel = (tipo) => {
-    const tipoLabels = {
-      'mitin': 'Mitin',
-      'eleccion': 'Elección',
-      'reunion': 'Reunión',
-      'movilizacion': 'Movilización',
-      'otro': 'Otro'
-    };
-    return tipoLabels[tipo] || tipo;
+  const handleDelete = (id) => {
+    if (window.confirm('¿Desactivar este evento?')) deleteMutation.mutate(id);
   };
 
-  const getTipoColor = (tipo) => {
-    const colors = {
-      'mitin': 'bg-red-100 text-red-800',
-      'eleccion': 'bg-blue-100 text-blue-800',
-      'reunion': 'bg-green-100 text-green-800',
-      'movilizacion': 'bg-purple-100 text-purple-800',
-      'otro': 'bg-gray-100 text-gray-800'
-    };
-    return colors[tipo] || 'bg-gray-100 text-gray-800';
-  };
+  const set = (k, v) => setFormData(f => ({ ...f, [k]: v }));
+
+  const eventosFiltrados = eventos.filter(ev => {
+    if (filtro === 'activos') return ev.activo && !isPast(new Date(ev.fecha));
+    if (filtro === 'pasados') return !ev.activo || isPast(new Date(ev.fecha));
+    return true;
+  });
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 240 }}>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600" />
       </div>
     );
   }
 
+  const total   = eventos.length;
+  const activos = eventos.filter(e => e.activo && !isPast(new Date(e.fecha))).length;
+  const pasados = eventos.filter(e => !e.activo || isPast(new Date(e.fecha))).length;
+
   return (
     <div className="space-y-6">
+
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-secondary-900">Gestión de Eventos</h1>
-          <p className="text-secondary-600">Crea y administra eventos políticos</p>
+          <p className="text-secondary-600">Crea y administra eventos</p>
         </div>
-        <button
-          onClick={() => {
-            setEditingEvento(null);
-            resetForm();
-            setShowModal(true);
-          }}
-          className="btn-primary flex items-center"
-        >
-          <FiPlus className="mr-2" />
-          Nuevo Evento
+        <button onClick={openCreate} className="btn-primary flex items-center">
+          <FiPlus className="mr-2" /> Nuevo Evento
         </button>
       </div>
 
-      {/* Tabla de eventos */}
-      <div className="card">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-secondary-200">
-            <thead className="bg-secondary-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                  Evento
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                  Fecha y Lugar
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                  Tipo
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                  Estado
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                  Acciones
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-secondary-200">
-              {eventos?.map((evento) => (
-                <tr key={evento.id} className="hover:bg-secondary-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0 h-10 w-10">
-                        <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center">
-                          <FiCalendar className="h-5 w-5 text-primary-600" />
-                        </div>
-                      </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-secondary-900">
-                          {evento.nombre}
-                        </div>
-                        <div className="text-sm text-secondary-500">
-                          {evento.descripcion || 'Sin descripción'}
-                        </div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-secondary-900">
-                      <div className="flex items-center">
-                        <FiClock className="h-4 w-4 text-secondary-400 mr-1" />
-                        {format(new Date(evento.fecha), 'dd/MM/yyyy HH:mm', { locale: es })}
-                      </div>
-                    </div>
-                    <div className="text-sm text-secondary-500">
-                      {evento.lugar && (
-                        <div className="flex items-center">
-                          <FiMapPin className="h-4 w-4 text-secondary-400 mr-1" />
-                          {evento.lugar}
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getTipoColor(evento.tipo)}`}>
-                      {getTipoLabel(evento.tipo)}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      evento.activo ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                    }`}>
-                      {evento.activo ? 'Activo' : 'Inactivo'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={() => handleAsistencias(evento)}
-                        className="text-blue-600 hover:text-blue-900"
-                        title="Gestionar Asistencias"
-                      >
-                        <FiUsers className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => handleEdit(evento)}
-                        className="text-primary-600 hover:text-primary-900"
-                      >
-                        <FiEdit className="h-4 w-4" />
-                      </button>
-                      {evento.activo && (
-                        <button
-                          onClick={() => handleDeactivate(evento.id)}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          <FiTrash2 className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      {/* Stats + filtros */}
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        {[
+          { key: 'todos',   label: 'Todos',   n: total,   color: '#6b7280', bg: '#f3f4f6' },
+          { key: 'activos', label: 'Próximos', n: activos, color: '#10b981', bg: '#ecfdf5' },
+          { key: 'pasados', label: 'Pasados',  n: pasados, color: '#6b7280', bg: '#f3f4f6' },
+        ].map(s => (
+          <button
+            key={s.key}
+            onClick={() => setFiltro(s.key)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              background: filtro === s.key ? s.color : 'white',
+              color: filtro === s.key ? 'white' : s.color,
+              border: `1.5px solid ${s.color}44`,
+              borderRadius: 12, padding: '10px 18px',
+              fontWeight: 600, fontSize: '.88rem', cursor: 'pointer',
+              boxShadow: filtro === s.key ? `0 2px 8px ${s.color}44` : '0 1px 3px rgba(0,0,0,.05)',
+              transition: 'all .15s',
+            }}
+          >
+            <span style={{ fontSize: '1.3rem', fontWeight: 700 }}>{s.n}</span>
+            {s.label}
+          </button>
+        ))}
       </div>
 
-      {/* Modal para crear/editar evento */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl">
-            <h2 className="text-lg font-semibold mb-4">
-              {editingEvento ? 'Editar Evento' : 'Nuevo Evento'}
-            </h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-secondary-700">Nombre del Evento *</label>
-                <input
-                  type="text"
-                  value={formData.nombre}
-                  onChange={(e) => setFormData({...formData, nombre: e.target.value})}
-                  className="input-field"
-                  required
-                />
-                {formErrors.nombre && <div className="text-xs text-red-600 mt-1">{formErrors.nombre}</div>}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-secondary-700">Descripción</label>
-                <textarea
-                  value={formData.descripcion}
-                  onChange={(e) => setFormData({...formData, descripcion: e.target.value})}
-                  className="input-field"
-                  rows="3"
-                />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-secondary-700">Fecha y Hora *</label>
-                  <input
-                    type="datetime-local"
-                    value={formData.fecha}
-                    onChange={(e) => setFormData({...formData, fecha: e.target.value})}
-                    className="input-field"
-                    required
-                  />
-                  {formErrors.fecha && <div className="text-xs text-red-600 mt-1">{formErrors.fecha}</div>}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-secondary-700">Tipo de Evento *</label>
-                  <select
-                    value={formData.tipo}
-                    onChange={(e) => setFormData({...formData, tipo: e.target.value})}
-                    className="input-field"
-                    required
-                  >
-                    <option value="mitin">Mitin</option>
-                    <option value="eleccion">Elección</option>
-                    <option value="reunion">Reunión</option>
-                    <option value="movilizacion">Movilización</option>
-                    <option value="otro">Otro</option>
-                  </select>
-                  {formErrors.tipo && <div className="text-xs text-red-600 mt-1">{formErrors.tipo}</div>}
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-secondary-700">Lugar</label>
-                <input
-                  type="text"
-                  value={formData.lugar}
-                  onChange={(e) => setFormData({...formData, lugar: e.target.value})}
-                  className="input-field"
-                />
-                {formErrors.lugar && <div className="text-xs text-red-600 mt-1">{formErrors.lugar}</div>}
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-secondary-700">Sección Electoral</label>
-                  <input
-                    type="text"
-                    value={formData.seccion_electoral}
-                    onChange={(e) => setFormData({...formData, seccion_electoral: e.target.value})}
-                    className="input-field"
-                  />
-                  {formErrors.seccion_electoral && <div className="text-xs text-red-600 mt-1">{formErrors.seccion_electoral}</div>}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-secondary-700">Colonia</label>
-                  <input
-                    type="text"
-                    value={formData.colonia}
-                    onChange={(e) => setFormData({...formData, colonia: e.target.value})}
-                    className="input-field"
-                  />
-                  {formErrors.colonia && <div className="text-xs text-red-600 mt-1">{formErrors.colonia}</div>}
-                </div>
-              </div>
-              <div className="flex justify-end space-x-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="btn-secondary"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={createEventoMutation.isLoading || updateEventoMutation.isLoading}
-                  className="btn-primary"
-                >
-                  {createEventoMutation.isLoading || updateEventoMutation.isLoading ? 'Guardando...' : 'Guardar'}
-                </button>
-              </div>
-            </form>
+      {/* Lista de eventos */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {eventosFiltrados.length === 0 && (
+          <div style={{ textAlign: 'center', padding: 48, color: '#9ca3af', background: 'white', borderRadius: 16, border: '1px solid #f0f0f5' }}>
+            No hay eventos para mostrar
           </div>
-        </div>
-      )}
+        )}
+        {eventosFiltrados.map(evento => {
+          const t = TIPOS[evento.tipo] || TIPOS.otro;
+          const fecha = new Date(evento.fecha);
+          const pasado = isPast(fecha);
+          const distancia = formatDistanceToNow(fecha, { locale: es, addSuffix: true });
 
-      {/* Modal para gestionar asistencias */}
-      {showAsistenciasModal && selectedEvento && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-screen overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold">
-                Asistencias - {selectedEvento.nombre}
-              </h2>
-              <button
-                onClick={() => setShowAsistenciasModal(false)}
-                className="text-secondary-400 hover:text-secondary-600"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Lista de asistencias registradas */}
-              <div>
-                <h3 className="text-md font-semibold text-secondary-900 mb-3">
-                  Asistencias Registradas ({asistencias?.length || 0})
-                </h3>
-                <div className="space-y-2 max-h-96 overflow-y-auto">
-                  {asistencias?.map((asistencia) => {
-                    const persona = personas?.find(p => p.id === asistencia.id_persona);
-                    return persona ? (
-                      <div key={asistencia.id} className="p-3 border border-secondary-200 rounded-lg">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <p className="font-medium text-secondary-900">{persona.nombre}</p>
-                            <p className="text-sm text-secondary-500">{persona.telefono}</p>
-                            <div className="flex flex-wrap gap-2 mt-1">
-                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${asistencia.asistio ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                                {asistencia.asistio ? 'Asistió' : 'No asistió'}
-                              </span>
-                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${asistencia.movilizado ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}`}>
-                                {asistencia.movilizado ? 'Movilizado' : 'No movilizado'}
-                              </span>
-                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${asistencia.requiere_transporte ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800'}`}>
-                                {asistencia.requiere_transporte ? 'Requiere transporte' : 'Sin transporte'}
-                              </span>
-                            </div>
-                            {asistencia.observaciones && (
-                              <p className="text-xs text-secondary-400 mt-1">Obs: {asistencia.observaciones}</p>
-                            )}
-                          </div>
-                          <div className="text-right flex flex-col gap-2">
-                            <button
-                              onClick={() => handleEditarAsistencia(asistencia)}
-                              className="text-primary-600 hover:text-primary-900 text-xs"
-                            >
-                              <FiEdit className="inline mr-1" />Editar
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ) : null;
-                  })}
-                  {(!asistencias || asistencias.length === 0) && (
-                    <p className="text-secondary-500 text-center py-4">No hay asistencias registradas</p>
+          return (
+            <div
+              key={evento.id}
+              style={{
+                background: 'white',
+                borderRadius: 14,
+                border: '1px solid #f0f0f5',
+                borderLeft: `4px solid ${t.color}`,
+                padding: '16px 20px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 16,
+                boxShadow: '0 1px 4px rgba(0,0,0,.05)',
+                opacity: pasado || !evento.activo ? 0.65 : 1,
+              }}
+            >
+              {/* Icono tipo */}
+              <div style={{
+                width: 44, height: 44, borderRadius: 12,
+                background: t.bg, color: t.color,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0,
+              }}>
+                <FiCalendar size={20} />
+              </div>
+
+              {/* Info */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
+                  <span style={{ fontWeight: 700, fontSize: '1rem', color: '#1a1f2e' }}>{evento.nombre}</span>
+                  <span style={{
+                    fontSize: '.68rem', fontWeight: 700, color: t.color, background: t.bg,
+                    padding: '1px 8px', borderRadius: 20,
+                  }}>{t.label}</span>
+                  <span style={{
+                    fontSize: '.68rem', fontWeight: 700,
+                    color: evento.activo && !pasado ? '#10b981' : '#9ca3af',
+                    background: evento.activo && !pasado ? '#ecfdf5' : '#f3f4f6',
+                    padding: '1px 8px', borderRadius: 20,
+                  }}>{evento.activo && !pasado ? 'Activo' : 'Inactivo'}</span>
+                </div>
+
+                {evento.descripcion && (
+                  <div style={{ fontSize: '.8rem', color: '#6b7280', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {evento.descripcion}
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: '.78rem', color: '#6b7280' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <FiClock size={12} />
+                    {format(fecha, 'dd/MM/yyyy HH:mm', { locale: es })}
+                    <span style={{ color: pasado ? '#9ca3af' : '#3b82f6', fontWeight: 600 }}>({distancia})</span>
+                  </span>
+                  {evento.lugar && (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <FiMapPin size={12} /> {evento.lugar}
+                    </span>
+                  )}
+                  {(evento.seccion_electoral || evento.colonia) && (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <FiTag size={12} />
+                      {[evento.colonia, evento.seccion_electoral && `Secc. ${evento.seccion_electoral}`].filter(Boolean).join(' · ')}
+                    </span>
                   )}
                 </div>
               </div>
-              {/* Lista de personas disponibles */}
-              <div>
-                <h3 className="text-md font-semibold text-secondary-900 mb-3">
-                  Registrar Asistencia
-                </h3>
-                <div className="space-y-2 max-h-96 overflow-y-auto">
-                  {personas?.map((persona) => {
-                    const yaRegistrada = asistencias?.some(a => a.id_persona === persona.id);
-                    return (
-                      <div key={persona.id} className="p-3 border border-secondary-200 rounded-lg">
-                        <div className="flex justify-between items-center">
-                          <div>
-                            <p className="font-medium text-secondary-900">{persona.nombre}</p>
-                            <p className="text-sm text-secondary-500">{persona.telefono}</p>
-                            {persona.seccion_electoral && (
-                              <p className="text-xs text-secondary-400">Sección: {persona.seccion_electoral}</p>
-                            )}
-                          </div>
-                          <button
-                            onClick={() => handleRegistrarAsistencia(persona.id)}
-                            disabled={yaRegistrada || createAsistenciaMutation.isLoading}
-                            className={`px-3 py-1 text-xs rounded-full ${
-                              yaRegistrada 
-                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                : 'bg-primary-100 text-primary-700 hover:bg-primary-200'
-                            }`}
-                          >
-                            {yaRegistrada ? 'Ya registrada' : 'Registrar'}
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+
+              {/* Acciones */}
+              <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                <button
+                  onClick={() => openEdit(evento)}
+                  title="Editar"
+                  style={{ width: 34, height: 34, borderRadius: 9, border: 'none', background: '#eff6ff', color: '#3b82f6', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <FiEdit size={15} />
+                </button>
+                {evento.activo && (
+                  <button
+                    onClick={() => handleDelete(evento.id)}
+                    title="Desactivar"
+                    style={{ width: 34, height: 34, borderRadius: 9, border: 'none', background: '#fef2f2', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <FiTrash2 size={15} />
+                  </button>
+                )}
               </div>
             </div>
-          </div>
-        </div>
-      )}
-      {/* Formulario para registrar/editar asistencia */}
-      {showAsistenciaForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">{asistenciaForm.id ? 'Editar Asistencia' : 'Registrar Asistencia'}</h3>
-            <form onSubmit={handleGuardarAsistencia} className="space-y-4">
-              <div className="flex items-center gap-4">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={asistenciaForm.asistio}
-                    onChange={e => setAsistenciaForm({ ...asistenciaForm, asistio: e.target.checked })}
-                  />
-                  Asistió
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={asistenciaForm.movilizado}
-                    onChange={e => setAsistenciaForm({ ...asistenciaForm, movilizado: e.target.checked })}
-                  />
-                  Movilizado
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={asistenciaForm.requiere_transporte}
-                    onChange={e => setAsistenciaForm({ ...asistenciaForm, requiere_transporte: e.target.checked })}
-                  />
-                  Requiere transporte
-                </label>
-              </div>
+          );
+        })}
+      </div>
+
+      {/* Modal crear / editar */}
+      {showModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: 'white', borderRadius: 16, padding: 28, width: '100%', maxWidth: 560, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,.25)' }}>
+            <h2 style={{ fontWeight: 700, fontSize: '1.1rem', color: '#1a1f2e', marginBottom: 20 }}>
+              {editingEvento ? 'Editar Evento' : 'Nuevo Evento'}
+            </h2>
+
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {/* Nombre */}
               <div>
-                <label className="block text-sm font-medium text-secondary-700">Observaciones</label>
-                <textarea
-                  value={asistenciaForm.observaciones}
-                  onChange={e => setAsistenciaForm({ ...asistenciaForm, observaciones: e.target.value })}
+                <label style={{ display: 'block', fontSize: '.8rem', fontWeight: 600, color: '#374151', marginBottom: 4 }}>Nombre *</label>
+                <input
+                  type="text"
+                  value={formData.nombre}
+                  onChange={e => set('nombre', e.target.value)}
+                  required
                   className="input-field"
-                  rows="2"
+                />
+                {formErrors.nombre && <div style={{ color: '#ef4444', fontSize: '.75rem', marginTop: 3 }}>{formErrors.nombre}</div>}
+              </div>
+
+              {/* Descripción */}
+              <div>
+                <label style={{ display: 'block', fontSize: '.8rem', fontWeight: 600, color: '#374151', marginBottom: 4 }}>Descripción</label>
+                <textarea
+                  value={formData.descripcion}
+                  onChange={e => set('descripcion', e.target.value)}
+                  className="input-field"
+                  rows={2}
                 />
               </div>
-              <div className="flex justify-end gap-2">
+
+              {/* Fecha + Tipo */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '.8rem', fontWeight: 600, color: '#374151', marginBottom: 4 }}>Fecha y Hora *</label>
+                  <input
+                    type="datetime-local"
+                    value={formData.fecha}
+                    onChange={e => set('fecha', e.target.value)}
+                    required
+                    className="input-field"
+                  />
+                  {formErrors.fecha && <div style={{ color: '#ef4444', fontSize: '.75rem', marginTop: 3 }}>{formErrors.fecha}</div>}
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '.8rem', fontWeight: 600, color: '#374151', marginBottom: 4 }}>Tipo *</label>
+                  <select value={formData.tipo} onChange={e => set('tipo', e.target.value)} className="input-field" required>
+                    {Object.entries(TIPOS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              {/* Lugar */}
+              <div>
+                <label style={{ display: 'block', fontSize: '.8rem', fontWeight: 600, color: '#374151', marginBottom: 4 }}>Lugar</label>
+                <input type="text" value={formData.lugar} onChange={e => set('lugar', e.target.value)} className="input-field" />
+              </div>
+
+              {/* Sección + Colonia */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '.8rem', fontWeight: 600, color: '#374151', marginBottom: 4 }}>Sección Electoral</label>
+                  <input type="text" value={formData.seccion_electoral} onChange={e => set('seccion_electoral', e.target.value)} className="input-field" />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '.8rem', fontWeight: 600, color: '#374151', marginBottom: 4 }}>Colonia</label>
+                  <input type="text" value={formData.colonia} onChange={e => set('colonia', e.target.value)} className="input-field" />
+                </div>
+              </div>
+
+              {/* Botones */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, paddingTop: 8 }}>
                 <button
                   type="button"
-                  className="btn-secondary"
-                  onClick={() => setShowAsistenciaForm(false)}
+                  onClick={closeModal}
+                  style={{ padding: '9px 20px', background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: 9, fontWeight: 600, cursor: 'pointer' }}
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="btn-primary"
-                  disabled={createAsistenciaMutation.isLoading || updateAsistenciaMutation.isLoading}
+                  disabled={createMutation.isLoading || updateMutation.isLoading}
+                  style={{ padding: '9px 20px', background: '#2563eb', color: 'white', border: 'none', borderRadius: 9, fontWeight: 700, cursor: 'pointer', opacity: (createMutation.isLoading || updateMutation.isLoading) ? 0.7 : 1 }}
                 >
-                  {asistenciaForm.id ? (updateAsistenciaMutation.isLoading ? 'Guardando...' : 'Guardar cambios') : (createAsistenciaMutation.isLoading ? 'Registrando...' : 'Registrar')}
+                  {createMutation.isLoading || updateMutation.isLoading ? 'Guardando...' : 'Guardar'}
                 </button>
               </div>
             </form>
@@ -723,4 +399,4 @@ const Eventos = () => {
   );
 };
 
-export default Eventos; 
+export default Eventos;

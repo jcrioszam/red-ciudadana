@@ -41,6 +41,10 @@ class InvitacionPersonaDecode(BaseModel):
     token: str
 
 
+class InvitacionPersonaCreate(BaseModel):
+    id_lider_responsable: Optional[int] = None
+
+
 class PersonaInvitacionRegistro(BaseModel):
     token: str
     nombre: str
@@ -147,13 +151,22 @@ async def registro_invitacion(data: InvitacionRegistro, db: Session = Depends(ge
 
 @router.post("/invitaciones-personas/", response_model=dict)
 async def generar_invitacion_persona(
+    data: InvitacionPersonaCreate = InvitacionPersonaCreate(),
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_active_user)
 ):
     if current_user.rol not in ["admin", "lider_estatal", "lider_regional", "lider_municipal", "lider_zona"]:
         raise HTTPException(status_code=403, detail="No tiene permisos para generar invitaciones de personas")
+    # Admin puede asignar a cualquier líder; otros usan su propio id
+    if data.id_lider_responsable and current_user.rol == "admin":
+        lider = db.query(UsuarioModel).filter(UsuarioModel.id == data.id_lider_responsable, UsuarioModel.activo == True).first()
+        if not lider:
+            raise HTTPException(status_code=404, detail="Líder no encontrado")
+        lider_id = lider.id
+    else:
+        lider_id = current_user.id
     payload = {
-        "id_lider_responsable": current_user.id,
+        "id_lider_responsable": lider_id,
         "tipo": "registro_persona",
         "exp": datetime.utcnow() + timedelta(minutes=INVITATION_EXP_MINUTES)
     }

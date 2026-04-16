@@ -41,11 +41,9 @@ const RegistroPersonaInvitacion = () => {
     if (t) {
       api.post('/invitaciones-personas/decode', { token: t })
         .then(res => {
-          console.log('Respuesta del decode persona:', res.data);
           if (res.data && typeof res.data === 'object' && res.data.tipo && res.data.nombre_lider) {
             setInvitacion(res.data);
           } else {
-            console.error('Respuesta inválida del decode persona:', res.data);
             setInvitacion(null);
           }
         })
@@ -74,7 +72,6 @@ const RegistroPersonaInvitacion = () => {
         if (personaData[key] === '' || personaData[key] === null || personaData[key] === undefined) {
           delete personaData[key];
         } else if (typeof personaData[key] === 'object') {
-          console.error(`Campo ${key} es un objeto:`, personaData[key]);
           delete personaData[key];
         } else if (key === 'latitud' || key === 'longitud') {
           // Convertir latitud y longitud a float si tienen valor
@@ -95,7 +92,6 @@ const RegistroPersonaInvitacion = () => {
         }
       });
       
-      console.log('Datos de persona a enviar:', personaData);
       await api.post('/registro-persona-invitacion', personaData);
       
       // Invalidar cache para que el Dashboard se actualice automáticamente

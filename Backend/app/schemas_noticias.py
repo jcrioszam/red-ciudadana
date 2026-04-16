@@ -1,11 +1,12 @@
 from pydantic import BaseModel, validator
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
+import json
 
 class NoticiaBase(BaseModel):
     """Esquema base para noticias"""
     titulo: str
-    descripcion_corta: str
+    descripcion_corta: Optional[str] = None
     contenido_completo: Optional[str] = None
     imagen_url: Optional[str] = None
     imagen_alt: Optional[str] = None
@@ -16,9 +17,10 @@ class NoticiaBase(BaseModel):
     prioridad: int = 2  # 1=alta, 2=media, 3=baja
     categoria: str = "general"
     tags: Optional[str] = None
+    imagenes: Optional[str] = None  # JSON array de URLs como string
     enlace_externo: Optional[str] = None
     boton_texto: Optional[str] = None
-    
+
     @validator('titulo')
     def validar_titulo(cls, v):
         if len(v.strip()) < 5:
@@ -29,12 +31,13 @@ class NoticiaBase(BaseModel):
     
     @validator('descripcion_corta')
     def validar_descripcion_corta(cls, v):
-        if len(v.strip()) < 10:
-            raise ValueError('La descripción corta debe tener al menos 10 caracteres')
+        if v is None:
+            return v
+        v = v.strip()
         if len(v) > 500:
             raise ValueError('La descripción corta no puede exceder 500 caracteres')
-        return v.strip()
-    
+        return v if v else None
+
     @validator('prioridad')
     def validar_prioridad(cls, v):
         if v not in [1, 2, 3]:
@@ -69,9 +72,11 @@ class NoticiaUpdate(BaseModel):
     prioridad: Optional[int] = None
     categoria: Optional[str] = None
     tags: Optional[str] = None
+    imagenes: Optional[str] = None
     enlace_externo: Optional[str] = None
     boton_texto: Optional[str] = None
-    
+
+
     @validator('titulo')
     def validar_titulo(cls, v):
         if v is not None:
@@ -85,13 +90,12 @@ class NoticiaUpdate(BaseModel):
     @validator('descripcion_corta')
     def validar_descripcion_corta(cls, v):
         if v is not None:
-            if len(v.strip()) < 10:
-                raise ValueError('La descripción corta debe tener al menos 10 caracteres')
+            v = v.strip()
             if len(v) > 500:
                 raise ValueError('La descripción corta no puede exceder 500 caracteres')
-            return v.strip()
+            return v if v else None
         return v
-    
+
     @validator('prioridad')
     def validar_prioridad(cls, v):
         if v is not None and v not in [1, 2, 3]:
@@ -112,12 +116,13 @@ class NoticiaUpdate(BaseModel):
 class NoticiaResponse(NoticiaBase):
     """Esquema para respuesta de noticias"""
     id: int
-    fecha_creacion: datetime
-    fecha_modificacion: datetime
-    vistas: int
-    clicks: int
+    fecha_creacion: Optional[datetime] = None
+    fecha_modificacion: Optional[datetime] = None
+    vistas: int = 0
+    clicks: int = 0
     autor_id: Optional[int] = None
-    
+    autor_nombre: Optional[str] = None
+
     class Config:
         from_attributes = True
 

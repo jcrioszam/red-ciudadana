@@ -1,380 +1,293 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { Surface, Text, ActivityIndicator } from 'react-native-paper';
-import { useAuth } from '../../src/contexts/AuthContext';
-import { FontAwesome5 } from '@expo/vector-icons';
+import { useState, useEffect } from 'react';
+import {
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  RefreshControl, ActivityIndicator,
+} from 'react-native';
 import { useRouter } from 'expo-router';
-import { useDynamicTabs } from '../../hooks/useDynamicTabs';
-import { usePermissionsContext } from '../../src/contexts/PermissionsContext';
+import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../../src/contexts/AuthContext';
 import { api } from '../../src/api';
+import { COLORS, FONTS, RADIUS, SHADOW } from '../../src/theme';
 
-export default function HomeScreen() {
-  const { user, logout } = useAuth();
+type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
+
+interface StatCard { label: string; val: number | string; icon: IoniconName; color: string }
+
+const ROL_LABEL: Record<string, string> = {
+  admin: 'Administrador',
+  presidente: 'Presidente',
+  lider_estatal: 'Líder Estatal',
+  lider_regional: 'Líder Regional',
+  lider_municipal: 'Líder Municipal',
+  lider_zona: 'Líder de Zona',
+  capturista: 'Capturista',
+  movilizador: 'Movilizador',
+  ciudadano: 'Ciudadano',
+};
+
+export default function PrivateHome() {
+  const { user } = useAuth();
   const router = useRouter();
-  const [stats, setStats] = useState({ personas: 0, eventos: 0, asistencias: 0 });
-  const [noticias, setNoticias] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const { refetch: refetchPermissions } = useDynamicTabs(user?.rol);
-  const { triggerRefresh } = usePermissionsContext();
+  const [refreshing, setRefreshing] = useState(false);
+  const [personas, setPersonas] = useState(0);
+  const [eventos, setEventos] = useState(0);
+  const [asistencias, setAsistencias] = useState(0);
+  const [misMovilizaciones, setMisMovilizaciones] = useState<any[]>([]);
+  const [noticias, setNoticias] = useState<any[]>([]);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const load = async () => {
     try {
-      setLoading(true);
-      const [personasData, eventosData, asistenciasData, noticiasData] = await Promise.all([
-        api.get('/reportes/personas').catch(() => null),
-        api.get('/reportes/eventos?historicos=false').catch(() => null),
-        api.get('/reportes/asistencias-tiempo-real').catch(() => null),
-        api.get('/noticias').catch(() => null),
+      const [pRes, eRes, aRes, mvRes, nRes] = await Promise.allSettled([
+        api.get('/reportes/personas'),
+        api.get('/reportes/eventos?historicos=false'),
+        api.get('/reportes/asistencias-tiempo-real'),
+        api.get('/movilizaciones/mis-vehiculos'),
+        api.get('/noticias/?limit=3'),
       ]);
-      setStats({
-        personas: personasData?.total_personas || 0,
-        eventos: eventosData?.total_eventos || 0,
-        asistencias: asistenciasData?.total_asistencias || 0,
-      });
-      if (Array.isArray(noticiasData)) {
-        setNoticias(noticiasData.slice(0, 3));
-      }
-    } catch {
-      // stats remain 0
+      if (pRes.status === 'fulfilled') setPersonas((pRes.value as any)?.total_personas ?? 0);
+      if (eRes.status === 'fulfilled') setEventos((eRes.value as any)?.total_eventos ?? 0);
+      if (aRes.status === 'fulfilled') setAsistencias((aRes.value as any)?.total_asistencias ?? 0);
+      if (mvRes.status === 'fulfilled') setMisMovilizaciones(Array.isArray(mvRes.value) ? mvRes.value as any[] : []);
+      if (nRes.status === 'fulfilled') setNoticias(Array.isArray(nRes.value) ? (nRes.value as any[]).slice(0, 2) : []);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  const today = new Date().toLocaleDateString('es-MX', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-  });
+  useEffect(() => { load(); }, []);
+  const onRefresh = () => { setRefreshing(true); load(); };
 
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3949ab" />
-        <Text style={styles.loadingText}>Cargando...</Text>
-      </View>
-    );
-  }
+  const today = new Date().toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' });
+
+  const stats: StatCard[] = [
+    { label: 'Personas', val: personas, icon: 'people', color: COLORS.primary },
+    { label: 'Eventos', val: eventos, icon: 'calendar', color: '#7c3aed' },
+    { label: 'Asistencias', val: asistencias, icon: 'checkmark-circle', color: COLORS.success },
+  ];
+
+  const quickActions = [
+    { label: 'Registrar', icon: 'person-add-outline' as IoniconName, route: '/register', color: '#f97316', perm: 'register' },
+    { label: 'Check-in', icon: 'checkbox-outline' as IoniconName, route: '/pase-lista', color: COLORS.success, perm: 'pase-lista' },
+    { label: 'Noticias', icon: 'newspaper-outline' as IoniconName, route: '/noticias', color: '#0ea5e9', perm: 'noticias' },
+    { label: 'Reportes', icon: 'megaphone-outline' as IoniconName, route: '/reportes-ciudadanos', color: '#ef4444', perm: 'reportes_ciudadanos' },
+  ];
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 48 }}>
-
-      {/* Tarjeta de usuario */}
-      <Surface style={styles.userCard} elevation={3}>
-        <View style={styles.userCardRow}>
-          <View style={styles.avatarCircle}>
-            <FontAwesome5 name="user" size={24} color="#fff" />
+    <View style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.headerCircle1} />
+        <View style={styles.headerCircle2} />
+        <View style={styles.headerTop}>
+          <View style={styles.avatarBox}>
+            <Text style={styles.avatarText}>{(user?.nombre || 'U')[0].toUpperCase()}</Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.userCardName}>{user?.nombre || 'Usuario'}</Text>
-            <Text style={styles.userCardRole}>{user?.rol || 'Rol'}</Text>
-            <Text style={styles.userCardDate}>{today}</Text>
+            <Text style={styles.greeting}>Hola, {user?.nombre?.split(' ')[0]}</Text>
+            <Text style={styles.role}>{ROL_LABEL[user?.rol ?? ''] ?? user?.rol}</Text>
           </View>
-        </View>
-        <View style={styles.userCardButtonsRow}>
-          <TouchableOpacity style={styles.profileButton} onPress={() => router.push('/profile')}>
-            <FontAwesome5 name="user-cog" size={14} color="#fff" style={{ marginRight: 6 }} />
-            <Text style={styles.profileButtonText}>Perfil</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.logoutButton} onPress={logout}>
-            <FontAwesome5 name="sign-out-alt" size={14} color="#fff" style={{ marginRight: 6 }} />
-            <Text style={styles.logoutButtonText}>Cerrar sesión</Text>
+          <TouchableOpacity style={styles.notifBtn} onPress={() => router.push('/noticias' as any)}>
+            <Ionicons name="notifications-outline" size={22} color="#fff" />
           </TouchableOpacity>
         </View>
-      </Surface>
+        <Text style={styles.dateText}>{today}</Text>
 
-      {/* Resumen rápido — fila plana */}
-      <Surface style={styles.card} elevation={2}>
-        <Text style={styles.cardTitle}>Resumen Rápido</Text>
-        <View style={styles.statsRow}>
-          <View style={styles.statItem}>
-            <FontAwesome5 name="users" size={20} color="#2196F3" />
-            <Text style={styles.statNumber}>{stats.personas.toLocaleString('es-MX')}</Text>
-            <Text style={styles.statLabel}>Personas</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <FontAwesome5 name="calendar-alt" size={20} color="#4CAF50" />
-            <Text style={styles.statNumber}>{stats.eventos.toLocaleString('es-MX')}</Text>
-            <Text style={styles.statLabel}>Eventos</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <FontAwesome5 name="check-circle" size={20} color="#FF9800" />
-            <Text style={styles.statNumber}>{stats.asistencias.toLocaleString('es-MX')}</Text>
-            <Text style={styles.statLabel}>Asistencias</Text>
-          </View>
-        </View>
-      </Surface>
-
-      {/* Accesos rápidos */}
-      <Surface style={styles.card} elevation={2}>
-        <Text style={styles.cardTitle}>Accesos Rápidos</Text>
-        <View style={styles.quickActionsContainer}>
-          <TouchableOpacity style={styles.quickActionButton} onPress={() => router.push('/register')}>
-            <View style={[styles.iconContainer, { backgroundColor: '#3949ab' }]}>
-              <FontAwesome5 name="user-plus" size={22} color="#fff" />
-            </View>
-            <Text style={styles.quickActionText}>Registrar{'\n'}Persona</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.quickActionButton} onPress={() => router.push('/reassign')}>
-            <View style={[styles.iconContainer, { backgroundColor: '#7b1fa2' }]}>
-              <FontAwesome5 name="exchange-alt" size={22} color="#fff" />
-            </View>
-            <Text style={styles.quickActionText}>Reasignar</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.quickActionButton} onPress={() => router.push('/pase-lista')}>
-            <View style={[styles.iconContainer, { backgroundColor: '#00796b' }]}>
-              <FontAwesome5 name="check-square" size={22} color="#fff" />
-            </View>
-            <Text style={styles.quickActionText}>Pase de{'\n'}Lista</Text>
-          </TouchableOpacity>
-        </View>
-        <Text style={styles.instructionText}>
-          Usa la barra de navegación inferior para todas las funciones de tu perfil.
-        </Text>
-      </Surface>
-
-      {/* Últimas noticias */}
-      {noticias.length > 0 && (
-        <Surface style={styles.card} elevation={2}>
-          <Text style={styles.cardTitle}>Últimas Noticias</Text>
-          {noticias.map((n: any, i: number) => (
-            <View key={n.id || i} style={[styles.noticiaItem, i < noticias.length - 1 && styles.noticiaItemBorder]}>
-              <FontAwesome5 name="newspaper" size={14} color="#3949ab" style={{ marginTop: 2, marginRight: 10 }} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.noticiaTitulo} numberOfLines={2}>{n.titulo}</Text>
-                <Text style={styles.noticiaFecha}>
-                  {n.fecha_publicacion ? new Date(n.fecha_publicacion).toLocaleDateString('es-MX') : ''}
-                </Text>
+        {/* Stats dentro del header */}
+        {!loading && (
+          <View style={styles.statsRow}>
+            {stats.map(s => (
+              <View key={s.label} style={styles.statItem}>
+                <Text style={styles.statVal}>{typeof s.val === 'number' ? s.val.toLocaleString('es-MX') : s.val}</Text>
+                <Text style={styles.statLabel}>{s.label}</Text>
               </View>
-            </View>
-          ))}
-        </Surface>
-      )}
+            ))}
+          </View>
+        )}
+      </View>
 
-      {/* Administración */}
-      <Surface style={styles.card} elevation={2}>
-        <Text style={styles.cardTitle}>Administración</Text>
-        <TouchableOpacity
-          style={styles.refreshButton}
-          onPress={async () => {
-            await refetchPermissions();
-            loadData();
-            triggerRefresh();
-          }}
+      {loading ? (
+        <View style={styles.center}><ActivityIndicator size="large" color={COLORS.primary} /></View>
+      ) : (
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scroll}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
         >
-          <FontAwesome5 name="sync-alt" size={14} color="#fff" />
-          <Text style={styles.refreshButtonText}>Actualizar Permisos</Text>
-        </TouchableOpacity>
-        <Text style={styles.instructionText}>
-          Presiona si cambiaste permisos en la web y quieres aplicarlos en la app.
-        </Text>
-      </Surface>
-    </ScrollView>
+          {/* Acciones rápidas */}
+          <Text style={styles.sectionTitle}>Acciones rápidas</Text>
+          <View style={styles.actionsGrid}>
+            {quickActions.map(a => (
+              <TouchableOpacity
+                key={a.label}
+                style={styles.actionCard}
+                onPress={() => router.push(a.route as any)}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.actionIcon, { backgroundColor: a.color + '18' }]}>
+                  <Ionicons name={a.icon} size={26} color={a.color} />
+                </View>
+                <Text style={styles.actionLabel}>{a.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Mis movilizaciones asignadas */}
+          {misMovilizaciones.length > 0 && (
+            <>
+              <Text style={styles.sectionTitle}>Mis Movilizaciones</Text>
+              {misMovilizaciones.map((mv, i) => {
+                const pct = mv.porcentaje ?? 0;
+                const barColor = pct >= 80 ? COLORS.success : pct >= 50 ? COLORS.warning : COLORS.primary;
+                const badge = mv.en_curso
+                  ? { label: 'En curso', color: COLORS.success, bg: COLORS.successLight }
+                  : { label: 'Próximo', color: COLORS.primary, bg: '#dbeafe' };
+                return (
+                  <View key={i} style={styles.movCard}>
+                    <View style={styles.movTop}>
+                      <View style={styles.movLeft}>
+                        <View style={styles.movIcon}>
+                          <Ionicons name="car" size={16} color={COLORS.primary} />
+                        </View>
+                        <View>
+                          <Text style={styles.movVehiculo}>{mv.vehiculo_tipo}{mv.vehiculo_placas ? ` (${mv.vehiculo_placas})` : ''}</Text>
+                          <Text style={styles.movEvento}>{mv.evento_nombre}</Text>
+                        </View>
+                      </View>
+                      <View style={[styles.movBadge, { backgroundColor: badge.bg }]}>
+                        <Text style={[styles.movBadgeText, { color: badge.color }]}>{badge.label}</Text>
+                      </View>
+                    </View>
+                    {/* Progreso */}
+                    <View style={styles.movProgress}>
+                      <Text style={styles.movProgressLabel}>
+                        {mv.presentes}/{mv.total_personas} presentes · {pct}%
+                      </Text>
+                    </View>
+                    <View style={styles.progressBg}>
+                      <View style={[styles.progressBar, { width: `${pct}%` as any, backgroundColor: barColor }]} />
+                    </View>
+                    <TouchableOpacity style={styles.movBtn} onPress={() => router.push('/pase-lista' as any)} activeOpacity={0.85}>
+                      <Ionicons name="checkbox-outline" size={15} color="#fff" />
+                      <Text style={styles.movBtnText}>Ir a Check-in</Text>
+                    </TouchableOpacity>
+                  </View>
+                );
+              })}
+            </>
+          )}
+
+          {/* Noticias recientes */}
+          {noticias.length > 0 && (
+            <>
+              <View style={styles.sectionRow}>
+                <Text style={styles.sectionTitle}>Noticias</Text>
+                <TouchableOpacity onPress={() => router.push('/noticias' as any)}>
+                  <Text style={styles.seeAll}>Ver todas</Text>
+                </TouchableOpacity>
+              </View>
+              {noticias.map((n: any) => (
+                <View key={n.id} style={styles.noticiaCard}>
+                  <Text style={styles.noticiaTitle} numberOfLines={2}>{n.titulo}</Text>
+                  <Text style={styles.noticiaDate}>
+                    {new Date(n.fecha_publicacion).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
+                  </Text>
+                </View>
+              ))}
+            </>
+          )}
+
+          <View style={{ height: 100 }} />
+        </ScrollView>
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f0f2f8',
-    padding: 14,
+  container: { flex: 1, backgroundColor: COLORS.bg },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+
+  header: {
+    backgroundColor: COLORS.navyMid,
+    paddingTop: 52, paddingHorizontal: 20,
+    paddingBottom: 20, overflow: 'hidden',
+    borderBottomLeftRadius: 28, borderBottomRightRadius: 28,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f0f2f8',
+  headerCircle1: {
+    position: 'absolute', width: 220, height: 220, borderRadius: 110,
+    backgroundColor: 'rgba(255,255,255,0.05)', top: -60, right: -40,
   },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 15,
-    color: '#666',
+  headerCircle2: {
+    position: 'absolute', width: 120, height: 120, borderRadius: 60,
+    backgroundColor: 'rgba(255,255,255,0.05)', bottom: -30, left: 30,
   },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    padding: 18,
-    marginBottom: 14,
+  headerTop: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 6 },
+  avatarBox: {
+    width: 44, height: 44, borderRadius: 13,
+    backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center',
   },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#1a237e',
-    marginBottom: 14,
+  avatarText: { color: '#fff', fontWeight: '800', fontSize: FONTS.lg },
+  greeting: { fontSize: FONTS.lg, fontWeight: '800', color: '#fff' },
+  role: { fontSize: FONTS.sm, color: 'rgba(255,255,255,0.65)', textTransform: 'capitalize' },
+  notifBtn: {
+    width: 38, height: 38, borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center',
   },
-  // User card
-  userCard: {
-    backgroundColor: '#1a237e',
-    borderRadius: 16,
-    padding: 18,
-    marginBottom: 14,
-  },
-  userCardRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  avatarCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 14,
-  },
-  userCardName: {
-    fontSize: 17,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  userCardRole: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.75)',
-    textTransform: 'capitalize',
-    marginTop: 1,
-  },
-  userCardDate: {
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.55)',
-    marginTop: 3,
-    textTransform: 'capitalize',
-  },
-  userCardButtonsRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  profileButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    flex: 1,
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
-  },
-  profileButtonText: {
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#d32f2f',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    flex: 1,
-    justifyContent: 'center',
-  },
-  logoutButtonText: {
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  // Stats row
+  dateText: { fontSize: FONTS.sm, color: 'rgba(255,255,255,0.55)', marginBottom: 16, textTransform: 'capitalize' },
+
   statsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
+    flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: RADIUS.lg, padding: 12,
   },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 8,
+  statItem: { flex: 1, alignItems: 'center' },
+  statVal: { fontSize: FONTS.xl, fontWeight: '800', color: '#fff' },
+  statLabel: { fontSize: FONTS.xs, color: 'rgba(255,255,255,0.65)', marginTop: 2 },
+
+  scroll: { paddingHorizontal: 20, paddingTop: 20 },
+  sectionTitle: { fontSize: FONTS.md, fontWeight: '700', color: COLORS.text, marginBottom: 12 },
+  sectionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  seeAll: { fontSize: FONTS.sm, color: COLORS.primary, fontWeight: '600' },
+
+  actionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 24 },
+  actionCard: {
+    width: '47%', backgroundColor: '#fff', borderRadius: RADIUS.xl,
+    padding: 16, alignItems: 'center', gap: 10, ...SHADOW.sm,
   },
-  statDivider: {
-    width: 1,
-    height: 48,
-    backgroundColor: '#e8eaf6',
+  actionIcon: { width: 52, height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  actionLabel: { fontSize: FONTS.sm, fontWeight: '600', color: COLORS.text },
+
+  movCard: {
+    backgroundColor: '#fff', borderRadius: RADIUS.xl, padding: 16,
+    marginBottom: 12, ...SHADOW.sm,
   },
-  statNumber: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#1a237e',
-    marginTop: 6,
+  movTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 },
+  movLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
+  movIcon: {
+    width: 36, height: 36, borderRadius: 10,
+    backgroundColor: '#eff6ff', alignItems: 'center', justifyContent: 'center',
   },
-  statLabel: {
-    fontSize: 11,
-    color: '#888',
-    marginTop: 2,
+  movVehiculo: { fontSize: FONTS.base, fontWeight: '700', color: COLORS.text },
+  movEvento: { fontSize: FONTS.sm, color: COLORS.textSecondary },
+  movBadge: { borderRadius: RADIUS.full, paddingHorizontal: 10, paddingVertical: 3 },
+  movBadgeText: { fontSize: FONTS.xs, fontWeight: '700' },
+  movProgress: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
+  movProgressLabel: { fontSize: FONTS.sm, color: COLORS.textSecondary },
+  progressBg: { height: 6, backgroundColor: COLORS.bg, borderRadius: 3, marginBottom: 12, overflow: 'hidden' },
+  progressBar: { height: 6, borderRadius: 3 },
+  movBtn: {
+    backgroundColor: COLORS.primary, borderRadius: RADIUS.md,
+    paddingVertical: 9, flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'center', gap: 6,
   },
-  // Quick actions
-  quickActionsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 14,
+  movBtnText: { color: '#fff', fontSize: FONTS.sm, fontWeight: '700' },
+
+  noticiaCard: {
+    backgroundColor: '#fff', borderRadius: RADIUS.lg,
+    padding: 14, marginBottom: 10, flexDirection: 'row',
+    justifyContent: 'space-between', alignItems: 'center', ...SHADOW.sm,
   },
-  quickActionButton: {
-    alignItems: 'center',
-    paddingHorizontal: 8,
-  },
-  iconContainer: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  quickActionText: {
-    fontSize: 11,
-    color: '#3949ab',
-    textAlign: 'center',
-    fontWeight: '600',
-    lineHeight: 15,
-  },
-  instructionText: {
-    fontSize: 12,
-    color: '#999',
-    textAlign: 'center',
-    lineHeight: 18,
-  },
-  // Noticias
-  noticiaItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingVertical: 10,
-  },
-  noticiaItemBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  noticiaTitulo: {
-    fontSize: 13,
-    color: '#333',
-    fontWeight: '500',
-    lineHeight: 18,
-  },
-  noticiaFecha: {
-    fontSize: 11,
-    color: '#aaa',
-    marginTop: 3,
-  },
-  // Refresh button
-  refreshButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#4CAF50',
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 10,
-    gap: 8,
-  },
-  refreshButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
+  noticiaTitle: { flex: 1, fontSize: FONTS.base, fontWeight: '600', color: COLORS.text, marginRight: 10 },
+  noticiaDate: { fontSize: FONTS.xs, color: COLORS.textMuted },
 });

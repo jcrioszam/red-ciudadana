@@ -16,7 +16,6 @@ const MapClickHandler = ({ onLocationSelect }) => {
   useMapEvents({
     click: (e) => {
       const { lat, lng } = e.latlng;
-      console.log('🗺️ Click en mapa:', { lat, lng });
       if (typeof onLocationSelect === 'function') {
         onLocationSelect(lat, lng);
       }
@@ -35,23 +34,19 @@ const MapaInteractivoSimple = ({
 
   // Función para obtener ubicación actual
   const getCurrentLocation = () => {
-    console.log('📍 Obteniendo ubicación actual...');
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { latitude, longitude } = position.coords;
-          console.log('📍 Ubicación obtenida:', { latitude, longitude });
           if (typeof onLocationSelect === 'function') {
             onLocationSelect(latitude, longitude);
           }
         },
-        (error) => {
-          console.error('❌ Error al obtener ubicación:', error);
+        () => {
           alert('No se pudo obtener tu ubicación. Por favor, selecciona manualmente en el mapa.');
         }
       );
     } else {
-      console.error('❌ Geolocalización no soportada');
       alert('Tu navegador no soporta geolocalización. Por favor, selecciona manualmente en el mapa.');
     }
   };
@@ -60,7 +55,6 @@ const MapaInteractivoSimple = ({
   useEffect(() => {
     const timer = setTimeout(() => {
       setMapReady(true);
-      console.log('🗺️ Mapa marcado como listo');
     }, 1000);
     return () => clearTimeout(timer);
   }, []);
@@ -101,10 +95,7 @@ const MapaInteractivoSimple = ({
         center={[27.0706, -109.4437]} // Navojoa, Sonora
         zoom={13}
         style={{ width: '100%', height: '100%' }}
-        whenReady={() => {
-          console.log('🗺️ Mapa listo');
-          setMapReady(true);
-        }}
+        whenReady={() => { setMapReady(true); }}
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'

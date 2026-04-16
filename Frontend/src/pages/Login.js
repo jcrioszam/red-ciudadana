@@ -18,13 +18,11 @@ function Login() {
     try {
       const success = await login(identificador, password);
       if (success) {
-        console.log('Login exitoso, redirigiendo...');
         navigate('/dashboard');
       } else {
         setError('Usuario o contraseña incorrectos');
       }
     } catch (err) {
-      console.log('Error en login:', err);
       setError('Error de conexión. Intenta nuevamente.');
     } finally {
       setIsLoading(false);

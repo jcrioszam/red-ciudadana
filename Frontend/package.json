@@ -4,6 +4,7 @@
   "description": "Frontend para sistema Red Ciudadana - Partido Político",
   "private": true,
   "dependencies": {
+    "@changey/react-leaflet-markercluster": "^4.0.0-rc1",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@mui/icons-material": "^7.2.0",
@@ -18,6 +19,7 @@
     "clsx": "^1.2.1",
     "date-fns": "^2.29.3",
     "leaflet": "^1.9.4",
+    "leaflet.heat": "^0.2.0",
     "postcss": "^8.4.21",
     "qrcode.react": "^4.2.0",
     "react": "^18.2.0",

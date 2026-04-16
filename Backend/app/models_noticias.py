@@ -1,9 +1,6 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, String
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean
 from sqlalchemy.sql import func
-from datetime import datetime
-
-Base = declarative_base()
+from .database import Base
 
 class Noticia(Base):
     """Modelo para gestionar noticias y anuncios del banner principal"""
@@ -30,6 +27,9 @@ class Noticia(Base):
     categoria = Column(String(100), default="general", nullable=False)
     tags = Column(String(500), nullable=True)  # Separados por comas
     
+    # Galería de imágenes adicionales (JSON array de URLs)
+    imagenes = Column(Text, nullable=True)
+
     # Enlaces
     enlace_externo = Column(String(500), nullable=True)
     boton_texto = Column(String(100), nullable=True)

@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from 'react-leaflet';
+import { useState, useEffect, useCallback } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, Circle, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
-// 🔧 FIX: Configurar iconos de Leaflet para React
+// Fix iconos Leaflet en React
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: require('leaflet/dist/images/marker-icon-2x.png'),
@@ -11,585 +11,304 @@ L.Icon.Default.mergeOptions({
   shadowUrl: require('leaflet/dist/images/marker-shadow.png'),
 });
 
-// Componente para manejar clicks en el mapa
-const MapClickHandler = ({ onLocationSelect, selectedLocation }) => {
+// ─── Capas de mapa ────────────────────────────────────────────────────────────
+const TILE_LAYERS = {
+  calles:   { label: 'Calles',   url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', attribution: '© CARTO © OpenStreetMap' },
+  satelite: { label: 'Satélite', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', attribution: '© Esri' },
+  hibrido:  { label: 'Híbrido',  url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', labelUrl: 'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', attribution: '© Esri' },
+  claro:    { label: 'Claro',    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', attribution: '© CARTO © OpenStreetMap' },
+  osm:      { label: 'OSM',      url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attribution: '© OpenStreetMap' },
+};
+
+// ─── Constantes ───────────────────────────────────────────────────────────────
+const ESTADOS = {
+  pendiente:   { lbl: 'Pendiente',   color: '#f59e0b' },
+  en_revision: { lbl: 'En Revisión', color: '#3b82f6' },
+  en_progreso: { lbl: 'En Progreso', color: '#8b5cf6' },
+  resuelto:    { lbl: 'Resuelto',    color: '#10b981' },
+  rechazado:   { lbl: 'Rechazado',   color: '#ef4444' },
+};
+
+const TIPOS = {
+  bache:                     { emoji: '🕳️', color: '#ef4444', label: 'Bache' },
+  basura:                    { emoji: '🗑️', color: '#8b5cf6', label: 'Basura' },
+  drenaje:                   { emoji: '🌊', color: '#0ea5e9', label: 'Drenaje' },
+  agua:                      { emoji: '💧', color: '#10b981', label: 'Agua' },
+  luminaria:                 { emoji: '💡', color: '#f59e0b', label: 'Luminaria' },
+  seguridad:                 { emoji: '🚨', color: '#ef4444', label: 'Seguridad' },
+  baches_banqueta_invadida:  { emoji: '🔧', color: '#f59e0b', label: 'Baches/Banqueta' },
+  basura_alumbrado:          { emoji: '🗑️', color: '#8b5cf6', label: 'Basura/Alumbrado' },
+  agua_potable_drenaje:      { emoji: '💧', color: '#0ea5e9', label: 'Agua/Drenaje' },
+  policia_accidentes_delitos:{ emoji: '🚔', color: '#ef4444', label: 'Seguridad' },
+  tala_arboles_ecologia:     { emoji: '🌳', color: '#16a34a', label: 'Ecología' },
+  transporte_urbano_rutas:   { emoji: '🚌', color: '#0ea5e9', label: 'Transporte' },
+  transito_vialidad:         { emoji: '🚦', color: '#ea580c', label: 'Tránsito' },
+  obras_publicas_navojoa:    { emoji: '🏠', color: '#dc2626', label: 'Obras Públicas' },
+  otro:                      { emoji: '⚠️', color: '#6b7280', label: 'Otro' },
+  otro_queja_sugerencia:     { emoji: '❓', color: '#6b7280', label: 'Otro/Queja' },
+};
+
+function tipoInfo(tipo) { return TIPOS[tipo] || { emoji: '⚠️', color: '#6b7280', label: tipo || 'Otro' }; }
+function estadoInfo(estado) { return ESTADOS[estado] || { lbl: estado || 'Desconocido', color: '#6b7280' }; }
+function timeAgo(dateStr) {
+  if (!dateStr) return '';
+  const diff = (Date.now() - new Date(dateStr)) / 1000;
+  if (diff < 60) return 'hace un momento';
+  if (diff < 3600) return `hace ${Math.floor(diff / 60)} min`;
+  if (diff < 86400) return `hace ${Math.floor(diff / 3600)} h`;
+  return `hace ${Math.floor(diff / 86400)} días`;
+}
+
+// ─── Pin icon (igual a AlertaCiudadanaMapa) ───────────────────────────────────
+function makePinIcon(tipo, estado, fotoUrl) {
+  const t = tipoInfo(tipo);
+  const pinColor = estadoInfo(estado).color;
+  const solved = estado === 'resuelto';
+
+  if (fotoUrl) {
+    const badgeBg = solved ? '#10b981' : pinColor;
+    const badgeContent = solved ? '✓' : t.emoji;
+    return L.divIcon({
+      html: `<div style="position:relative;width:46px;height:54px;">
+        <div style="width:42px;height:42px;border-radius:50%;overflow:hidden;border:3px solid ${pinColor};box-shadow:0 3px 14px rgba(0,0,0,.35);background:${pinColor}22;">
+          <img src="${fotoUrl}" width="42" height="42" style="width:100%;height:100%;object-fit:cover;display:block;"
+            onerror="this.parentNode.innerHTML='<div style=\\'width:42px;height:42px;display:flex;align-items:center;justify-content:center;font-size:20px;\\'>${t.emoji}</div>'"/>
+        </div>
+        <div style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-top:12px solid ${pinColor};"></div>
+        <div style="position:absolute;top:-3px;right:-3px;width:16px;height:16px;background:${badgeBg};border-radius:50%;border:2px solid white;display:flex;align-items:center;justify-content:center;font-size:8px;color:white;font-weight:700;">${badgeContent}</div>
+      </div>`,
+      className: '', iconSize: [46, 54], iconAnchor: [23, 54], popupAnchor: [0, -56],
+    });
+  }
+
+  const inner = solved
+    ? `<span style="font-size:13px;font-weight:700;color:white">✓</span>`
+    : `<span style="transform:rotate(45deg);display:inline-block;font-size:12px">${t.emoji}</span>`;
+  return L.divIcon({
+    html: `<div style="width:32px;height:32px;background:${pinColor};border-radius:50% 50% 50% 2px;transform:rotate(-45deg);border:2.5px solid rgba(255,255,255,.9);box-shadow:0 3px 12px rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;">${inner}</div>`,
+    className: '', iconSize: [32, 32], iconAnchor: [16, 32], popupAnchor: [0, -34],
+  });
+}
+
+// Icono verde para ubicación seleccionada
+const makeSelIcon = () => L.divIcon({
+  html: `<div style="width:32px;height:32px;background:#10b981;border-radius:50% 50% 50% 2px;transform:rotate(-45deg);border:2.5px solid rgba(255,255,255,.9);box-shadow:0 3px 12px rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;"><span style="transform:rotate(45deg);display:inline-block;font-size:14px">📍</span></div>`,
+  className: '', iconSize: [32, 32], iconAnchor: [16, 32], popupAnchor: [0, -34],
+});
+
+// ─── Subcomponentes ───────────────────────────────────────────────────────────
+const MapClickHandler = ({ onLocationSelect }) => {
   useMapEvents({
-    click: (e) => {
-      const { lat, lng } = e.latlng;
-      if (typeof onLocationSelect === 'function') {
-        onLocationSelect(lat, lng);
-      }
-    },
+    click: (e) => { if (typeof onLocationSelect === 'function') onLocationSelect(e.latlng.lat, e.latlng.lng); },
   });
   return null;
 };
 
-// Hook personalizado para obtener la instancia del mapa
-const useMapInstance = () => {
+const MapReady = ({ onReady }) => {
   const map = useMap();
-  return map;
-};
-
-// Componente para establecer el mapa en el estado del padre
-const MapController = ({ onMapReady }) => {
-  const map = useMapInstance();
-  
-  useEffect(() => {
-    if (map && onMapReady) {
-      console.log('🗺️ Mapa detectado a través de useMap hook');
-      onMapReady(map);
-    }
-  }, [map, onMapReady]);
-  
+  useEffect(() => { if (map && onReady) onReady(map); }, [map, onReady]);
   return null;
 };
 
-const MapaInteractivo = ({ 
-  onLocationSelect, 
-  selectedLocation, 
-  reportes = [], 
-  modo = 'seleccion', // 'seleccion' o 'visualizacion'
-  center = [19.4326, -99.1332], // México City por defecto
-  zoom = 13 
+// ─── COMPONENTE PRINCIPAL ─────────────────────────────────────────────────────
+const MapaInteractivo = ({
+  onLocationSelect,
+  selectedLocation,
+  reportes = [],
+  modo = 'seleccion',
+  center = [29.0729, -110.9559],
+  zoom = 13,
 }) => {
   const [map, setMap] = useState(null);
-  const mapRef = useRef();
+  const [tipoMapa, setTipoMapa] = useState('calles');
+  const [gpsPos, setGpsPos] = useState(null);
+  const layer = TILE_LAYERS[tipoMapa];
 
-  // 🔧 Función para calcular el centro y zoom óptimo basado en los reportes
-  const calcularCentroYZoomOptimo = (reportes) => {
-    if (!reportes || reportes.length === 0) {
-      return { center: center, zoom: zoom };
-    }
-
-    // Calcular límites (bounds) de todos los reportes
-    let minLat = Infinity, maxLat = -Infinity;
-    let minLng = Infinity, maxLng = -Infinity;
-
-    reportes.forEach(reporte => {
-      if (reporte.latitud && reporte.longitud) {
-        minLat = Math.min(minLat, reporte.latitud);
-        maxLat = Math.max(maxLat, reporte.latitud);
-        minLng = Math.min(minLng, reporte.longitud);
-        maxLng = Math.max(maxLng, reporte.longitud);
-      }
-    });
-
-    // Si no hay coordenadas válidas, usar valores por defecto
-    if (minLat === Infinity) {
-      return { center: center, zoom: zoom };
-    }
-
-    // Calcular el centro
-    const centerLat = (minLat + maxLat) / 2;
-    const centerLng = (minLng + maxLng) / 2;
-
-    // Calcular la extensión geográfica
-    const latDiff = maxLat - minLat;
-    const lngDiff = maxLng - minLng;
-    const maxDiff = Math.max(latDiff, lngDiff);
-
-    // Calcular densidad de reportes (reportes por unidad de área aproximada)
-    const area = latDiff * lngDiff;
-    const densidad = reportes.length / Math.max(area, 0.0001); // Evitar división por cero
-
-    // Calcular zoom óptimo basado en extensión y densidad
-    let optimalZoom;
-    
-    if (maxDiff > 10) {
-      optimalZoom = 8; // Zoom muy lejano para reportes muy dispersos
-    } else if (maxDiff > 5) {
-      optimalZoom = 10;
-    } else if (maxDiff > 1) {
-      optimalZoom = 12;
-    } else if (maxDiff > 0.1) {
-      optimalZoom = 14;
-    } else if (maxDiff > 0.01) {
-      optimalZoom = 16;
-    } else {
-      optimalZoom = 18; // Zoom muy cercano para reportes muy concentrados
-    }
-
-    // Ajustar zoom basado en densidad
-    if (densidad > 1000) {
-      optimalZoom = Math.min(optimalZoom + 2, 18); // Zoom más cercano para alta densidad
-    } else if (densidad > 100) {
-      optimalZoom = Math.min(optimalZoom + 1, 18);
-    } else if (densidad < 10) {
-      optimalZoom = Math.max(optimalZoom - 1, 8); // Zoom más lejano para baja densidad
-    }
-
-    // Agregar padding para mejor visualización
-    const padding = Math.max(0.05, Math.min(0.2, 1 / reportes.length)); // Padding adaptativo
-    const paddedMinLat = minLat - (latDiff * padding);
-    const paddedMaxLat = maxLat + (latDiff * padding);
-    const paddedMinLng = minLng - (lngDiff * padding);
-    const paddedMaxLng = maxLng + (lngDiff * padding);
-
-    return {
-      center: [centerLat, centerLng],
-      zoom: optimalZoom,
-      bounds: [
-        [paddedMinLat, paddedMinLng],
-        [paddedMaxLat, paddedMaxLng]
-      ],
-      densidad: densidad,
-      totalReportes: reportes.length
-    };
-  };
-
-  // 🔧 Función para encontrar el área con mayor concentración de reportes
-  const encontrarAreaConMasReportes = (reportes) => {
-    if (!reportes || reportes.length === 0) return null;
-
-    // Dividir el área en una cuadrícula y contar reportes en cada celda
-    const gridSize = 10; // 10x10 cuadrícula
-    const grid = {};
-    
-    reportes.forEach(reporte => {
-      if (reporte.latitud && reporte.longitud) {
-        // Crear coordenadas de cuadrícula (redondear a 2 decimales para agrupar)
-        const gridLat = Math.round(reporte.latitud * 100) / 100;
-        const gridLng = Math.round(reporte.longitud * 100) / 100;
-        const key = `${gridLat},${gridLng}`;
-        
-        if (!grid[key]) {
-          grid[key] = {
-            lat: reporte.latitud,
-            lng: reporte.longitud,
-            count: 0,
-            reportes: []
-          };
-        }
-        grid[key].count++;
-        grid[key].reportes.push(reporte);
-      }
-    });
-
-    // Encontrar la celda con más reportes
-    let maxCount = 0;
-    let bestCell = null;
-    
-    Object.values(grid).forEach(cell => {
-      if (cell.count > maxCount) {
-        maxCount = cell.count;
-        bestCell = cell;
-      }
-    });
-
-    if (bestCell) {
-      return {
-        center: [bestCell.lat, bestCell.lng],
-        zoom: 16, // Zoom cercano para ver el área con más reportes
-        count: bestCell.count,
-        reportes: bestCell.reportes
-      };
-    }
-
-    return null;
-  };
-
-  // 🔧 Función para obtener coordenadas del usuario
-  const getCurrentLocation = () => {
-    console.log('🔍 Iniciando geolocalización...');
-    
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          console.log('✅ Ubicación obtenida:', { latitude, longitude });
-          
-          // Verificar que onLocationSelect sea una función antes de llamarla
-          if (typeof onLocationSelect === 'function') {
-            onLocationSelect(latitude, longitude);
-          } else {
-            console.log('⚠️ onLocationSelect no es una función, saltando...');
-          }
-          
-          // Centrar mapa en ubicación del usuario
-          const mapInstance = getMapInstance();
-          if (mapInstance) {
-            console.log('🗺️ Centrando mapa en ubicación del usuario...');
-            mapInstance.setView([latitude, longitude], 15);
-          } else {
-            console.log('⚠️ Mapa no disponible aún');
-          }
-        },
-        (error) => {
-          console.error('❌ Error de geolocalización:', error);
-          
-          // Mensajes de error más específicos
-          let errorMessage = '❌ No se pudo obtener tu ubicación. ';
-          
-          switch(error.code) {
-            case error.PERMISSION_DENIED:
-              errorMessage += 'Permiso denegado. Por favor, permite el acceso a la ubicación.';
-              break;
-            case error.POSITION_UNAVAILABLE:
-              errorMessage += 'Información de ubicación no disponible.';
-              break;
-            case error.TIMEOUT:
-              errorMessage += 'Tiempo de espera agotado. Intenta de nuevo.';
-              break;
-            default:
-              errorMessage += 'Error desconocido. Selecciona manualmente en el mapa.';
-          }
-          
-          alert(errorMessage);
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 15000, // Aumentar timeout a 15 segundos
-          maximumAge: 300000
-        }
-      );
-    } else {
-      console.error('❌ Geolocalización no soportada');
-      alert('❌ Geolocalización no soportada en este navegador.');
-    }
-  };
-
-  // 🔧 Función para centrar mapa en ubicación seleccionada
   useEffect(() => {
-    const mapInstance = getMapInstance();
-    if (selectedLocation && selectedLocation.lat && selectedLocation.lng && mapInstance) {
-      mapInstance.setView([selectedLocation.lat, selectedLocation.lng], 16);
-    }
+    if (map && selectedLocation?.lat && selectedLocation?.lng)
+      map.setView([selectedLocation.lat, selectedLocation.lng], 16);
   }, [selectedLocation, map]);
 
-  // 🔧 Efecto para ajustar automáticamente el mapa cuando cambien los reportes
   useEffect(() => {
-    const mapInstance = getMapInstance();
-    if (mapInstance && modo === 'visualizacion' && reportes.length > 0) {
-      const { center: optimalCenter, zoom: optimalZoom, bounds } = calcularCentroYZoomOptimo(reportes);
-      
-      if (bounds) {
-        // Usar fitBounds para ajustar el mapa a todos los reportes
-        mapInstance.fitBounds(bounds, { padding: [20, 20] });
-      } else {
-        // Fallback a setView si no hay bounds
-        mapInstance.setView(optimalCenter, optimalZoom);
-      }
-    }
+    if (!map || modo !== 'visualizacion' || reportes.length === 0) return;
+    const valid = reportes.filter(r => r.latitud && r.longitud);
+    if (valid.length === 0) return;
+    setTimeout(() => map.fitBounds(L.latLngBounds(valid.map(r => [r.latitud, r.longitud])), { padding: [40, 40] }), 300);
   }, [reportes, map, modo]);
 
-  // 🔧 Efecto para ajustar automáticamente el mapa cuando se carga por primera vez
-  useEffect(() => {
-    const mapInstance = getMapInstance();
-    if (mapInstance && modo === 'visualizacion' && reportes.length > 0) {
-      // Pequeño delay para asegurar que el mapa esté completamente cargado
-      const timer = setTimeout(() => {
-        const { center: optimalCenter, zoom: optimalZoom, bounds } = calcularCentroYZoomOptimo(reportes);
-        
-        if (bounds) {
-          mapInstance.fitBounds(bounds, { padding: [20, 20] });
-        } else {
-          mapInstance.setView(optimalCenter, optimalZoom);
-        }
-      }, 500);
+  const irAMiUbicacion = useCallback(() => {
+    if (!navigator.geolocation) { alert('Geolocalización no soportada.'); return; }
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        const pos = { lat: coords.latitude, lng: coords.longitude };
+        setGpsPos(pos);
+        if (typeof onLocationSelect === 'function') onLocationSelect(pos.lat, pos.lng);
+        if (map) map.setView([pos.lat, pos.lng], 16);
+      },
+      (err) => {
+        const msgs = { 1: 'Permiso denegado.', 2: 'Ubicación no disponible.', 3: 'Tiempo agotado.' };
+        alert(msgs[err.code] || 'No se pudo obtener tu ubicación.');
+      },
+      { enableHighAccuracy: true, timeout: 15000 }
+    );
+  }, [map, onLocationSelect]);
 
-      return () => clearTimeout(timer);
-    }
-  }, [map, modo]); // Solo se ejecuta cuando cambia el mapa o el modo
-
-  // 🔧 Efecto para verificar cuando el mapa esté listo
-  useEffect(() => {
-    if (map) {
-      console.log('🗺️ Mapa inicializado correctamente');
-      console.log('📊 Estado actual:', { modo, reportesCount: reportes.length });
-      console.log('🗺️ Instancia del mapa:', map);
-    }
-  }, [map, modo, reportes.length]);
-
-  // 🔧 Efecto para verificar el estado del mapa cada segundo
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (map) {
-        console.log('🗺️ Estado del mapa verificado:', { 
-          map: !!map, 
-          modo, 
-          reportesCount: reportes.length,
-          mapType: typeof map,
-          mapMethods: map ? Object.keys(map).filter(key => typeof map[key] === 'function') : []
-        });
-        clearInterval(interval);
-      }
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [map, modo, reportes.length]);
-
-  // 🔧 Función para obtener la instancia del mapa
-  const getMapInstance = () => {
-    if (map) {
-      console.log('🗺️ Usando instancia del mapa del estado');
-      return map;
-    }
-    console.log('⚠️ Mapa no disponible en el estado');
-    return null;
-  };
+  const ajustarVista = useCallback(() => {
+    if (!map || reportes.length === 0) return;
+    const valid = reportes.filter(r => r.latitud && r.longitud);
+    if (valid.length === 0) return;
+    map.fitBounds(L.latLngBounds(valid.map(r => [r.latitud, r.longitud])), { padding: [40, 40] });
+  }, [map, reportes]);
 
   return (
-    <div className="mapa-container" style={{ width: '100%', height: '400px', position: 'relative' }}>
-      {/* 🗺️ Botón de GPS */}
-      <button
-        onClick={getCurrentLocation}
-        style={{
-          position: 'absolute',
-          top: '10px',
-          right: '10px',
-          zIndex: 1000,
-          backgroundColor: '#10b981',
-          color: 'white',
-          border: 'none',
-          borderRadius: '8px',
-          padding: '8px 12px',
-          cursor: 'pointer',
-          fontSize: '14px',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-        }}
-        title="Usar mi ubicación actual (GPS)"
-      >
-        📍 GPS
-      </button>
+    <div style={{ width: '100%', height: '100%', minHeight: 380, position: 'relative' }}>
 
-      {/* 🗺️ Botón para ajustar vista a todos los reportes */}
-      {modo === 'visualizacion' && reportes.length > 0 && (
-        <button
-          onClick={() => {
-            console.log('🎯 Botón "Ajustar Vista" clickeado');
-            const mapInstance = getMapInstance();
-            console.log('🗺️ Estado del mapa:', { 
-              map: !!mapInstance, 
-              modo, 
-              reportesCount: reportes.length,
-              mapRef: !!mapRef.current,
-              mapRefMap: !!(mapRef.current && mapRef.current._map)
-            });
-            
-            if (mapInstance) {
-              const { bounds } = calcularCentroYZoomOptimo(reportes);
-              console.log('📊 Bounds calculados:', bounds);
-              
-              if (bounds) {
-                console.log('🗺️ Ajustando mapa a bounds...');
-                mapInstance.fitBounds(bounds, { padding: [20, 20] });
-              } else {
-                console.log('⚠️ No se pudieron calcular bounds');
-              }
-            } else {
-              console.log('❌ Mapa no disponible');
-              alert('⚠️ El mapa aún no está listo. Espera un momento y vuelve a intentar.');
-            }
-          }}
-          style={{
-            position: 'absolute',
-            top: '50px',
-            right: '10px',
-            zIndex: 1000,
-            backgroundColor: '#3b82f6',
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            padding: '8px 12px',
-            cursor: 'pointer',
-            fontSize: '14px',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-          }}
-          title="Ajustar vista a todos los reportes"
-        >
-          🎯 Ajustar Vista
+      {/* ── Selector tipo mapa ── */}
+      <div style={{
+        position: 'absolute', bottom: 32, left: 10, zIndex: 1000,
+        display: 'flex', gap: 4, flexWrap: 'wrap', maxWidth: 220,
+        background: 'rgba(255,255,255,.96)', borderRadius: 10, padding: '5px 7px',
+        boxShadow: '0 2px 8px rgba(0,0,0,.18)',
+      }}>
+        {Object.entries(TILE_LAYERS).map(([key, val]) => (
+          <button key={key} onClick={() => setTipoMapa(key)} style={{
+            padding: '3px 9px', borderRadius: 6, border: 'none', cursor: 'pointer',
+            fontSize: 11, fontWeight: tipoMapa === key ? 700 : 400,
+            background: tipoMapa === key ? '#2563eb' : '#f3f4f6',
+            color: tipoMapa === key ? 'white' : '#374151', transition: 'all .15s',
+          }}>
+            {val.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Botones flotantes derecha ── */}
+      <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 1000, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <button onClick={irAMiUbicacion} title="Mi ubicación (GPS)" style={btnStyle('#10b981')}>
+          📍 GPS
         </button>
-      )}
+        {modo === 'visualizacion' && reportes.length > 0 && (
+          <button onClick={ajustarVista} title="Ver todos los reportes" style={btnStyle('#2563eb')}>
+            🎯 Todos
+          </button>
+        )}
+      </div>
 
-      {/* 🗺️ Botón para ir al área con más reportes */}
-      {modo === 'visualizacion' && reportes.length > 0 && (
-        <button
-          onClick={() => {
-            console.log('🔥 Botón "Zona Caliente" clickeado');
-            const mapInstance = getMapInstance();
-            console.log('🗺️ Estado del mapa:', { 
-              map: !!mapInstance, 
-              modo, 
-              reportesCount: reportes.length,
-              mapRef: !!mapRef.current,
-              mapRefMap: !!(mapRef.current && mapRef.current._map)
-            });
-            
-            if (mapInstance) {
-              const areaConMasReportes = encontrarAreaConMasReportes(reportes);
-              console.log('📍 Área con más reportes encontrada:', areaConMasReportes);
-              
-              if (areaConMasReportes) {
-                console.log('🗺️ Navegando al área con más reportes...');
-                mapInstance.setView(areaConMasReportes.center, areaConMasReportes.zoom);
-                // Mostrar información sobre el área
-                alert(`📍 Área con más reportes:\n${areaConMasReportes.count} reportes en esta zona`);
-              } else {
-                console.log('⚠️ No se pudo encontrar área con más reportes');
-                alert('⚠️ No se pudo determinar el área con más reportes.');
-              }
-            } else {
-              console.log('❌ Mapa no disponible');
-              alert('⚠️ El mapa aún no está listo. Espera un momento y vuelve a intentar.');
-            }
-          }}
-          style={{
-            position: 'absolute',
-            top: '90px',
-            right: '10px',
-            zIndex: 1000,
-            backgroundColor: '#8b82f6',
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            padding: '8px 12px',
-            cursor: 'pointer',
-            fontSize: '14px',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-          }}
-          title="Ir al área con más reportes"
-        >
-          🔥 Zona Caliente
-        </button>
-      )}
+      {/* ── Mapa ── */}
+      <MapContainer center={center} zoom={zoom} style={{ height: '100%', width: '100%' }}>
+        <MapReady onReady={setMap} />
+        <MapClickHandler onLocationSelect={onLocationSelect} />
 
-      {/* 🗺️ Mapa interactivo */}
-      <MapContainer
-        center={center}
-        zoom={zoom}
-        style={{ height: '100%', width: '100%' }}
-        ref={mapRef}
-      >
-        {/* 🔧 Controlador del mapa */}
-        <MapController onMapReady={setMap} />
-        
-        <TileLayer
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        />
+        <TileLayer key={tipoMapa} url={layer.url} attribution={layer.attribution} maxZoom={19} />
+        {tipoMapa === 'hibrido' && layer.labelUrl && (
+          <TileLayer url={layer.labelUrl} attribution="" maxZoom={19} opacity={0.85} />
+        )}
 
-        {/* 🔧 Manejador de clicks */}
-        <MapClickHandler onLocationSelect={onLocationSelect} selectedLocation={selectedLocation} />
+        {/* Marcador GPS (mi ubicación) */}
+        {gpsPos && (
+          <>
+            <Circle center={[gpsPos.lat, gpsPos.lng]} radius={80}
+              pathOptions={{ color: '#2563eb', fillColor: '#2563eb', fillOpacity: 0.12, weight: 1.5, dashArray: '4 3' }} />
+            <Marker position={[gpsPos.lat, gpsPos.lng]} icon={L.divIcon({
+              html: `<div style="width:18px;height:18px;background:#2563eb;border:3px solid white;border-radius:50%;box-shadow:0 0 0 3px rgba(37,99,235,.35),0 2px 8px rgba(0,0,0,.3);"></div>`,
+              className: '', iconSize: [18, 18], iconAnchor: [9, 9],
+            })} zIndexOffset={1000}>
+              <Popup><div style={{ fontSize: '.82rem', fontWeight: 600 }}>📍 Mi ubicación</div></Popup>
+            </Marker>
+          </>
+        )}
 
-        {/* 📍 Marcador de ubicación seleccionada */}
-        {selectedLocation && selectedLocation.lat && selectedLocation.lng && (
-          <Marker
-            position={[selectedLocation.lat, selectedLocation.lng]}
-            icon={new L.Icon({
-              iconUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDNi40OCAyIDIgNi40OCAyIDEyQzIgMTcuNTIgNi40OCAyMiAxMiAyMkMxNy41MiAyMiAyMiAxNy41MiAyMiAxMkMyMiA2LjQ4IDE3LjUyIDIgMTIgMloiIGZpbGw9IiMxMGI5ODEiLz4KPHBhdGggZD0iTTEyIDhDMTMuNjYgOCAxNSA5LjM0IDE1IDExQzE1IDEyLjY2IDEzLjY2IDE0IDEyIDE0QzEwLjM0IDE0IDkgMTIuNjYgOSAxMUM5IDkuMzQgMTAuMzQgOCAxMiA4WiIgZmlsbD0id2hpdGUiLz4KPC9zdmc+',
-              iconSize: [32, 32],
-              iconAnchor: [16, 32],
-              popupAnchor: [0, -32]
-            })}
-          >
+        {/* Marcador de ubicación seleccionada (modo selección) */}
+        {selectedLocation?.lat && selectedLocation?.lng && (
+          <Marker position={[selectedLocation.lat, selectedLocation.lng]} icon={makeSelIcon()}>
             <Popup>
-              📍 <strong>Ubicación seleccionada</strong><br />
-              Lat: {selectedLocation.lat.toFixed(6)}<br />
-              Lng: {selectedLocation.lng.toFixed(6)}
+              <div style={{ fontSize: 12, fontWeight: 600 }}>📍 Ubicación seleccionada</div>
+              <div style={{ fontSize: 11, color: '#6b7280', fontFamily: 'monospace' }}>
+                {selectedLocation.lat.toFixed(5)}, {selectedLocation.lng.toFixed(5)}
+              </div>
             </Popup>
           </Marker>
         )}
 
-        {/* 🏷️ Marcadores de reportes existentes (modo visualización) */}
-        {modo === 'visualizacion' && reportes.map((reporte) => (
-          <Marker
-            key={reporte.id}
-            position={[reporte.latitud, reporte.longitud]}
-            icon={new L.Icon({
-              iconUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDNi40OCAyIDIgNi40OCAyIDEyQzIgMTcuNTIgNi40OCAyMiAxMiAyMkMxNy41MiAyMiAyMiAxNy41MiAyMiAxMkMyMiA2LjQ4IDE3LjUyIDIgMTIgMloiIGZpbGw9IiNmNTkzMDMiLz4KPHBhdGggZD0iTTEyIDhDMTMuNjYgOCAxNSA5LjM0IDE1IDExQzE1IDEyLjY2IDEzLjY2IDE0IDEyIDE0QzEwLjM0IDE0IDkgMTIuNjYgOSAxMUM5IDkuMzQgMTAuMzQgOCAxMiA4WiIgZmlsbD0id2hpdGUiLz4KPC9zdmc+',
-              iconSize: [24, 24],
-              iconAnchor: [12, 24],
-              popupAnchor: [0, -24]
-            })}
-          >
-            <Popup style={{ minWidth: '250px' }}>
-              <div style={{ textAlign: 'center' }}>
-                <h4 style={{ margin: '0 0 10px 0', color: '#1f2937' }}>
-                  🏷️ {reporte.titulo}
-                </h4>
-                
-                {/* 📷 Imagen del reporte */}
-                {reporte.fotos && reporte.fotos.length > 0 && reporte.fotos[0].url ? (
-                  <div style={{ marginBottom: '10px' }}>
-                    <img 
-                      src={reporte.fotos[0].url}
-                      alt="Foto del reporte"
-                      style={{
-                        width: '100%',
-                        maxWidth: '200px',
-                        height: 'auto',
-                        borderRadius: '8px',
-                        border: '2px solid #e5e7eb'
-                      }}
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                        e.target.nextSibling.style.display = 'block';
-                      }}
-                    />
-                    <div style={{ display: 'none', color: '#6b7280', fontSize: '12px' }}>
-                      📷 Imagen no disponible
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{ 
-                    marginBottom: '10px', 
-                    padding: '20px',
-                    backgroundColor: '#f3f4f6',
-                    border: '2px dashed #d1d5db',
-                    borderRadius: '8px',
-                    textAlign: 'center'
-                  }}>
-                    <div style={{ fontSize: '24px', color: '#9ca3af', marginBottom: '5px' }}>
-                      📷
-                    </div>
-                    <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                      Sin foto
-                    </div>
-                  </div>
-                )}
-                
-                <div style={{ textAlign: 'left', fontSize: '13px' }}>
-                  <p style={{ margin: '5px 0' }}>
-                    �� <strong>Descripción:</strong><br />
-                    {reporte.descripcion}
-                  </p>
-                  <p style={{ margin: '5px 0' }}>
-                    🏷️ <strong>Tipo:</strong> {reporte.tipo}
-                  </p>
-                  <p style={{ margin: '5px 0' }}>
-                    📅 <strong>Fecha:</strong> {new Date(reporte.fecha_creacion).toLocaleDateString()}
-                  </p>
-                  <p style={{ margin: '5px 0' }}>
-                    📍 <strong>Ubicación:</strong><br />
-                    Lat: {reporte.latitud.toFixed(6)}<br />
-                    Lng: {reporte.longitud.toFixed(6)}
-                  </p>
+        {/* Marcadores de reportes */}
+        {modo === 'visualizacion' && reportes.map(reporte => {
+          const fotoUrl = reporte.fotos?.[0]?.url || reporte.foto_url || null;
+          const t = tipoInfo(reporte.tipo);
+          const est = estadoInfo(reporte.estado);
+          const folio = reporte.folio || `RC-${reporte.id}`;
+
+          return (
+            <Marker
+              key={reporte.id}
+              position={[reporte.latitud, reporte.longitud]}
+              icon={makePinIcon(reporte.tipo, reporte.estado, fotoUrl)}
+            >
+              <Popup maxWidth={260} minWidth={210}>
+                {/* Foto o banner emoji */}
+                {fotoUrl ? (
+                  <img
+                    src={fotoUrl}
+                    alt=""
+                    style={{ width: '100%', height: 110, objectFit: 'cover', borderRadius: '8px 8px 0 0', display: 'block', margin: '-8px -8px 0', width: 'calc(100% + 16px)' }}
+                    onError={e => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
+                  />
+                ) : null}
+                <div style={{
+                  display: fotoUrl ? 'none' : 'flex',
+                  width: 'calc(100% + 16px)', height: 64,
+                  background: t.color + '18', borderRadius: '8px 8px 0 0',
+                  alignItems: 'center', justifyContent: 'center', fontSize: '2.2rem',
+                  margin: '-8px -8px 0',
+                }}>
+                  {t.emoji}
                 </div>
-              </div>
-            </Popup>
-          </Marker>
-        ))}
+
+                <div style={{ paddingTop: 9 }}>
+                  {/* Tipo + Estado */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+                    <span style={{ fontSize: '.7rem', fontWeight: 700, textTransform: 'uppercase', color: t.color }}>
+                      {t.emoji} {t.label}
+                    </span>
+                    <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: '.68rem', fontWeight: 700, background: est.color + '22', color: est.color }}>
+                      {est.lbl}
+                    </span>
+                  </div>
+
+                  {/* Descripción */}
+                  <p style={{ fontSize: '.81rem', color: '#4a5168', margin: '3px 0 6px', lineHeight: 1.4 }}>
+                    {(reporte.descripcion || 'Sin descripción').slice(0, 90)}
+                  </p>
+
+                  {/* Folio + Fecha */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.7rem', color: '#8b93a5' }}>
+                    <span style={{ fontFamily: 'monospace' }}>{folio}</span>
+                    <span>{timeAgo(reporte.fecha_creacion)}</span>
+                  </div>
+                </div>
+              </Popup>
+            </Marker>
+          );
+        })}
       </MapContainer>
 
-      {/* 📍 Información de ubicación seleccionada */}
-      {selectedLocation && selectedLocation.lat && selectedLocation.lng && (
+      {/* Coordenadas seleccionadas */}
+      {selectedLocation?.lat && (
         <div style={{
-          position: 'absolute',
-          bottom: '10px',
-          left: '10px',
-          backgroundColor: 'rgba(255,255,255,0.9)',
-          padding: '8px 12px',
-          borderRadius: '6px',
-          fontSize: '12px',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+          position: 'absolute', bottom: 10, left: 10, zIndex: 1000,
+          background: 'rgba(255,255,255,.92)', padding: '6px 10px',
+          borderRadius: 8, fontSize: 11, boxShadow: '0 1px 4px rgba(0,0,0,.15)',
         }}>
-          📍 <strong>Ubicación:</strong><br />
-          Lat: {selectedLocation.lat.toFixed(6)}<br />
-          Lng: {selectedLocation.lng.toFixed(6)}
+          📍 {selectedLocation.lat.toFixed(5)}, {selectedLocation.lng.toFixed(5)}
         </div>
       )}
     </div>
   );
 };
+
+const btnStyle = (bg) => ({
+  background: bg, color: 'white', border: 'none', borderRadius: 8,
+  padding: '7px 12px', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+  boxShadow: '0 2px 6px rgba(0,0,0,.2)', whiteSpace: 'nowrap',
+});
 
 export default MapaInteractivo;

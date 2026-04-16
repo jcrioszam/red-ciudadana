@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from datetime import datetime, timedelta
 import logging
 
@@ -18,7 +18,7 @@ router = APIRouter(prefix="/eventos", tags=["eventos"])
 async def list_eventos(
     skip: int = 0,
     limit: int = 100,
-    activos: bool = True,
+    activos: Optional[bool] = None,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_active_user)
 ):
@@ -32,11 +32,16 @@ async def list_eventos(
         query = query.filter(EventoModel.id_lider_organizador == current_user.id)
 
     ahora = datetime.utcnow()
-    if activos:
-        query = query.filter(EventoModel.fecha >= ahora)
+    if activos is True:
+        # Eventos activos: en curso o próximos (ventana de -8h para cubrir eventos que ya empezaron)
+        query = query.filter(EventoModel.fecha >= ahora - timedelta(hours=8))
         eventos = query.order_by(EventoModel.fecha.asc()).offset(skip).limit(limit).all()
-    else:
+    elif activos is False:
+        # Solo eventos pasados (>24h atrás)
         query = query.filter(EventoModel.fecha < ahora - timedelta(hours=24))
+        eventos = query.order_by(EventoModel.fecha.desc()).offset(skip).limit(limit).all()
+    else:
+        # Sin filtro de fecha: devuelve todos (para gestión de eventos)
         eventos = query.order_by(EventoModel.fecha.desc()).offset(skip).limit(limit).all()
     return eventos
 
@@ -91,7 +96,7 @@ async def create_evento(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_active_user)
 ):
-    if current_user.rol not in ["admin", "lider_estatal", "lider_regional", "lider_municipal", "lider_zona"]:
+    if current_user.rol not in ["admin", "presidente", "lider_estatal", "lider_regional", "lider_municipal", "lider_zona"]:
         raise HTTPException(status_code=403, detail="No tiene permisos para crear eventos")
     db_evento = EventoModel(**evento.dict())
     db.add(db_evento)

@@ -48,9 +48,10 @@ const ReportesCiudadanosPublico = () => {
     try {
       setLoadingTipos(true);
       const response = await api.get('/tipos-reporte/');
-      
+
       // 🔧 TRANSFORMAR datos del backend al formato del frontend
-      const tiposTransformados = response.data.map(tipo => ({
+      const lista = response.data?.data || response.data;
+      const tiposTransformados = lista.map(tipo => ({
         value: tipo.valor,
         title: tipo.nombre,
         icon: tipo.icono,
@@ -59,7 +60,6 @@ const ReportesCiudadanosPublico = () => {
       }));
       
       setTiposReporte(tiposTransformados);
-      console.log('✅ Tipos de reporte cargados y transformados:', tiposTransformados);
     } catch (error) {
       console.error('❌ Error al cargar tipos de reporte:', error);
       // Fallback a tipos estáticos si falla la API
@@ -98,6 +98,13 @@ const ReportesCiudadanosPublico = () => {
   useEffect(() => {
     cargarTiposReporte();
   }, []);
+
+  // Auto-solicitar GPS al entrar al paso de ubicación
+  useEffect(() => {
+    if (currentStep === 2.5 && !selectedLocation) {
+      getCurrentLocation();
+    }
+  }, [currentStep]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 🗺️ Función para obtener ubicación GPS actual
   const getCurrentLocation = () => {
@@ -178,8 +185,6 @@ const ReportesCiudadanosPublico = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('🚀 SUBMIT INICIADO - Datos del formulario:', formData);
-
     // Validar que tengamos los datos mínimos
     if (!formData.tipo || !formData.descripcion.trim()) {
       setMensaje('❌ Por favor complete tipo de reporte y descripción');
@@ -191,18 +196,6 @@ const ReportesCiudadanosPublico = () => {
       setMensaje('❌ Por favor seleccione una ubicación en el mapa o use GPS');
       return;
     }
-
-    console.log('📋 DATOS COMPLETOS PARA BACKEND:', {
-      titulo: generarTitulo(formData.tipo),
-      descripcion: formData.descripcion.trim(),
-      tipo: formData.tipo,
-      latitud: formData.latitud,
-      longitud: formData.longitud,
-      direccion: formData.direccion || '',
-      prioridad: formData.prioridad,
-      es_publico: true,
-      foto: formData.foto ? 'Archivo adjunto' : 'Sin foto'
-    });
 
     setLoading(true);
     setMensaje('🔄 Enviando reporte...');
@@ -224,16 +217,12 @@ const ReportesCiudadanosPublico = () => {
         submitData.append('foto', formData.foto);
       }
 
-      console.log('📤 Enviando FormData al backend...');
-
       // Enviar reporte público
       const response = await api.post('/reportes-ciudadanos/publico', submitData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
-
-      console.log('✅ Respuesta del backend:', response);
 
       if (response.status === 200 || response.status === 201) {
         setLoading(false);
@@ -247,12 +236,7 @@ const ReportesCiudadanosPublico = () => {
         }, 3000);
       }
     } catch (error) {
-      console.error('❌ Error al crear reporte:', error);
-      console.error('❌ Detalles del error:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status
-      });
+      console.error('Error al crear reporte:', error.response?.data || error.message);
       
       setLoading(false);
       
@@ -521,7 +505,7 @@ const ReportesCiudadanosPublico = () => {
       </p>
 
       {/* 🗺️ Mapa con ubicación GPS */}
-      <div style={{ marginTop: '20px' }}>
+      <div style={{ marginTop: '20px', height: '560px', borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
         <MapaInteractivo
           onLocationSelect={handleLocationSelect}
           selectedLocation={gpsLocation}
@@ -639,10 +623,7 @@ const ReportesCiudadanosPublico = () => {
         </button>
 
         <button
-          onClick={() => {
-            // El mapa ya está visible en este paso, no necesitamos cambiar de paso
-            console.log('🗺️ Mapa ya visible en el paso actual');
-          }}
+          onClick={() => {}}
           style={{
             backgroundColor: '#6b7280',
             color: 'white',
@@ -658,12 +639,12 @@ const ReportesCiudadanosPublico = () => {
       </div>
 
       {/* 🗺️ Mapa interactivo */}
-      <div style={{ marginTop: '20px' }}>
+      <div style={{ marginTop: '20px', height: '560px', borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
         <MapaInteractivo
           onLocationSelect={handleLocationSelect}
           selectedLocation={selectedLocation}
           modo="seleccion"
-          center={[27.0706, -109.4437]} // Navojoa, Sonora
+          center={[27.0706, -109.4437]}
           zoom={12}
         />
       </div>
@@ -1115,6 +1096,15 @@ const ReportesCiudadanosPublico = () => {
 
   return (
     <div style={{ padding: '20px', maxWidth: '900px', margin: '0 auto', minHeight: '80vh' }}>
+      {/* Botón inicio */}
+      <div style={{ marginBottom: '10px' }}>
+        <button
+          onClick={() => navigate('/')}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}
+        >
+          ← Página principal
+        </button>
+      </div>
       {/* 📊 Header con progreso */}
       <div style={{ marginBottom: '30px' }}>
         <h1 style={{ color: '#2563eb', marginBottom: '20px', textAlign: 'center' }}>

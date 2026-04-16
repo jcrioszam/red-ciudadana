@@ -1,76 +1,86 @@
 #!/usr/bin/env python3
 """
-Script para probar el nuevo endpoint de importación directa
+Script para probar la importación directa de datos
 """
 
 import requests
-import json
+import time
 
-# Configuración de la API
-API_BASE = "https://red-ciudadana-production.up.railway.app"
-USERNAME = "admin@redciudadana.com"
-PASSWORD = "admin123"
-
-def login():
-    """Iniciar sesión y obtener token"""
-    login_data = {
-        "identificador": USERNAME,
-        "password": PASSWORD
-    }
-    
-    try:
-        response = requests.post(f"{API_BASE}/login", json=login_data, timeout=30)
-        if response.status_code == 200:
-            data = response.json()
-            return data.get("access_token")
-        return None
-    except:
-        return None
-
-def probar_endpoint_directo(token):
-    """Probar el nuevo endpoint de importación directa"""
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json"
-    }
-    
-    print("🧪 PROBANDO ENDPOINT DE IMPORTACIÓN DIRECTA")
+def probar_importacion_directa():
+    print("🔧 PROBADOR DE IMPORTACIÓN DIRECTA")
     print("=" * 50)
     
-    # Verificar que el endpoint existe
+    base_url = "https://red-ciudadana-production.up.railway.app"
+    
+    # Credenciales correctas
+    login_data = {
+        "identificador": "admin@redciudadana.com",
+        "password": "admin123"
+    }
+    
+    print("🔐 Iniciando sesión...")
+    
     try:
-        response = requests.get(f"{API_BASE}/docs", timeout=30)
+        # Login
+        response = requests.post(f"{base_url}/login", json=login_data, timeout=10)
+        
         if response.status_code == 200:
-            print("✅ Documentación de API disponible")
+            print("✅ Login exitoso")
+            token = response.json().get('access_token')
+            print(f"🔑 Token obtenido: {token[:50]}...")
+            
+            # Probar endpoint de importación
+            print("\n📥 Probando endpoint de importación...")
+            headers = {"Authorization": f"Bearer {token}"}
+            
+            # Datos de prueba
+            test_data = [
+                {
+                    "consecutivo": 1,
+                    "elector": "TEST001",
+                    "ape_pat": "Test",
+                    "ape_mat": "User",
+                    "nombre": "Test User",
+                    "sexo": "M",
+                    "activo": True
+                },
+                {
+                    "consecutivo": 2,
+                    "elector": "TEST002",
+                    "ape_pat": "Test",
+                    "ape_mat": "User2",
+                    "nombre": "Test User 2",
+                    "sexo": "F",
+                    "activo": True
+                }
+            ]
+            
+            import_response = requests.post(
+                f"{base_url}/api/padron/guardar-datos-tabla",
+                json=test_data,
+                headers=headers,
+                timeout=10
+            )
+            
+            print(f"📊 Status: {import_response.status_code}")
+            print(f"📝 Respuesta: {import_response.text}")
+            
+            if import_response.status_code == 200:
+                print("✅ ¡Importación exitosa!")
+                print("🎉 El endpoint está funcionando correctamente")
+                return True
+            else:
+                print(f"❌ Error en importación: {import_response.status_code}")
+                return False
+                
         else:
-            print("❌ Error accediendo a documentación")
+            print(f"❌ Login falló: {response.status_code}")
+            print(f"📝 Respuesta: {response.text}")
+            return False
+            
     except Exception as e:
         print(f"❌ Error: {str(e)}")
-    
-    print(f"\n🔍 El nuevo endpoint estará disponible en:")
-    print(f"   POST {API_BASE}/api/padron/importar-directo")
-    print(f"\n📝 Para usarlo, necesitas enviar un archivo Excel como multipart/form-data")
-
-def main():
-    print("🚀 PRUEBA DEL NUEVO ENDPOINT DE IMPORTACIÓN DIRECTA")
-    print("=" * 60)
-    
-    # Login
-    token = login()
-    if not token:
-        print("❌ No se pudo conectar a la API")
-        return
-    
-    print("✅ Conexión a la API exitosa")
-    
-    # Probar endpoint
-    probar_endpoint_directo(token)
-    
-    print(f"\n💡 Para usar el nuevo endpoint:")
-    print(f"   1. Ve a la aplicación web")
-    print(f"   2. Busca la opción de 'Importar Padrón Directo'")
-    print(f"   3. Sube tu archivo Excel")
-    print(f"   4. La importación se ejecutará directamente en Railway")
+        return False
 
 if __name__ == "__main__":
-    main()
+    probar_importacion_directa()

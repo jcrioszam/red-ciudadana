@@ -13,66 +13,28 @@ const AdminDashboard = () => {
 
   // Función para extraer roles de diferentes formatos de respuesta
   const extraerRoles = (data) => {
-    console.log('🔍 Intentando extraer roles de:', data);
-    
-    // Estrategia 1: Si es array directo
-    if (Array.isArray(data)) {
-      console.log('✅ Estrategia 1: Data es array directo');
-      return data;
-    }
-    
-    // Estrategia 2: Si es objeto, extraer valores
+    if (Array.isArray(data)) return data;
+
     if (data && typeof data === 'object') {
-      console.log('🔧 Estrategia 2: Data es objeto, extrayendo valores...');
-      console.log('🔧 Estructura completa:', JSON.stringify(data, null, 2));
-      console.log('🔧 Claves:', Object.keys(data));
-      console.log('🔧 Valores:', Object.values(data));
-      
       const valores = Object.values(data);
-      
-      // Estrategia 2a: Si el primer valor es un array
-      if (valores.length > 0 && Array.isArray(valores[0])) {
-        console.log('✅ Estrategia 2a: Primer valor es array, usándolo');
-        return valores[0];
-      }
-      
-      // Estrategia 2b: Si los valores son arrays
+      if (valores.length > 0 && Array.isArray(valores[0])) return valores[0];
       const arraysEncontrados = valores.filter(v => Array.isArray(v));
       if (arraysEncontrados.length > 0) {
-        console.log('✅ Estrategia 2b: Encontrados arrays en valores, usando el más largo');
-        const arrayMasLargo = arraysEncontrados.reduce((a, b) => a.length > b.length ? a : b);
-        return arrayMasLargo;
+        return arraysEncontrados.reduce((a, b) => a.length > b.length ? a : b);
       }
-      
-      // Estrategia 2c: Si no hay arrays, devolver los valores
-      console.log('🔧 Estrategia 2c: No hay arrays, devolviendo valores como están');
       return valores;
     }
-    
-    console.error('❌ No se pudo extraer roles de:', data);
+
     return [];
   };
 
   // Obtener todos los roles disponibles
   const { data: roles, isLoading: cargandoRoles, error: errorRoles } = useQuery('roles', async () => {
     try {
-      console.log('🚀 Solicitando roles desde /perfiles/roles...');
       const response = await api.get('/perfiles/roles');
-      console.log('🔍 Respuesta completa de /perfiles/roles:', response);
-      console.log('🔍 Status:', response.status);
-      console.log('🔍 Headers:', response.headers);
-      console.log('🔍 Data:', response.data);
-      console.log('🔍 Tipo de data:', typeof response.data);
-      console.log('🔍 Es array?', Array.isArray(response.data));
-      
-      // Usar la función de extracción mejorada
-      const rolesExtraidos = extraerRoles(response.data);
-      console.log('🎯 Roles extraídos finales:', rolesExtraidos);
-      
-      return rolesExtraidos;
+      return extraerRoles(response.data);
     } catch (error) {
-      console.error('❌ Error al obtener roles:', error);
-      console.error('❌ Error completo:', error.response || error);
+      console.error('Error al obtener roles:', error.response?.data || error.message);
       return [];
     }
   });
@@ -140,38 +102,16 @@ const AdminDashboard = () => {
         widgets: cambiosPendientes.widgets || configuracionActual.widgets || []
       };
       
-      console.log(`💾 Guardando configuración para ${rolSeleccionado}:`, configuracionNueva);
-      console.log(`🔍 Configuración actual antes de guardar:`, configuracionActual);
-      console.log(`🔍 Cambios pendientes:`, cambiosPendientes);
-      
-      // Llamar al endpoint del backend
       const response = await api.put(`/perfiles/configuracion-dashboard/${rolSeleccionado}`, configuracionNueva);
-      
-      console.log(`📡 Respuesta del backend:`, response);
-      console.log(`📡 Status:`, response.status);
-      console.log(`📡 Data:`, response.data);
-      
+
       if (response.status === 200) {
-        console.log('✅ Configuración guardada exitosamente');
-        
-        // Verificar qué devuelve el endpoint después de guardar
-        console.log('🔄 Verificando configuración guardada...');
-        const responseVerificacion = await api.get(`/perfiles/configuracion-dashboard`);
-        console.log('🔍 Configuración después de guardar:', responseVerificacion.data);
-        
-        // Actualizar estado local
         setConfiguracionActual(configuracionNueva);
         setCambiosPendientes({});
-        
-        // Refrescar datos
         queryClient.invalidateQueries('configuraciones-dashboard');
-        
-        // Mostrar mensaje de éxito
         alert('Configuración guardada exitosamente');
       }
     } catch (error) {
-      console.error('❌ Error al guardar configuración:', error);
-      console.error('❌ Error completo:', error.response || error);
+      console.error('Error al guardar configuración:', error.response?.data || error.message);
       alert('Error al guardar la configuración');
     }
   };

@@ -116,7 +116,6 @@ const AdminPadron = () => {
     }),
     {
       onSuccess: (response) => {
-        console.log('✅ Prueba DBF exitosa:', response.data);
         setUploadProgress(50);
         setUploadMessage(`Archivo válido: ${response.data.total_records} registros encontrados. Campos: ${response.data.field_names?.join(', ')}`);
         setUploadStatus('success');
@@ -223,8 +222,6 @@ const AdminPadron = () => {
 
   const handleUpload = () => {
     if (uploadFile) {
-      // Primero probar el archivo
-      console.log('🧪 Iniciando test de archivo DBF:', uploadFile.name, 'Tamaño:', uploadFile.size);
       const formData = new FormData();
       formData.append('file', uploadFile);
       setUploadStatus('uploading');
@@ -236,7 +233,6 @@ const AdminPadron = () => {
 
   const handleAnalyze = () => {
     if (uploadFile) {
-      console.log('🔍 Analizando estructura del archivo DBF:', uploadFile.name);
       const formData = new FormData();
       formData.append('file', uploadFile);
       setUploadStatus('analyzing');
@@ -250,19 +246,11 @@ const AdminPadron = () => {
         timeout: 300000, // 5 minutos
       })
       .then(response => {
-        console.log('✅ Análisis completado:', response.data);
         setUploadStatus('success');
         setUploadMessage(`Análisis completado. Campos encontrados: ${response.data.campos_disponibles?.length || 0}`);
-        
-        // Mostrar información detallada en consola
-        if (response.data.campos_disponibles) {
-          console.log('📋 Campos disponibles:', response.data.campos_disponibles);
-          console.log('📊 Total registros:', response.data.total_registros);
-          console.log('📝 Muestra de registros:', response.data.registros_muestra);
-        }
       })
       .catch(error => {
-        console.error('❌ Error en análisis:', error);
+        console.error('Error en análisis:', error.response?.data || error.message);
         setUploadStatus('error');
         setUploadMessage(`Error analizando archivo: ${error.response?.data?.error || error.message}`);
       });
@@ -310,7 +298,6 @@ const AdminPadron = () => {
 
   const handleExcelUpload = () => {
     if (excelFile) {
-      console.log('📊 Subiendo archivo Excel:', excelFile.name);
       const formData = new FormData();
       formData.append('file', excelFile);
       setUploadStatus('uploading');
@@ -323,14 +310,13 @@ const AdminPadron = () => {
         timeout: 300000, // 5 minutos
       })
       .then(response => {
-        console.log('✅ Archivo Excel procesado:', response.data);
         setUploadStatus('success');
         setUploadMessage(`Archivo procesado: ${response.data.total_registros} registros encontrados`);
         setDatosProcesados(response.data);
         setMostrarDatos(true);
       })
       .catch(error => {
-        console.error('❌ Error procesando Excel:', error);
+        console.error('Error procesando Excel:', error.response?.data || error.message);
         setUploadStatus('error');
         setUploadMessage(`Error procesando archivo: ${error.response?.data?.error || error.message}`);
       });
@@ -343,7 +329,6 @@ const AdminPadron = () => {
 
   const handleProcesarDatosTexto = () => {
     if (datosTexto.trim()) {
-      console.log('📋 Procesando datos de texto');
       setUploadStatus('uploading');
       setUploadMessage('Procesando datos copiados...');
       
@@ -354,14 +339,13 @@ const AdminPadron = () => {
         timeout: 300000, // 5 minutos
       })
       .then(response => {
-        console.log('✅ Datos procesados:', response.data);
         setUploadStatus('success');
         setUploadMessage(`Datos procesados: ${response.data.total_registros} registros encontrados`);
         setDatosProcesados(response.data);
         setMostrarDatos(true);
       })
       .catch(error => {
-        console.error('❌ Error procesando datos:', error);
+        console.error('Error procesando datos:', error.response?.data || error.message);
         setUploadStatus('error');
         setUploadMessage(`Error procesando datos: ${error.response?.data?.error || error.message}`);
       });
@@ -370,7 +354,6 @@ const AdminPadron = () => {
 
   const handleConfirmarImportacion = () => {
     if (datosProcesados && datosProcesados.datos_completos) {
-      console.log('💾 Confirmando importación');
       setUploadStatus('uploading');
       setUploadMessage('Importando datos a la base de datos...');
       
@@ -402,7 +385,6 @@ const AdminPadron = () => {
         timeout: 600000, // 10 minutos
       })
       .then(response => {
-        console.log('✅ Importación completada:', response.data);
         setUploadStatus('success');
         setUploadMessage(`Importación completada: ${response.data.total_guardados} registros guardados`);
         setMostrarDatos(false);
@@ -413,7 +395,7 @@ const AdminPadron = () => {
         queryClient.invalidateQueries('metricas-movilizacion');
       })
       .catch(error => {
-        console.error('❌ Error en importación:', error);
+        console.error('Error en importación:', error.response?.data || error.message);
         setUploadStatus('error');
         setUploadMessage(`Error en importación: ${error.response?.data?.error || error.message}`);
       });
@@ -538,7 +520,6 @@ const AdminPadron = () => {
                     color="primary"
                     onClick={() => {
                       if (uploadFile) {
-                        console.log('🧪 Iniciando test de archivo DBF:', uploadFile.name, 'Tamaño:', uploadFile.size);
                         const formData = new FormData();
                         formData.append('file', uploadFile);
                         setUploadStatus('testing');
