@@ -9,6 +9,13 @@ dist/
 web-build/
 expo-env.d.ts
 
+# Android build artifacts (EAS genera esto en la nube)
+android/app/build/
+android/.gradle/
+android/.cxx/
+android/.idea/
+android/build/
+
 # Native
 .kotlin/
 *.orig.*
