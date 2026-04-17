@@ -240,7 +240,7 @@ async def obtener_reportes_publicos_con_fotos(
     fecha_fin: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
-    base_url = os.getenv("BASE_URL", "http://localhost:8000")
+    base_url = os.getenv("BASE_URL", "https://red-ciudadana.onrender.com")
     query = db.query(ReporteCiudadanoModel).filter(
         ReporteCiudadanoModel.activo == True,
         ReporteCiudadanoModel.es_publico == True
@@ -325,7 +325,7 @@ async def get_mapa_pins(
     if estado:
         q = q.filter(ReporteCiudadanoModel.estado == estado)
     rows = q.order_by(ReporteCiudadanoModel.fecha_creacion.desc()).limit(2000).all()
-    base_url = os.getenv("BASE_URL", f"http://{os.getenv('HOST','localhost')}:8001")
+    base_url = os.getenv("BASE_URL", "https://red-ciudadana.onrender.com")
 
     # Obtener fotos de fotos_reportes para reportes sin foto_url
     ids_sin_foto = [r.id for r in rows if not r.foto_url]
@@ -372,12 +372,12 @@ async def get_estadisticas_mapa(db: Session = Depends(get_db)):
         __import__('sqlalchemy').text(
             "SELECT tipo, COUNT(*) as total, "
             "SUM(CASE WHEN estado='resuelto' THEN 1 ELSE 0 END) as solucionados "
-            "FROM reportes_ciudadanos WHERE activo=1 GROUP BY tipo ORDER BY total DESC"
+            "FROM reportes_ciudadanos WHERE activo=true GROUP BY tipo ORDER BY total DESC"
         )
     ).fetchall()
     por_estado = db.execute(
         __import__('sqlalchemy').text(
-            "SELECT estado, COUNT(*) as total FROM reportes_ciudadanos WHERE activo=1 GROUP BY estado"
+            "SELECT estado, COUNT(*) as total FROM reportes_ciudadanos WHERE activo=true GROUP BY estado"
         )
     ).fetchall()
     resumen = db.execute(
@@ -388,7 +388,7 @@ async def get_estadisticas_mapa(db: Session = Depends(get_db)):
             " SUM(CASE WHEN estado='en_progreso' THEN 1 ELSE 0 END) as en_progreso,"
             " SUM(CASE WHEN estado='resuelto' THEN 1 ELSE 0 END) as resueltos,"
             " SUM(CASE WHEN estado='rechazado' THEN 1 ELSE 0 END) as rechazados"
-            " FROM reportes_ciudadanos WHERE activo=1"
+            " FROM reportes_ciudadanos WHERE activo=true"
         )
     ).fetchone()
     return {
@@ -515,7 +515,7 @@ async def get_historial_reporte(reporte_id: int, db: Session = Depends(get_db)):
     if not reporte:
         raise HTTPException(status_code=404, detail="Reporte no encontrado")
 
-    base_url = os.getenv("BASE_URL", f"http://{os.getenv('HOST','localhost')}:8001")
+    base_url = os.getenv("BASE_URL", "https://red-ciudadana.onrender.com")
     foto_url = None
     if reporte.foto_url:
         foto_url = reporte.foto_url if reporte.foto_url.startswith("http") else f"{base_url}{reporte.foto_url}"

@@ -3,7 +3,7 @@ import axios from "axios";
 const isDev = process.env.NODE_ENV !== 'production';
 
 const baseURL = process.env.NODE_ENV === 'production'
-  ? (process.env.REACT_APP_API_URL || 'https://red-ciudadana-production.up.railway.app')
+  ? (process.env.REACT_APP_API_URL || 'https://red-ciudadana.onrender.com')
   : `http://${window.location.hostname}:8000`;
 
 const api = axios.create({
@@ -21,9 +21,6 @@ api.interceptors.request.use(
 
     if (!isDev && config.baseURL?.startsWith('http://')) {
       config.baseURL = config.baseURL.replace('http://', 'https://');
-    }
-    if (config.baseURL?.includes('railway.app') && !config.baseURL.startsWith('https://')) {
-      config.baseURL = 'https://red-ciudadana-production.up.railway.app';
     }
 
     return config;

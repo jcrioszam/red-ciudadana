@@ -152,12 +152,12 @@ export default function AlertaCiudadanaMapa() {
       const qs = new URLSearchParams();
       if (filtroTipo !== 'todos') qs.set('tipo', filtroTipo);
       if (filtroEstado) qs.set('estado', filtroEstado);
-      const [rMap, rStats] = await Promise.all([
+      const [rMap, rStats] = await Promise.allSettled([
         api.get(`/reportes-ciudadanos/mapa/pins${qs.toString() ? '?' + qs : ''}`),
         api.get('/reportes-ciudadanos/estadisticas-mapa'),
       ]);
-      setReportes(rMap.data || []);
-      setStats(rStats.data || null);
+      if (rMap.status === 'fulfilled') setReportes(rMap.value.data || []);
+      if (rStats.status === 'fulfilled') setStats(rStats.value.data || null);
     } catch (e) { console.error(e); }
   }, [filtroTipo, filtroEstado]);
 
