@@ -19,3 +19,4 @@ dbf>=0.99.0
 pandas>=2.0.0
 openpyxl>=3.1.0
 slowapi>=0.1.9
+cloudinary>=1.36.0

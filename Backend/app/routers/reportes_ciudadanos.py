@@ -148,26 +148,37 @@ async def create_reporte_publico(
         # Guardar foto si viene adjunta
         if foto and foto.filename:
             try:
-                upload_dir = "uploads/reportes"
-                os.makedirs(upload_dir, exist_ok=True)
+                from ..cloudinary_utils import upload_image as _upload_cloud
+                foto_bytes_data = await foto.read()
+                cloud_url = _upload_cloud(foto_bytes_data, folder="reportes")
+                if cloud_url:
+                    # Cloudinary disponible: guardar URL permanente
+                    foto_url_final = cloud_url
+                    foto_size = len(foto_bytes_data)
+                else:
+                    # Fallback: guardar en disco local
+                    upload_dir = "uploads/reportes"
+                    os.makedirs(upload_dir, exist_ok=True)
+                    ext = os.path.splitext(foto.filename)[1] or ".jpg"
+                    filename = f"{uuid.uuid4().hex}{ext}"
+                    filepath = os.path.join(upload_dir, filename)
+                    with open(filepath, "wb") as f:
+                        f.write(foto_bytes_data)
+                    foto_url_final = f"/uploads/reportes/{filename}"
+                    foto_size = len(foto_bytes_data)
+
                 ext = os.path.splitext(foto.filename)[1] or ".jpg"
                 filename = f"{uuid.uuid4().hex}{ext}"
-                filepath = os.path.join(upload_dir, filename)
-                with open(filepath, "wb") as f:
-                    shutil.copyfileobj(foto.file, f)
-                foto_url_relativa = f"/uploads/reportes/{filename}"
-                foto_bytes = os.path.getsize(filepath)
                 db_foto = FotoReporteModel(
                     id_reporte=db_reporte.id,
                     nombre_archivo=filename,
-                    url=foto_url_relativa,
+                    url=foto_url_final,
                     tipo=foto.content_type or "image/jpeg",
-                    tamaño=foto_bytes,
+                    tamaño=foto_size,
                     activo=True,
                 )
                 db.add(db_foto)
-                # Guardar ruta relativa en foto_url (el frontend añade el host)
-                db_reporte.foto_url = foto_url_relativa
+                db_reporte.foto_url = foto_url_final
                 db.commit()
             except Exception as fe:
                 logger.warning(f"Error guardando foto del reporte público: {fe}")
