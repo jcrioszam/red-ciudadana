@@ -1,0 +1,15 @@
+node_modules
+node_modules/**
+.expo
+.expo/**
+android
+android/**
+ios
+ios/**
+**/*.log
+.env
+*.db
+__pycache__
+__pycache__/**
+.git
+.git/**

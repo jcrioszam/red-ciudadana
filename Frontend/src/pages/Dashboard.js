@@ -254,7 +254,7 @@ const Dashboard = () => {
               </div>
               <div style={{ fontSize: '.8rem', color: '#94a3b8', marginTop: 3 }}>Reportes ciudadanos en tiempo real</div>
             </div>
-            <button onClick={() => navigate('/alerta-ciudadana')} style={{ padding: '8px 18px', background: '#2563eb', color: 'white', border: 'none', borderRadius: 10, fontSize: '.82rem', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+            <button onClick={() => navigate('/alerta')} style={{ padding: '8px 18px', background: '#2563eb', color: 'white', border: 'none', borderRadius: 10, fontSize: '.82rem', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
               Ver mapa →
             </button>
           </div>

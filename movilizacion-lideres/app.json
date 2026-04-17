@@ -8,7 +8,6 @@
     "scheme": "movilizacionlideres",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "jsEngine": "jsc",
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
@@ -24,12 +23,11 @@
       "edgeToEdgeEnabled": true,
       "permissions": [
         "android.permission.CAMERA",
-        "android.permission.CAMERA",
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_BACKGROUND_LOCATION"
       ],
-      "package": "com.anonymous.movilizacionlideres"
+      "package": "com.redciudadana.alertaciudadana"
     },
     "web": {
       "bundler": "metro",
@@ -59,6 +57,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "0904e8eb-05fb-4596-abc8-db78fa7d6d94"
+      }
     }
   }
 }
